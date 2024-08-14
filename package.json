@@ -5,7 +5,7 @@
     "version": "0.0.2",
     "publisher": "tba",
     "engines": {
-        "vscode": "^1.37.0"
+        "vscode": "^1.74.0"
     },
     "categories": [
         "Programming Languages",
@@ -46,13 +46,15 @@
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
-		"lint": "tslint -p ./",
+		"lint": "eslint \"src/**/*.ts\"",
 		"watch": "tsc -watch -p ./"
 	},
 	"devDependencies": {
-		"@types/node": "^10.12.18",
-		"tslint": "^5.16.0",
-		"typescript": "^3.5.1",
-		"@types/vscode": "^1.32.0"
+		"@types/node": "^18",
+		"@types/vscode": "^1.73.0",
+		"@typescript-eslint/eslint-plugin": "^7.14.0",
+		"@typescript-eslint/parser": "^7.14.0",
+		"eslint": "^8.26.0",
+		"typescript": "^5.5.2"
 	}
 }

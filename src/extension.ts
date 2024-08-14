@@ -15,15 +15,17 @@ export function activate(context: vscode.ExtensionContext) {
             var aggregating = ['avg', 'count', 'count_distinct', 'count_frequent', 'fillmissing', 'first', 'min', 'max', 'last', 'most_recent', 'pct', 'least_recent', 'stddev', 'sum'];
             var maths = ['abs', 'acos', 'asin', 'atan', 'atan2', 'cbrt', 'ceil', 'cos', 'cosh', 'exp', 'expm1', 'floor', 'hypot', 'log', 'log10', 'log1p', 'max', 'min', 'round', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'toDegrees', 'toRadians'];
             var parse = ['csv', 'JSON', 'keyvalue', 'parse', 'parse regex', 'split', 'xml'];
-            var search = ['accum', 'backshift', 'base64Decode', 'base64Encode', 'bin', 'CIDR', 'concat', 'contains', 'decToHex', 'diff', 'fields', 'filter', 'format', 'formatDate', 'geo lookup', 'haversine', 'hexToDec', 'if', 'in', 'ipv4ToNumber', 'isBlank', 'isEmpty', 'isNull', 'isNumeric', 'isPrivateIP', 'isPublicIP', 'isValidIP', 'join', 'length', 'limit', 'logcompare', 'logreduce', 'lookup', 'luhn', 'matches', 'median', 'merge', 'now', 'num', 'outlier', 'parseHex', 'predict', 'replace', 'rollingstd', 'save', 'sessionize', 'smooth', 'sort', 'substring', 'timeslice', 'toUpperCase', 'toLowerCase', 'top', 'total', 'trace', 'transaction', 'transactionize', 'transpose', 'urldecode', 'urlencode', 'where'];
+            var search = ['accum', 'backshift', 'base64Decode', 'base64Encode', 'bin', 'CIDR', 'concat', 'contains', 'decToHex', 'diff', 'fields', 'filter', 'format', 'formatDate', 'lookup', 'haversine', 'hexToDec', 'if', 'in', 'ipv4ToNumber', 'isBlank', 'isEmpty', 'isNull', 'isNumeric', 'isPrivateIP', 'isPublicIP', 'isValidIP', 'join', 'length', 'limit', 'logcompare', 'logreduce', 'lookup', 'luhn', 'matches', 'median', 'merge', 'now', 'num', 'outlier', 'parseHex', 'predict', 'replace', 'rollingstd', 'save', 'sessionize', 'smooth', 'sort', 'substring', 'timeslice', 'toUpperCase', 'toLowerCase', 'top', 'total', 'trace', 'transaction', 'transactionize', 'transpose', 'urldecode', 'urlencode', 'where'];
             var metadata = ['_collector', '_messageCount', '_messageTime', '_raw', '_receiptTime', '_size', '_source', '_sourceCategory', '_sourceHost', '_sourceName', '_format','_timeslice'];
             var other = ['and', 'or', 'not', 'in', '!', 'nodrop'];
+            var recent = ['geoip', 'threatip', 'values','threatlookup']
 
             aggregating = aggregating.concat(maths);
             aggregating = aggregating.concat(parse);
             aggregating = aggregating.concat(search);
             aggregating = aggregating.concat(metadata);
             aggregating = aggregating.concat(other);
+            aggregating = aggregating.concat(recent);
 
             var completionListItems: any = [new vscode.CompletionItem('Hello World!')];
 
@@ -37,16 +39,16 @@ export function activate(context: vscode.ExtensionContext) {
             // a completion item that inserts its text as snippet,
             // the `insertText`-property is a `SnippetString` which will be
             // honored by the editor.
-            const snippetCompletion = new vscode.CompletionItem('Good part of the day');
-            snippetCompletion.insertText = new vscode.SnippetString('Good ${1|morning,afternoon,evening|}. It is ${1}, right?');
-            snippetCompletion.documentation = new vscode.MarkdownString("Inserts a snippet that lets you select the _appropriate_ part of the day for your greeting.");
+            // const snippetCompletion = new vscode.CompletionItem('Good part of the day');
+            // snippetCompletion.insertText = new vscode.SnippetString('Good ${1|morning,afternoon,evening|}. It is ${1}, right?');
+            // snippetCompletion.documentation = new vscode.MarkdownString("Inserts a snippet that lets you select the _appropriate_ part of the day for your greeting.");
 
             // a completion item that can be accepted by a commit character,
             // the `commitCharacters`-property is set which means that the completion will
             // be inserted and then the character will be typed.
-            const commitCharacterCompletion = new vscode.CompletionItem('console');
-            commitCharacterCompletion.commitCharacters = ['.'];
-            commitCharacterCompletion.documentation = new vscode.MarkdownString('Press `.` to get `console.`');
+            // const commitCharacterCompletion = new vscode.CompletionItem('console');
+            // commitCharacterCompletion.commitCharacters = ['.'];
+            // commitCharacterCompletion.documentation = new vscode.MarkdownString('Press `.` to get `console.`');
 
             // a completion item that retriggers IntelliSense when being accepted,
             // the `command`-property is set which the editor will execute after 

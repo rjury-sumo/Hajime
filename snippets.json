@@ -4,7 +4,7 @@
 			"parse regex"
 		],
 		"body": [
-			"| parse regex field=${1:a_field} \"(<${2:new_field}>${3:regex})\" ${4|nodrop,//nodrop|}\n"
+			"| parse regex field=${1:_raw} \"(<${2:new_field}>${3:regex})\" ${4|nodrop,//nodrop|}\n"
 		],
 		"description": "create a parse regex capture expression"
 	},

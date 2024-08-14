@@ -13,7 +13,7 @@
 			"transpose"
 		],
 		"body": [
-			"| timeslice by ${1:1h}\n| count by _timeslice,${2:series}\ntranspose row _timeslice column ${2:series}\n"
+			"| timeslice by ${1:1h}\n| count by _timeslice,${2:series}\n| transpose row _timeslice column ${2:series}\n"
 		],
 		"description": "insert count by timeslice, transpose expression for multiple series."
 	},

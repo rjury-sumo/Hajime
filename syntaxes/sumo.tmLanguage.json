@@ -42,7 +42,7 @@
 		},
 		"blockComments": {
 			"name": "comment",
-			"begin": "\/\\*",
+			"begin": "[^a-zA-z0-9\\/_-]\/\\*",
 			"end": "\\*\/"
 		},
 		"lineComments": {

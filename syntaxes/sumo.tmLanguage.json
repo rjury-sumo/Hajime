@@ -42,8 +42,8 @@
 		},
 		"blockComments": {
 			"name": "comment",
-			"begin": "\/\\*",
-			"end": "\\*\/"
+			"begin": "[ \\r\\n]\/\\*",
+			"end": "\\*\/[^ ]"
 		},
 		"lineComments": {
 			"patterns": [

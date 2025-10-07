@@ -68,6 +68,8 @@ function fetchPartitionsCommand(context) {
                 vscode.window.showInformationMessage('No partitions found in this organization.');
                 return;
             }
+            // Sort by name ascending
+            partitions.sort((a, b) => a.name.localeCompare(b.name));
             // Extract partition names
             const partitionNames = partitions_1.PartitionsClient.extractPartitionNames(response.data);
             // Add to dynamic completion provider

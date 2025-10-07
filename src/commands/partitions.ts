@@ -68,6 +68,9 @@ export async function fetchPartitionsCommand(context: vscode.ExtensionContext): 
             return;
         }
 
+        // Sort by name ascending
+        partitions.sort((a, b) => a.name.localeCompare(b.name));
+
         // Extract partition names
         const partitionNames = PartitionsClient.extractPartitionNames(response.data);
 

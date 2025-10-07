@@ -1,0 +1,44 @@
+// This is a valid line comment at the start
+  // This is a valid indented comment
+
+// Test case 1: URLs with // should NOT be treated as comments
+_source="https://api.example.com/data"
+_source="http://localhost:8080/path"
+_sourceName="path://network/share"
+
+// Test case 2: Wildcards with /* should NOT be treated as comments
+_sourceCategory=prod/app/*
+_sourceCategory=logs/*/errors
+_source=/var/log/*
+
+// Test case 3: Mixed quotes and operators
+error AND _source="https://prod.example.com" // this part IS a comment
+| where url matches "https://.*" // valid comment here
+
+// Test case 4: Block comments
+/* This is a valid block comment
+   spanning multiple lines */
+
+_sourceCategory=prod/service/* /* but this IS a comment */
+
+// Test case 5: Edge cases
+| parse regex "(?<protocol>https?)://(?<domain>[^/]+)" // extract URL parts
+| where path = "/api/v1/*" // wildcard in comparison
+| format("%s://%s", protocol, domain) as full_url
+
+/*
+Multi-line block comment
+with various patterns inside:
+https://example.com
+_sourceCategory=foo/bar/*
+These should all be treated as comment content
+*/
+
+// Test case 6: Comments at various positions
+error // comment after query
+| count // comment after operator
+| sort _count desc // comment after sort
+
+// Test case 7: No false positives
+protocol="https" and path!="/admin/*"
+_raw="Error: connection to http://backend failed"

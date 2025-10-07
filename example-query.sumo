@@ -1,0 +1,11 @@
+// Example Sumo Logic Query with metadata directives
+// @from -1h
+// @to now
+// @timezone UTC
+
+// Search for errors in production environment
+_sourceCategory=prod/application error
+| parse regex field=_raw "(?<error_type>\w+Error)"
+| count by error_type, _sourceHost
+| sort _count desc
+| limit 100

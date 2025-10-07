@@ -3,12 +3,6 @@
 	"name": "sumo",
 	"patterns": [
 		{
-			"include": "#keywords"
-		},
-		{
-			"include": "#operators"
-		},
-		{
 			"include": "#strings"
 		},
 		{
@@ -16,6 +10,12 @@
 		},
 		{
 			"include": "#lineComments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#operators"
 		},
 		{
 			"include": "#fields"
@@ -41,15 +41,17 @@
 			}]
 		},
 		"blockComments": {
-			"name": "comment",
-			"begin": "[^a-zA-z0-9\\/_-]\/\\*",
-			"end": "\\*\/"
+			"name": "comment.block.sumo",
+			"begin": "(?<=\\s)/\\*|^/\\*",
+			"end": "\\*/",
+			"comment": "Block comments - only match /* when preceded by whitespace or at start of line"
 		},
 		"lineComments": {
 			"patterns": [
 				{
-					"name": "comment.line",
-					"match": "\/\/.*"
+					"name": "comment.line.sumo",
+					"match": "(?<=\\s)//.*|^//.*",
+					"comment": "Line comments - only match // when preceded by whitespace or at start of line"
 				}
 			]
 		},

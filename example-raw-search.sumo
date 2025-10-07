@@ -1,0 +1,9 @@
+// Example raw search query (returns messages/events)
+// @from -15m
+// @to now
+// @timezone UTC
+// @mode messages
+
+// Search for errors - returns raw log messages
+_sourceCategory=* error
+| limit 100

@@ -1,9 +1,21 @@
 {
-    "name": "hajime",
-    "displayName": "hajime",
-    "description": "language support and query execution for Sumologic",
+    "name": "sumo-query-language",
+    "displayName": "Sumo Logic Query Language",
+    "description": "Language support for Sumo Logic search queries with syntax highlighting, snippets, and autocomplete",
     "version": "0.0.3",
     "publisher": "tba",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/hajime"
+    },
+    "keywords": [
+        "sumo",
+        "sumo logic",
+        "query",
+        "log analytics",
+        "search"
+    ],
     "engines": {
         "vscode": "^1.74.0"
     },
@@ -13,9 +25,49 @@
     ],
     "main": "./out/extension.js",
     "activationEvents": [
-        "*"
+        "onLanguage:sumo"
     ],
     "contributes": {
+        "configuration": {
+            "title": "Sumo Logic",
+            "properties": {
+                "sumologic.profiles": {
+                    "type": "array",
+                    "default": [],
+                    "description": "Configured Sumo Logic connection profiles"
+                },
+                "sumologic.activeProfile": {
+                    "type": "string",
+                    "description": "Currently active connection profile"
+                }
+            }
+        },
+        "commands": [
+            {
+                "command": "sumologic.createProfile",
+                "title": "Sumo Logic: Create/Update Connection Profile"
+            },
+            {
+                "command": "sumologic.switchProfile",
+                "title": "Sumo Logic: Switch Profile"
+            },
+            {
+                "command": "sumologic.listProfiles",
+                "title": "Sumo Logic: List Profiles"
+            },
+            {
+                "command": "sumologic.deleteProfile",
+                "title": "Sumo Logic: Delete Profile"
+            },
+            {
+                "command": "sumologic.runQuery",
+                "title": "Sumo Logic: Run Query"
+            },
+            {
+                "command": "sumologic.testConnection",
+                "title": "Sumo Logic: Test Connection"
+            }
+        ],
         "languages": [
             {
                 "id": "sumo",

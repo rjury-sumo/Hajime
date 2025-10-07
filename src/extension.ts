@@ -1,97 +1,124 @@
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- *--------------------------------------------------------*/
-
 import * as vscode from 'vscode';
+import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand } from './commands/authenticate';
+import { runQueryCommand } from './commands/runQuery';
+import { StatusBarManager } from './statusBar';
+
+// Build completion items once at activation
+function createCompletionItems(): vscode.CompletionItem[] {
+    const aggregating = ['avg', 'count', 'count_distinct', 'count_frequent', 'fillmissing', 'first', 'min', 'max', 'last', 'most_recent', 'pct', 'least_recent', 'stddev', 'sum'];
+    const maths = ['abs', 'acos', 'asin', 'atan', 'atan2', 'cbrt', 'ceil', 'cos', 'cosh', 'exp', 'expm1', 'floor', 'hypot', 'log', 'log10', 'log1p', 'max', 'min', 'round', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'toDegrees', 'toRadians'];
+    const parse = ['csv', 'JSON', 'keyvalue', 'parse', 'parse regex', 'split', 'xml'];
+    const search = ['accum', 'backshift', 'base64Decode', 'base64Encode', 'bin', 'CIDR', 'concat', 'contains', 'decToHex', 'diff', 'fields', 'filter', 'format', 'formatDate', 'lookup', 'haversine', 'hexToDec', 'if', 'in', 'ipv4ToNumber', 'isBlank', 'isEmpty', 'isNull', 'isNumeric', 'isPrivateIP', 'isPublicIP', 'isValidIP', 'join', 'length', 'limit', 'logcompare', 'logreduce', 'lookup', 'luhn', 'matches', 'median', 'merge', 'now', 'num', 'outlier', 'parseHex', 'predict', 'replace', 'rollingstd', 'save', 'sessionize', 'smooth', 'sort', 'substring', 'timeslice', 'toUpperCase', 'toLowerCase', 'top', 'total', 'trace', 'transaction', 'transactionize', 'transpose', 'urldecode', 'urlencode', 'where'];
+    const metadata = ['_index', '_view', '_collector', '_messageCount', '_messageTime', '_raw', '_receiptTime', '_size', '_source', '_sourceCategory', '_sourceHost', '_sourceName', '_format', '_timeslice'];
+    const operators = ['and', 'or', 'not', 'in', '!', 'nodrop'];
+    const recent = ['geoip', 'threatip', 'values', 'threatlookup'];
+
+    const completionItems: vscode.CompletionItem[] = [];
+
+    // Add aggregating functions
+    aggregating.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Function);
+        completionItem.detail = 'Aggregating function';
+        completionItems.push(completionItem);
+    });
+
+    // Add math functions
+    maths.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Function);
+        completionItem.detail = 'Math function';
+        completionItems.push(completionItem);
+    });
+
+    // Add parse functions
+    parse.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Function);
+        completionItem.detail = 'Parse function';
+        completionItems.push(completionItem);
+    });
+
+    // Add search operators
+    search.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Function);
+        completionItem.detail = 'Search operator';
+        completionItems.push(completionItem);
+    });
+
+    // Add metadata fields
+    metadata.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Field);
+        completionItem.detail = 'Metadata field';
+        completionItems.push(completionItem);
+    });
+
+    // Add logical operators
+    operators.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Keyword);
+        completionItem.detail = 'Operator';
+        completionItems.push(completionItem);
+    });
+
+    // Add recent additions
+    recent.forEach(item => {
+        const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Function);
+        completionItem.detail = 'Function';
+        completionItems.push(completionItem);
+    });
+
+    return completionItems;
+}
 
 export function activate(context: vscode.ExtensionContext) {
+    // Create completion items once
+    const completionItems = createCompletionItems();
 
-    let provider1 = vscode.languages.registerCompletionItemProvider('sumo', {
-
+    const provider = vscode.languages.registerCompletionItemProvider('sumo', {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext) {
-
-            // a simple completion item which inserts `Hello World!`
-            const simpleCompletion = new vscode.CompletionItem('Hello World!');
-            var aggregating = ['avg', 'count', 'count_distinct', 'count_frequent', 'fillmissing', 'first', 'min', 'max', 'last', 'most_recent', 'pct', 'least_recent', 'stddev', 'sum'];
-            var maths = ['abs', 'acos', 'asin', 'atan', 'atan2', 'cbrt', 'ceil', 'cos', 'cosh', 'exp', 'expm1', 'floor', 'hypot', 'log', 'log10', 'log1p', 'max', 'min', 'round', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'toDegrees', 'toRadians'];
-            var parse = ['csv', 'JSON', 'keyvalue', 'parse', 'parse regex', 'split', 'xml'];
-            var search = ['accum', 'backshift', 'base64Decode', 'base64Encode', 'bin', 'CIDR', 'concat', 'contains', 'decToHex', 'diff', 'fields', 'filter', 'format', 'formatDate', 'lookup', 'haversine', 'hexToDec', 'if', 'in', 'ipv4ToNumber', 'isBlank', 'isEmpty', 'isNull', 'isNumeric', 'isPrivateIP', 'isPublicIP', 'isValidIP', 'join', 'length', 'limit', 'logcompare', 'logreduce', 'lookup', 'luhn', 'matches', 'median', 'merge', 'now', 'num', 'outlier', 'parseHex', 'predict', 'replace', 'rollingstd', 'save', 'sessionize', 'smooth', 'sort', 'substring', 'timeslice', 'toUpperCase', 'toLowerCase', 'top', 'total', 'trace', 'transaction', 'transactionize', 'transpose', 'urldecode', 'urlencode', 'where'];
-            var metadata = ['_index','_view','_collector', '_messageCount', '_messageTime', '_raw', '_receiptTime', '_size', '_source', '_sourceCategory', '_sourceHost', '_sourceName', '_format','_timeslice'];
-            var other = ['and', 'or', 'not', 'in', '!', 'nodrop'];
-            var recent = ['geoip', 'threatip', 'values','threatlookup']
-
-            aggregating = aggregating.concat(maths);
-            aggregating = aggregating.concat(parse);
-            aggregating = aggregating.concat(search);
-            aggregating = aggregating.concat(metadata);
-            aggregating = aggregating.concat(other);
-            aggregating = aggregating.concat(recent);
-
-            var completionListItems: any = [new vscode.CompletionItem('Hello World!')];
-
-            function compItems(item: string) {
-                var compItem = new vscode.CompletionItem(item)
-                return compItem
-            }
-
-            aggregating.forEach(item => completionListItems.push(compItems(item)));
-
-            // a completion item that inserts its text as snippet,
-            // the `insertText`-property is a `SnippetString` which will be
-            // honored by the editor.
-            // const snippetCompletion = new vscode.CompletionItem('Good part of the day');
-            // snippetCompletion.insertText = new vscode.SnippetString('Good ${1|morning,afternoon,evening|}. It is ${1}, right?');
-            // snippetCompletion.documentation = new vscode.MarkdownString("Inserts a snippet that lets you select the _appropriate_ part of the day for your greeting.");
-
-            // a completion item that can be accepted by a commit character,
-            // the `commitCharacters`-property is set which means that the completion will
-            // be inserted and then the character will be typed.
-            // const commitCharacterCompletion = new vscode.CompletionItem('console');
-            // commitCharacterCompletion.commitCharacters = ['.'];
-            // commitCharacterCompletion.documentation = new vscode.MarkdownString('Press `.` to get `console.`');
-
-            // a completion item that retriggers IntelliSense when being accepted,
-            // the `command`-property is set which the editor will execute after 
-            // completion has been inserted. Also, the `insertText` is set so that 
-            // a space is inserted after `new`
-            const commandCompletion = new vscode.CompletionItem('new');
-            commandCompletion.kind = vscode.CompletionItemKind.Keyword;
-            commandCompletion.insertText = 'new ';
-            commandCompletion.command = { command: 'editor.action.triggerSuggest', title: 'Re-trigger completions...' };
-
-            var finalItems = [
-                simpleCompletion,
-                //snippetCompletion,
-                //commitCharacterCompletion,
-                commandCompletion
-            ];
-            finalItems = finalItems.concat(completionListItems);
-            // return all completion items as array
-            return finalItems;
+            return completionItems;
         }
     });
 
-    const provider2 = vscode.languages.registerCompletionItemProvider(
-        'sumo',
-        {
-            provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
+    // Initialize status bar
+    const statusBar = new StatusBarManager(context);
 
-                // get all text until the `position` and check if it reads `console.`
-                // and if so then complete if `log`, `warn`, and `error`
-                let linePrefix = document.lineAt(position).text.substr(0, position.character);
-                if (!linePrefix.endsWith('console.')) {
-                    return undefined;
-                }
+    // Register commands
+    const createProfileCmd = vscode.commands.registerCommand('sumologic.createProfile', async () => {
+        await authenticateCommand(context);
+        await statusBar.refresh();
+    });
 
-                return [
-                    new vscode.CompletionItem('log', vscode.CompletionItemKind.Method),
-                    new vscode.CompletionItem('warn', vscode.CompletionItemKind.Method),
-                    new vscode.CompletionItem('error', vscode.CompletionItemKind.Method),
-                ];
-            }
-        },
-        '.' // triggered whenever a '.' is being typed
+    const switchProfileCmd = vscode.commands.registerCommand('sumologic.switchProfile', async () => {
+        await switchProfileCommand(context);
+        await statusBar.refresh();
+    });
+
+    const listProfilesCmd = vscode.commands.registerCommand('sumologic.listProfiles', () => {
+        return listProfilesCommand(context);
+    });
+
+    const deleteProfileCmd = vscode.commands.registerCommand('sumologic.deleteProfile', async () => {
+        await deleteProfileCommand(context);
+        await statusBar.refresh();
+    });
+
+    const testConnectionCmd = vscode.commands.registerCommand('sumologic.testConnection', () => {
+        return testConnectionCommand(context);
+    });
+
+    const runQueryCmd = vscode.commands.registerCommand('sumologic.runQuery', () => {
+        return runQueryCommand(context);
+    });
+
+    context.subscriptions.push(
+        provider,
+        createProfileCmd,
+        switchProfileCmd,
+        listProfilesCmd,
+        deleteProfileCmd,
+        testConnectionCmd,
+        runQueryCmd
     );
+}
 
-    context.subscriptions.push(provider1, provider2);
+export function deactivate() {
+    // Cleanup if needed
 }

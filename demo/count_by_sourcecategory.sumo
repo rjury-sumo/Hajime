@@ -1,0 +1,4 @@
+// @mode messages
+_sourceCategory = * | limit 10000
+//| sum(_size) as bytes, count by _sourceCategory,_view,_collector,_source,_sourceHost,_sourceName
+//| sort _count desc

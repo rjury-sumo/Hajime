@@ -37,6 +37,19 @@ A Visual Studio Code extension providing language support for Sumo Logic search 
 
 ### API Integration (Query Execution)
 
+#### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| **Sumo Logic: Create/Update Connection Profile** | Create or update a connection profile with Access ID, Access Key, and region. Credentials are stored securely per profile. |
+| **Sumo Logic: Switch Profile** | Switch between configured connection profiles. Active profile is shown in the status bar. |
+| **Sumo Logic: List Profiles** | Display all configured connection profiles. |
+| **Sumo Logic: Delete Profile** | Remove a connection profile and its credentials. |
+| **Sumo Logic: Test Connection** | Verify the active profile's API connectivity. |
+| **Sumo Logic: Run Query** | Execute the current `.sumo` file as a search job and display results in a new window. Supports metadata directives:<br/>• `// @from -7d` - Set query start time (relative or absolute)<br/>• `// @to now` - Set query end time (relative or absolute)<br/>• `// @timezone UTC` - Set timezone for query execution<br/>• `// @mode records` - Returns aggregated query results (default)<br/>• `// @mode messages` - Returns raw log messages for non-aggregated queries<br/>Auto-detects aggregation and prompts if ambiguous. Query results contribute to session autocomplete. |
+| **Sumo Logic: Fetch Custom Fields for Autocomplete** | Fetch organization custom fields from API and add to autocomplete. Displays fields in a formatted table. Requires "Manage fields" permission. |
+| **Sumo Logic: Fetch Partitions for Autocomplete** | Fetch partitions list from API, display as formatted table, and cache partition names for `_index` and `_view` autocomplete. Requires "View Partitions" permission. |
+
 #### Multi-Profile Support
 
 Work with multiple Sumo Logic organizations using connection profiles:
@@ -55,6 +68,7 @@ Work with multiple Sumo Logic organizations using connection profiles:
 - 🔄 Quick profile switching via status bar
 - 🔐 Secure credential storage per profile
 - ✅ Visual indicator showing active profile
+- 🔍 Dynamic autocomplete from query results, custom fields, and partitions
 
 See [MULTI-PROFILE-GUIDE.md](MULTI-PROFILE-GUIDE.md) for detailed documentation.
 

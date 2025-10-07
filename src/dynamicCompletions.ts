@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 
 /**
- * Manages dynamically discovered fields from query results
- * Fields are added to autocomplete when they appear in query results
+ * Manages dynamically discovered fields from query results and custom fields API
+ * Fields are added to autocomplete when they appear in query results or fetched from API
  */
 export class DynamicCompletionProvider {
     private discoveredFields: Set<string> = new Set();
+    private customFields: Set<string> = new Set();
     private completionItems: vscode.CompletionItem[] = [];
 
     /**
@@ -58,10 +59,31 @@ export class DynamicCompletionProvider {
     }
 
     /**
+     * Add a custom field from the API
+     */
+    addCustomField(fieldName: string): void {
+        // Check if already exists in either set
+        if (this.discoveredFields.has(fieldName) || this.customFields.has(fieldName)) {
+            return;
+        }
+
+        this.customFields.add(fieldName);
+
+        // Create completion item for this custom field
+        const item = new vscode.CompletionItem(fieldName, vscode.CompletionItemKind.Field);
+        item.detail = 'Custom field (from API)';
+        item.documentation = new vscode.MarkdownString(
+            `Custom field defined in your Sumo Logic organization.`
+        );
+        this.completionItems.push(item);
+    }
+
+    /**
      * Clear all discovered fields (for session reset)
      */
     clear(): void {
         this.discoveredFields.clear();
+        this.customFields.clear();
         this.completionItems = [];
     }
 
@@ -73,9 +95,23 @@ export class DynamicCompletionProvider {
     }
 
     /**
+     * Get all custom field names
+     */
+    getCustomFieldNames(): string[] {
+        return Array.from(this.customFields);
+    }
+
+    /**
+     * Get count of custom fields
+     */
+    getCustomFieldCount(): number {
+        return this.customFields.size;
+    }
+
+    /**
      * Check if a field has been discovered
      */
     hasField(fieldName: string): boolean {
-        return this.discoveredFields.has(fieldName);
+        return this.discoveredFields.has(fieldName) || this.customFields.has(fieldName);
     }
 }

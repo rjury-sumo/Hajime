@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand } from './commands/authenticate';
 import { runQueryCommand } from './commands/runQuery';
+import { fetchCustomFieldsCommand } from './commands/customFields';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 
@@ -122,6 +123,10 @@ export function activate(context: vscode.ExtensionContext) {
         return runQueryCommand(context);
     });
 
+    const fetchCustomFieldsCmd = vscode.commands.registerCommand('sumologic.fetchCustomFields', () => {
+        return fetchCustomFieldsCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -129,7 +134,8 @@ export function activate(context: vscode.ExtensionContext) {
         listProfilesCmd,
         deleteProfileCmd,
         testConnectionCmd,
-        runQueryCmd
+        runQueryCmd,
+        fetchCustomFieldsCmd
     );
 }
 

@@ -66,6 +66,10 @@
             {
                 "command": "sumologic.testConnection",
                 "title": "Sumo Logic: Test Connection"
+            },
+            {
+                "command": "sumologic.fetchCustomFields",
+                "title": "Sumo Logic: Fetch Custom Fields for Autocomplete"
             }
         ],
         "languages": [

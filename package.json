@@ -70,6 +70,10 @@
             {
                 "command": "sumologic.fetchCustomFields",
                 "title": "Sumo Logic: Fetch Custom Fields for Autocomplete"
+            },
+            {
+                "command": "sumologic.fetchPartitions",
+                "title": "Sumo Logic: Fetch Partitions for Autocomplete"
             }
         ],
         "languages": [

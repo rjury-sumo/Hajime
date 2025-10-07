@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand } from './commands/authenticate';
 import { runQueryCommand } from './commands/runQuery';
 import { fetchCustomFieldsCommand } from './commands/customFields';
+import { fetchPartitionsCommand } from './commands/partitions';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 
@@ -127,6 +128,10 @@ export function activate(context: vscode.ExtensionContext) {
         return fetchCustomFieldsCommand(context);
     });
 
+    const fetchPartitionsCmd = vscode.commands.registerCommand('sumologic.fetchPartitions', () => {
+        return fetchPartitionsCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -135,7 +140,8 @@ export function activate(context: vscode.ExtensionContext) {
         deleteProfileCmd,
         testConnectionCmd,
         runQueryCmd,
-        fetchCustomFieldsCmd
+        fetchCustomFieldsCmd,
+        fetchPartitionsCmd
     );
 }
 

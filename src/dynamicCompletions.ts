@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 export class DynamicCompletionProvider {
     private discoveredFields: Set<string> = new Set();
     private customFields: Set<string> = new Set();
+    private partitions: Set<string> = new Set();
     private completionItems: vscode.CompletionItem[] = [];
 
     /**
@@ -79,11 +80,34 @@ export class DynamicCompletionProvider {
     }
 
     /**
+     * Add a partition from the API
+     */
+    addPartition(partitionName: string): void {
+        // Check if already exists in any set
+        if (this.discoveredFields.has(partitionName) ||
+            this.customFields.has(partitionName) ||
+            this.partitions.has(partitionName)) {
+            return;
+        }
+
+        this.partitions.add(partitionName);
+
+        // Create completion item for this partition
+        const item = new vscode.CompletionItem(partitionName, vscode.CompletionItemKind.Value);
+        item.detail = 'Partition (for _index or _view)';
+        item.documentation = new vscode.MarkdownString(
+            `Partition name for use with \`_index=${partitionName}\` or \`_view=${partitionName}\``
+        );
+        this.completionItems.push(item);
+    }
+
+    /**
      * Clear all discovered fields (for session reset)
      */
     clear(): void {
         this.discoveredFields.clear();
         this.customFields.clear();
+        this.partitions.clear();
         this.completionItems = [];
     }
 
@@ -106,6 +130,20 @@ export class DynamicCompletionProvider {
      */
     getCustomFieldCount(): number {
         return this.customFields.size;
+    }
+
+    /**
+     * Get all partition names
+     */
+    getPartitionNames(): string[] {
+        return Array.from(this.partitions);
+    }
+
+    /**
+     * Get count of partitions
+     */
+    getPartitionCount(): number {
+        return this.partitions.size;
     }
 
     /**

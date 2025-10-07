@@ -59,25 +59,41 @@ function fetchCustomFieldsCommand(context) {
                 }
                 return;
             }
-            if (!response.data) {
+            if (!response.data || !response.data.data) {
                 vscode.window.showWarningMessage('No custom fields returned from API.');
                 return;
             }
-            // Extract field names
-            const fieldNames = customFields_1.CustomFieldsClient.extractFieldNames(response.data);
-            if (fieldNames.length === 0) {
+            const customFields = response.data.data;
+            if (!Array.isArray(customFields) || customFields.length === 0) {
                 vscode.window.showInformationMessage('No custom fields found in this organization.');
                 return;
             }
+            // Sort by fieldName ascending
+            customFields.sort((a, b) => a.fieldName.localeCompare(b.fieldName));
+            // Extract field names
+            const fieldNames = customFields.map(f => f.fieldName);
             // Add to dynamic completion provider
             const dynamicProvider = (0, extension_1.getDynamicCompletionProvider)();
             if (dynamicProvider) {
-                // Add each custom field to autocomplete
                 fieldNames.forEach(fieldName => {
                     dynamicProvider.addCustomField(fieldName);
                 });
-                vscode.window.showInformationMessage(`Added ${fieldNames.length} custom fields to autocomplete: ${fieldNames.slice(0, 5).join(', ')}${fieldNames.length > 5 ? '...' : ''}`);
             }
+            // Format as table
+            const tableText = customFields_1.CustomFieldsClient.formatCustomFieldsAsTable(customFields);
+            // Display in new document
+            const doc = yield vscode.workspace.openTextDocument({
+                content: `Sumo Logic Custom Fields (${activeProfile.name})\n` +
+                    `==========================================\n` +
+                    `Total: ${customFields.length} fields\n` +
+                    `\n` +
+                    tableText +
+                    `\n` +
+                    `\nℹ️ Custom field names have been added to autocomplete.`,
+                language: 'plaintext'
+            });
+            yield vscode.window.showTextDocument(doc, { preview: false });
+            vscode.window.showInformationMessage(`Found ${customFields.length} custom fields. Names added to autocomplete.`);
         }));
     });
 }

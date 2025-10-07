@@ -287,14 +287,6 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             return;
         }
 
-
-        // Add discovered fields to autocomplete
-        const dynamicProvider = getDynamicCompletionProvider();
-        if (dynamicProvider) {
-            dynamicProvider.addFieldsFromResults(results);
-            const fieldCount = dynamicProvider.getFieldCount();
-            console.log(`Dynamic autocomplete now has ${fieldCount} discovered fields`);
-        }
         // Create output document
         const resultText = formatRecordsAsTable(results);
         const doc = await vscode.workspace.openTextDocument({

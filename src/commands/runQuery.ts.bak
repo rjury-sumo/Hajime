@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searchJob';
 import { createClient } from './authenticate';
-import { getDynamicCompletionProvider } from '../extension';
 
 /**
  * Parse query metadata from comments
@@ -287,14 +286,6 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             return;
         }
 
-
-        // Add discovered fields to autocomplete
-        const dynamicProvider = getDynamicCompletionProvider();
-        if (dynamicProvider) {
-            dynamicProvider.addFieldsFromResults(results);
-            const fieldCount = dynamicProvider.getFieldCount();
-            console.log(`Dynamic autocomplete now has ${fieldCount} discovered fields`);
-        }
         // Create output document
         const resultText = formatRecordsAsTable(results);
         const doc = await vscode.workspace.openTextDocument({

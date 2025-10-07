@@ -2,6 +2,14 @@ import * as vscode from 'vscode';
 import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand } from './commands/authenticate';
 import { runQueryCommand } from './commands/runQuery';
 import { StatusBarManager } from './statusBar';
+import { DynamicCompletionProvider } from './dynamicCompletions';
+
+// Global dynamic completion provider
+let dynamicCompletionProvider: DynamicCompletionProvider;
+
+export function getDynamicCompletionProvider(): DynamicCompletionProvider {
+    return dynamicCompletionProvider;
+}
 
 // Build completion items once at activation
 function createCompletionItems(): vscode.CompletionItem[] {
@@ -68,12 +76,18 @@ function createCompletionItems(): vscode.CompletionItem[] {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    // Create completion items once
-    const completionItems = createCompletionItems();
+    // Create static completion items once
+    const staticCompletionItems = createCompletionItems();
 
+    // Initialize dynamic completion provider
+    dynamicCompletionProvider = new DynamicCompletionProvider();
+
+    // Combined completion provider that returns both static and dynamic items
     const provider = vscode.languages.registerCompletionItemProvider('sumo', {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext) {
-            return completionItems;
+            // Combine static items with dynamically discovered fields
+            const dynamicItems = dynamicCompletionProvider.getCompletionItems();
+            return [...staticCompletionItems, ...dynamicItems];
         }
     });
 

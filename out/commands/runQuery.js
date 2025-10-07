@@ -13,6 +13,7 @@ exports.runQueryCommand = runQueryCommand;
 const vscode = require("vscode");
 const searchJob_1 = require("../api/searchJob");
 const authenticate_1 = require("./authenticate");
+const extension_1 = require("../extension");
 /**
  * Parse query metadata from comments
  * Looks for special comments like:
@@ -246,6 +247,13 @@ function runQueryCommand(context) {
             if (results.length === 0) {
                 vscode.window.showInformationMessage('Query completed: No results found');
                 return;
+            }
+            // Add discovered fields to autocomplete
+            const dynamicProvider = (0, extension_1.getDynamicCompletionProvider)();
+            if (dynamicProvider) {
+                dynamicProvider.addFieldsFromResults(results);
+                const fieldCount = dynamicProvider.getFieldCount();
+                console.log(`Dynamic autocomplete now has ${fieldCount} discovered fields`);
             }
             // Create output document
             const resultText = formatRecordsAsTable(results);

@@ -64,6 +64,7 @@ The extension includes 4500+ parser snippets from Sumo Logic apps:
 | **Sumo Logic: Fetch Partitions for Autocomplete** | Fetch partitions list from API, display as formatted table, and cache partition names for `_index` and `_view` autocomplete. Data is persisted per profile. Requires "View Partitions" permission. |
 | **Sumo Logic: View Autocomplete Data** | View all autocomplete data (discovered fields, custom fields, partitions) for the active profile. Shows what's stored and will be available in autocomplete. |
 | **Sumo Logic: Clear Autocomplete Data** | Clear all autocomplete data for the active profile. Useful if you want to start fresh. |
+| **Sumo Logic: Get Personal Folder** | Fetch and display the user's personal folder from Sumo Logic. Shows folder properties (ID, name, description, dates) and lists all content items in a table. The Personal Folder ID is important as it's the default location for saved content. |
 
 #### Multi-Profile Support
 

@@ -4,6 +4,7 @@ import { runQueryCommand } from './commands/runQuery';
 import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
 import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
+import { getPersonalFolderCommand } from './commands/personalFolder';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -160,6 +161,10 @@ export function activate(context: vscode.ExtensionContext) {
         return clearAutocompleteCommand(context);
     });
 
+    const getPersonalFolderCmd = vscode.commands.registerCommand('sumologic.getPersonalFolder', () => {
+        return getPersonalFolderCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -171,7 +176,8 @@ export function activate(context: vscode.ExtensionContext) {
         fetchCustomFieldsCmd,
         fetchPartitionsCmd,
         viewAutocompleteCmd,
-        clearAutocompleteCmd
+        clearAutocompleteCmd,
+        getPersonalFolderCmd
     );
 }
 

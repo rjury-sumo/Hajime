@@ -5,6 +5,7 @@ import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
 import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
 import { getPersonalFolderCommand, getFolderCommand } from './commands/personalFolder';
+import { chartCSVCommand } from './commands/chartCSV';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -173,6 +174,10 @@ export function activate(context: vscode.ExtensionContext) {
         return getFolderCommand(context);
     });
 
+    const chartCSVCmd = vscode.commands.registerCommand('sumologic.chartCSV', (uri?: vscode.Uri) => {
+        return chartCSVCommand(context, uri);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -186,7 +191,8 @@ export function activate(context: vscode.ExtensionContext) {
         viewAutocompleteCmd,
         clearAutocompleteCmd,
         getPersonalFolderCmd,
-        getFolderCmd
+        getFolderCmd,
+        chartCSVCmd
     );
 }
 

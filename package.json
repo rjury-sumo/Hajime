@@ -103,6 +103,11 @@
             {
                 "command": "sumologic.getFolder",
                 "title": "Sumo Logic: Get Folder by ID"
+            },
+            {
+                "command": "sumologic.chartCSV",
+                "title": "Sumo Logic: Chart CSV Data",
+                "icon": "$(graph)"
             }
         ],
         "menus": {
@@ -110,6 +115,11 @@
                 {
                     "command": "sumologic.runQuery",
                     "when": "resourceLangId == sumo",
+                    "group": "navigation"
+                },
+                {
+                    "command": "sumologic.chartCSV",
+                    "when": "resourceExtname == .csv",
                     "group": "navigation"
                 }
             ]
@@ -141,18 +151,21 @@
             }
         ]
     },
-	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"lint": "eslint \"src/**/*.ts\"",
-		"watch": "tsc -watch -p ./"
-	},
-	"devDependencies": {
-		"@types/node": "^18",
-		"@types/vscode": "^1.73.0",
-		"@typescript-eslint/eslint-plugin": "^7.14.0",
-		"@typescript-eslint/parser": "^7.14.0",
-		"eslint": "^8.26.0",
-		"typescript": "^5.5.2"
-	}
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "lint": "eslint \"src/**/*.ts\"",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@types/node": "^18",
+        "@types/vscode": "^1.73.0",
+        "@typescript-eslint/eslint-plugin": "^7.14.0",
+        "@typescript-eslint/parser": "^7.14.0",
+        "eslint": "^8.26.0",
+        "typescript": "^5.5.2"
+    },
+    "dependencies": {
+        "echarts": "^6.0.0"
+    }
 }

@@ -217,6 +217,12 @@ function switchProfileCommand(context) {
         }
         try {
             yield profileManager.setActiveProfile(selected.label);
+            // Load autocomplete data for the new profile
+            const { getDynamicCompletionProvider } = yield Promise.resolve().then(() => require('../extension'));
+            const dynamicProvider = getDynamicCompletionProvider();
+            if (dynamicProvider) {
+                yield dynamicProvider.loadProfileData(selected.label);
+            }
             vscode.window.showInformationMessage(`Switched to profile '${selected.label}'`);
         }
         catch (error) {
@@ -267,6 +273,12 @@ function deleteProfileCommand(context) {
             return;
         }
         try {
+            // Clear autocomplete data for this profile
+            const { getDynamicCompletionProvider } = yield Promise.resolve().then(() => require('../extension'));
+            const dynamicProvider = getDynamicCompletionProvider();
+            if (dynamicProvider) {
+                yield dynamicProvider.clearProfileData(selected.label);
+            }
             yield profileManager.deleteProfile(selected.label);
             vscode.window.showInformationMessage(`Profile '${selected.label}' deleted`);
         }

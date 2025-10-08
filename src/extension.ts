@@ -3,6 +3,7 @@ import { authenticateCommand, testConnectionCommand, switchProfileCommand, listP
 import { runQueryCommand } from './commands/runQuery';
 import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
+import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -84,7 +85,17 @@ export function activate(context: vscode.ExtensionContext) {
     const staticCompletionItems = createCompletionItems();
 
     // Initialize dynamic completion provider
-    dynamicCompletionProvider = new DynamicCompletionProvider();
+    dynamicCompletionProvider = new DynamicCompletionProvider(context);
+
+    // Load autocomplete data for active profile if exists
+    (async () => {
+        const profileManager = await import('./profileManager');
+        const pm = new profileManager.ProfileManager(context);
+        const activeProfile = await pm.getActiveProfile();
+        if (activeProfile) {
+            await dynamicCompletionProvider.loadProfileData(activeProfile.name);
+        }
+    })();
 
     // Initialize parser completion provider
     parserCompletionProvider = new ParserCompletionProvider();
@@ -141,6 +152,14 @@ export function activate(context: vscode.ExtensionContext) {
         return fetchPartitionsCommand(context);
     });
 
+    const viewAutocompleteCmd = vscode.commands.registerCommand('sumologic.viewAutocomplete', () => {
+        return viewAutocompleteCommand(context);
+    });
+
+    const clearAutocompleteCmd = vscode.commands.registerCommand('sumologic.clearAutocomplete', () => {
+        return clearAutocompleteCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -150,7 +169,9 @@ export function activate(context: vscode.ExtensionContext) {
         testConnectionCmd,
         runQueryCmd,
         fetchCustomFieldsCmd,
-        fetchPartitionsCmd
+        fetchPartitionsCmd,
+        viewAutocompleteCmd,
+        clearAutocompleteCmd
     );
 }
 

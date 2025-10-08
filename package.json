@@ -74,6 +74,14 @@
             {
                 "command": "sumologic.fetchPartitions",
                 "title": "Sumo Logic: Fetch Partitions for Autocomplete"
+            },
+            {
+                "command": "sumologic.viewAutocomplete",
+                "title": "Sumo Logic: View Autocomplete Data"
+            },
+            {
+                "command": "sumologic.clearAutocomplete",
+                "title": "Sumo Logic: Clear Autocomplete Data"
             }
         ],
         "languages": [

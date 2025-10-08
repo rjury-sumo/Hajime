@@ -60,8 +60,10 @@ The extension includes 4500+ parser snippets from Sumo Logic apps:
 | **Sumo Logic: Delete Profile** | Remove a connection profile and its credentials. |
 | **Sumo Logic: Test Connection** | Verify the active profile's API connectivity. |
 | **Sumo Logic: Run Query** | Execute the current `.sumo` file as a search job and display results in a new window. Supports metadata directives:<br/>• `// @from -7d` - Set query start time (relative or absolute)<br/>• `// @to now` - Set query end time (relative or absolute)<br/>• `// @timezone UTC` - Set timezone for query execution<br/>• `// @mode records` - Returns aggregated query results (default)<br/>• `// @mode messages` - Returns raw log messages for non-aggregated queries<br/>• `// @output table` - Output format: table (default), json, or csv<br/>Auto-detects aggregation and prompts if ambiguous. Supports multiple output formats:<br/>• **Table** - Formatted table view (default)<br/>• **JSON** - JSON format<br/>• **CSV** - CSV format (records only)<br/>Query results contribute to session autocomplete. |
-| **Sumo Logic: Fetch Custom Fields for Autocomplete** | Fetch organization custom fields from API and add to autocomplete. Displays fields in a formatted table. Requires "Manage fields" permission. |
-| **Sumo Logic: Fetch Partitions for Autocomplete** | Fetch partitions list from API, display as formatted table, and cache partition names for `_index` and `_view` autocomplete. Requires "View Partitions" permission. |
+| **Sumo Logic: Fetch Custom Fields for Autocomplete** | Fetch organization custom fields from API and add to autocomplete. Displays fields in a formatted table. Data is persisted per profile. Requires "Manage fields" permission. |
+| **Sumo Logic: Fetch Partitions for Autocomplete** | Fetch partitions list from API, display as formatted table, and cache partition names for `_index` and `_view` autocomplete. Data is persisted per profile. Requires "View Partitions" permission. |
+| **Sumo Logic: View Autocomplete Data** | View all autocomplete data (discovered fields, custom fields, partitions) for the active profile. Shows what's stored and will be available in autocomplete. |
+| **Sumo Logic: Clear Autocomplete Data** | Clear all autocomplete data for the active profile. Useful if you want to start fresh. |
 
 #### Multi-Profile Support
 
@@ -82,6 +84,7 @@ Work with multiple Sumo Logic organizations using connection profiles:
 - 🔐 Secure credential storage per profile
 - ✅ Visual indicator showing active profile
 - 🔍 Dynamic autocomplete from query results, custom fields, and partitions
+- 💾 **Persistent autocomplete per profile** - autocomplete data is saved per profile and restored when switching
 
 See [MULTI-PROFILE-GUIDE.md](MULTI-PROFILE-GUIDE.md) for detailed documentation.
 

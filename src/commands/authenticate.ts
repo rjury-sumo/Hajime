@@ -234,6 +234,14 @@ export async function switchProfileCommand(context: vscode.ExtensionContext): Pr
 
     try {
         await profileManager.setActiveProfile(selected.label);
+
+        // Load autocomplete data for the new profile
+        const { getDynamicCompletionProvider } = await import('../extension');
+        const dynamicProvider = getDynamicCompletionProvider();
+        if (dynamicProvider) {
+            await dynamicProvider.loadProfileData(selected.label);
+        }
+
         vscode.window.showInformationMessage(`Switched to profile '${selected.label}'`);
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to switch profile: ${error}`);
@@ -300,6 +308,13 @@ export async function deleteProfileCommand(context: vscode.ExtensionContext): Pr
     }
 
     try {
+        // Clear autocomplete data for this profile
+        const { getDynamicCompletionProvider } = await import('../extension');
+        const dynamicProvider = getDynamicCompletionProvider();
+        if (dynamicProvider) {
+            await dynamicProvider.clearProfileData(selected.label);
+        }
+
         await profileManager.deleteProfile(selected.label);
         vscode.window.showInformationMessage(`Profile '${selected.label}' deleted`);
     } catch (error) {

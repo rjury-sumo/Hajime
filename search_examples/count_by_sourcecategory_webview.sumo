@@ -1,0 +1,10 @@
+// name count_by_sourcecategory
+// @mode records
+// @from -24h
+// @to now
+// @timezone UTC
+// @output webview
+_sourceCategory = * | limit 10000
+| sum(_size) as bytes, count by _sourceCategory,_view,_collector,_source,_sourceHost,_sourceName
+| sort _count desc
+

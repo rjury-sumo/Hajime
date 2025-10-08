@@ -1,0 +1,9 @@
+// name messages error sample events
+// @mode messages
+// @from -24h
+// @to now
+// @timezone UTC
+// @output webview
+_sourceCategory = * _loglevel= error | limit 10000
+| fields _sourcecategory, _collector, _loglevel, _raw
+

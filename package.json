@@ -44,6 +44,13 @@
                     "type": "string",
                     "default": "${workspaceFolder}/output",
                     "description": "Directory path for storing profile-specific files. Supports ${workspaceFolder} variable. Can be absolute or relative to workspace root."
+                },
+                "sumologic.webviewPageSize": {
+                    "type": "number",
+                    "default": 100,
+                    "minimum": 10,
+                    "maximum": 10000,
+                    "description": "Number of rows to display per page in webview query results"
                 }
             }
         },

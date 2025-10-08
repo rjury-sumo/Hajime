@@ -349,6 +349,84 @@ function formatRecordsAsHTML(records, queryInfo) {
             font-size: 12px;
             text-align: center;
         }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border-radius: 3px;
+            flex-wrap: wrap;
+        }
+        .toolbar-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .toolbar-button {
+            padding: 4px 12px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toolbar-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .toolbar-button.secondary {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        .toolbar-button.secondary:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .global-search {
+            flex: 1;
+            min-width: 200px;
+            padding: 4px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 12px;
+        }
+        .column-toggle {
+            position: relative;
+        }
+        .column-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background-color: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 3px;
+            padding: 8px;
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 200px;
+        }
+        .column-menu.show {
+            display: block;
+        }
+        .column-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .column-menu-item:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .column-menu-item input[type="checkbox"] {
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
@@ -358,6 +436,26 @@ function formatRecordsAsHTML(records, queryInfo) {
         <div class="query-info"><strong>Time Range:</strong> ${queryInfo.from} to ${queryInfo.to}</div>
         <div class="query-info"><strong>Results:</strong> ${queryInfo.count} ${queryInfo.mode}</div>
         <div class="query-code">${escapeHtml(queryInfo.query)}</div>
+    </div>
+    <div class="toolbar">
+        <div class="toolbar-section">
+            <input type="text" class="global-search" id="globalSearch" placeholder="Search all columns..." oninput="globalSearch()">
+            <button class="toolbar-button secondary" onclick="clearAllFilters()">Clear Filters</button>
+        </div>
+        <div class="toolbar-section">
+            <div class="column-toggle">
+                <button class="toolbar-button secondary" onclick="toggleColumnMenu()">Columns ▾</button>
+                <div class="column-menu" id="columnMenu">
+                    ${keys.map((key, idx) => `
+                        <div class="column-menu-item">
+                            <input type="checkbox" id="col-toggle-${idx}" checked onchange="toggleColumn(${idx})">
+                            <label for="col-toggle-${idx}">${escapeHtml(key)}</label>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            <button class="toolbar-button" onclick="exportToCSV()">Export CSV</button>
+        </div>
     </div>
     <div class="table-container">
         <table id="resultsTable">
@@ -400,6 +498,7 @@ function formatRecordsAsHTML(records, queryInfo) {
         let currentPage = 1;
         let totalPages = 1;
         let filteredData = [];
+        let hiddenColumns = new Set();
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -537,6 +636,159 @@ function formatRecordsAsHTML(records, queryInfo) {
         filteredData = allData.map((_, idx) => idx);
         updatePagination();
         renderPage();
+
+        // Global search functionality
+        function globalSearch() {
+            const searchValue = document.getElementById('globalSearch').value.toLowerCase();
+
+            if (!searchValue) {
+                // If search is empty, apply column filters
+                filterTable();
+                return;
+            }
+
+            // Build filtered data array
+            filteredData = [];
+            allData.forEach((row, idx) => {
+                // Check if any column contains the search value
+                const matchesSearch = columns.some(col => {
+                    const cellValue = String(row[col] || '').toLowerCase();
+                    return cellValue.includes(searchValue);
+                });
+
+                // Also check column filters
+                const filters = Array.from(document.querySelectorAll('.filter-input'));
+                let matchesFilters = true;
+                filters.forEach((filter, colIdx) => {
+                    const filterValue = filter.value.toLowerCase();
+                    if (filterValue) {
+                        const cellValue = String(row[columns[colIdx]] || '').toLowerCase();
+                        if (!cellValue.includes(filterValue)) {
+                            matchesFilters = false;
+                        }
+                    }
+                });
+
+                if (matchesSearch && matchesFilters) {
+                    filteredData.push(idx);
+                }
+            });
+
+            currentPage = 1;
+            updatePagination();
+            renderPage();
+        }
+
+        // Clear all filters
+        function clearAllFilters() {
+            // Clear global search
+            document.getElementById('globalSearch').value = '';
+
+            // Clear column filters
+            document.querySelectorAll('.filter-input').forEach(input => {
+                input.value = '';
+            });
+
+            // Reset filtered data
+            filteredData = allData.map((_, idx) => idx);
+            currentPage = 1;
+            updatePagination();
+            renderPage();
+        }
+
+        // Column visibility toggle
+        function toggleColumnMenu() {
+            const menu = document.getElementById('columnMenu');
+            menu.classList.toggle('show');
+        }
+
+        // Close column menu when clicking outside
+        document.addEventListener('click', (event) => {
+            const menu = document.getElementById('columnMenu');
+            const toggle = event.target.closest('.column-toggle');
+            if (!toggle && menu.classList.contains('show')) {
+                menu.classList.remove('show');
+            }
+        });
+
+        function toggleColumn(columnIndex) {
+            if (hiddenColumns.has(columnIndex)) {
+                hiddenColumns.delete(columnIndex);
+            } else {
+                hiddenColumns.add(columnIndex);
+            }
+
+            // Update header cells
+            const headerCells = document.querySelectorAll(\`th[data-column="\${columnIndex}"]\`);
+            headerCells.forEach(cell => {
+                if (hiddenColumns.has(columnIndex)) {
+                    cell.style.display = 'none';
+                } else {
+                    cell.style.display = '';
+                }
+            });
+
+            // Update filter row cells
+            const filterCells = document.querySelectorAll(\`.filter-row th:nth-child(\${columnIndex + 1})\`);
+            filterCells.forEach(cell => {
+                if (hiddenColumns.has(columnIndex)) {
+                    cell.style.display = 'none';
+                } else {
+                    cell.style.display = '';
+                }
+            });
+
+            // Update data cells
+            const dataCells = document.querySelectorAll(\`td:nth-child(\${columnIndex + 1})\`);
+            dataCells.forEach(cell => {
+                if (hiddenColumns.has(columnIndex)) {
+                    cell.style.display = 'none';
+                } else {
+                    cell.style.display = '';
+                }
+            });
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            // Get visible columns
+            const visibleColumns = columns.filter((_, idx) => !hiddenColumns.has(idx));
+
+            // Build CSV content
+            let csv = '';
+
+            // Header row
+            csv += visibleColumns.map(col => {
+                // Escape quotes and wrap in quotes if contains comma, quote, or newline
+                const escaped = String(col).replace(/"/g, '""');
+                return escaped.includes(',') || escaped.includes('"') || escaped.includes('\\n')
+                    ? \`"\${escaped}"\`
+                    : escaped;
+            }).join(',') + '\\n';
+
+            // Data rows (only filtered data)
+            filteredData.forEach(rowIdx => {
+                const row = allData[rowIdx];
+                csv += visibleColumns.map(col => {
+                    const value = String(row[col] || '');
+                    const escaped = value.replace(/"/g, '""');
+                    return escaped.includes(',') || escaped.includes('"') || escaped.includes('\\n')
+                        ? \`"\${escaped}"\`
+                        : escaped;
+                }).join(',') + '\\n';
+            });
+
+            // Send CSV data to extension host for file save
+            if (typeof vscode !== 'undefined') {
+                vscode.postMessage({
+                    command: 'exportCSV',
+                    csvData: csv
+                });
+            }
+        }
+
+        // Acquire VS Code API
+        const vscode = acquireVsCodeApi();
 
         // Column resizing functionality
         let resizingColumn = null;
@@ -805,6 +1057,31 @@ function runQueryCommand(context) {
                     pageSize: pageSize
                 });
                 panel.webview.html = htmlContent;
+                // Handle messages from webview
+                panel.webview.onDidReceiveMessage((message) => __awaiter(this, void 0, void 0, function* () {
+                    var _a;
+                    if (message.command === 'exportCSV') {
+                        // Get workspace folder or use home directory
+                        const workspaceFolder = (_a = vscode.workspace.workspaceFolders) === null || _a === void 0 ? void 0 : _a[0];
+                        const defaultUri = workspaceFolder
+                            ? vscode.Uri.file(workspaceFolder.uri.fsPath)
+                            : undefined;
+                        // Prompt user for save location
+                        const uri = yield vscode.window.showSaveDialog({
+                            defaultUri: defaultUri,
+                            filters: {
+                                'CSV Files': ['csv'],
+                                'All Files': ['*']
+                            },
+                            saveLabel: 'Export CSV'
+                        });
+                        if (uri) {
+                            const fs = yield Promise.resolve().then(() => require('fs'));
+                            fs.writeFileSync(uri.fsPath, message.csvData, 'utf-8');
+                            vscode.window.showInformationMessage(`CSV exported to ${uri.fsPath}`);
+                        }
+                    }
+                }), undefined, context.subscriptions);
                 vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (webview)`);
             }
             else {

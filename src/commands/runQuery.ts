@@ -10,9 +10,22 @@ import { getDynamicCompletionProvider } from '../extension';
  * // @to now
  * // @timezone UTC
  * // @mode messages
+ * // @output csv
  */
-function parseQueryMetadata(queryText: string): { from?: string; to?: string; timeZone?: string; mode?: 'records' | 'messages' } {
-    const metadata: { from?: string; to?: string; timeZone?: string; mode?: 'records' | 'messages' } = {};
+function parseQueryMetadata(queryText: string): {
+    from?: string;
+    to?: string;
+    timeZone?: string;
+    mode?: 'records' | 'messages';
+    output?: 'table' | 'json' | 'csv';
+} {
+    const metadata: {
+        from?: string;
+        to?: string;
+        timeZone?: string;
+        mode?: 'records' | 'messages';
+        output?: 'table' | 'json' | 'csv';
+    } = {};
 
     const lines = queryText.split('\n');
     for (const line of lines) {
@@ -45,6 +58,13 @@ function parseQueryMetadata(queryText: string): { from?: string; to?: string; ti
             metadata.mode = modeMatch[1].toLowerCase() as 'records' | 'messages';
             continue;
         }
+
+        // Match @output directive
+        const outputMatch = trimmed.match(/^\/\/\s*@output\s+(table|json|csv)$/i);
+        if (outputMatch) {
+            metadata.output = outputMatch[1].toLowerCase() as 'table' | 'json' | 'csv';
+            continue;
+        }
     }
 
     return metadata;
@@ -57,7 +77,7 @@ function cleanQuery(queryText: string): string {
     const lines = queryText.split('\n');
     const cleanedLines = lines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(from|to|timezone|mode)\s+/i);
+        return !trimmed.match(/^\/\/\s*@(from|to|timezone|mode|output)\s+/i);
     });
     return cleanedLines.join('\n').trim();
 }
@@ -117,6 +137,51 @@ function formatRecordsAsTable(records: any[]): string {
     });
 
     return table;
+}
+
+/**
+ * Format records as CSV
+ */
+function formatRecordsAsCSV(records: any[]): string {
+    if (records.length === 0) {
+        return 'No results found';
+    }
+
+    // Get all unique keys from all records
+    const allKeys = new Set<string>();
+    records.forEach(record => {
+        Object.keys(record.map).forEach(key => allKeys.add(key));
+    });
+
+    const keys = Array.from(allKeys);
+
+    // Helper to escape CSV values
+    const escapeCSV = (value: any): string => {
+        const str = String(value || '');
+        // If contains comma, quote, or newline, wrap in quotes and escape quotes
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+
+    // Create header
+    let csv = keys.map(escapeCSV).join(',') + '\n';
+
+    // Create rows
+    records.forEach(record => {
+        const row = keys.map(key => escapeCSV(record.map[key])).join(',');
+        csv += row + '\n';
+    });
+
+    return csv;
+}
+
+/**
+ * Format results as JSON
+ */
+function formatResultsAsJSON(results: any[]): string {
+    return JSON.stringify(results, null, 2);
 }
 
 /**
@@ -213,6 +278,39 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
         mode = modeChoice.value as 'records' | 'messages';
     }
 
+    // Determine output format: explicit from metadata or prompt user
+    let outputFormat: 'table' | 'json' | 'csv' = metadata.output || 'table';
+
+    // If no explicit output format, prompt user
+    if (!metadata.output) {
+        const formatOptions = mode === 'records'
+            ? [
+                { label: 'Table', value: 'table', description: 'Formatted table view' },
+                { label: 'JSON', value: 'json', description: 'JSON format' },
+                { label: 'CSV', value: 'csv', description: 'CSV format (records only)' }
+              ]
+            : [
+                { label: 'Table', value: 'table', description: 'Formatted table view' },
+                { label: 'JSON', value: 'json', description: 'JSON format' }
+              ];
+
+        const formatChoice = await vscode.window.showQuickPick(formatOptions, {
+            placeHolder: 'Select output format:',
+            ignoreFocusOut: true
+        });
+
+        if (!formatChoice) {
+            return; // User cancelled
+        }
+        outputFormat = formatChoice.value as 'table' | 'json' | 'csv';
+    } else {
+        // Validate that CSV is only used with records mode
+        if (outputFormat === 'csv' && mode === 'messages') {
+            vscode.window.showWarningMessage('CSV format is only available for records mode. Using table format instead.');
+            outputFormat = 'table';
+        }
+    }
+
     const request: SearchJobRequest = {
         query: cleanedQuery,
         from: fromTime,
@@ -295,22 +393,44 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             const fieldCount = dynamicProvider.getFieldCount();
             console.log(`Dynamic autocomplete now has ${fieldCount} discovered fields`);
         }
+
+        // Format results based on selected format
+        let resultText: string;
+        let language: string;
+
+        switch (outputFormat) {
+            case 'json':
+                resultText = formatResultsAsJSON(results);
+                language = 'json';
+                break;
+            case 'csv':
+                resultText = formatRecordsAsCSV(results);
+                language = 'csv';
+                break;
+            case 'table':
+            default:
+                resultText = formatRecordsAsTable(results);
+                language = 'plaintext';
+                break;
+        }
+
         // Create output document
-        const resultText = formatRecordsAsTable(results);
         const doc = await vscode.workspace.openTextDocument({
-            content: `Sumo Logic Query Results (${mode})\n` +
-                     `====================================\n` +
-                     `Query: ${cleanedQuery.split('\n')[0]}...\n` +
-                     `From: ${from} (${fromTime})\n` +
-                     `To: ${to} (${toTime})\n` +
-                     `Results: ${resultCount} ${mode}\n` +
-                     `\n` +
-                     resultText,
-            language: 'plaintext'
+            content: outputFormat === 'table'
+                ? `Sumo Logic Query Results (${mode} - ${outputFormat})\n` +
+                  `====================================\n` +
+                  `Query: ${cleanedQuery.split('\n')[0]}...\n` +
+                  `From: ${from} (${fromTime})\n` +
+                  `To: ${to} (${toTime})\n` +
+                  `Results: ${resultCount} ${mode}\n` +
+                  `\n` +
+                  resultText
+                : resultText, // For JSON and CSV, just show the raw data
+            language: language
         });
 
         await vscode.window.showTextDocument(doc, { preview: false });
 
-        vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found`);
+        vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)`);
     });
 }

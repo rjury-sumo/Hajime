@@ -88,10 +88,14 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize dynamic completion provider
     dynamicCompletionProvider = new DynamicCompletionProvider(context);
 
-    // Load autocomplete data for active profile if exists
+    // Initialize profile directories and load autocomplete data for active profile if exists
     (async () => {
         const profileManager = await import('./profileManager');
         const pm = new profileManager.ProfileManager(context);
+
+        // Ensure all profile directories exist
+        await pm.ensureProfileDirectoriesExist();
+
         const activeProfile = await pm.getActiveProfile();
         if (activeProfile) {
             await dynamicCompletionProvider.loadProfileData(activeProfile.name);

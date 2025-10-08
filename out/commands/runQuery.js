@@ -14,6 +14,7 @@ const vscode = require("vscode");
 const searchJob_1 = require("../api/searchJob");
 const authenticate_1 = require("./authenticate");
 const extension_1 = require("../extension");
+const outputWriter_1 = require("../outputWriter");
 /**
  * Parse query metadata from comments
  * Looks for special comments like:
@@ -331,38 +332,40 @@ function runQueryCommand(context) {
             }
             // Format results based on selected format
             let resultText;
-            let language;
+            let fileExtension;
             switch (outputFormat) {
                 case 'json':
                     resultText = formatResultsAsJSON(results);
-                    language = 'json';
+                    fileExtension = 'json';
                     break;
                 case 'csv':
                     resultText = formatRecordsAsCSV(results);
-                    language = 'csv';
+                    fileExtension = 'csv';
                     break;
                 case 'table':
                 default:
-                    resultText = formatRecordsAsTable(results);
-                    language = 'plaintext';
-                    break;
-            }
-            // Create output document
-            const doc = yield vscode.workspace.openTextDocument({
-                content: outputFormat === 'table'
-                    ? `Sumo Logic Query Results (${mode} - ${outputFormat})\n` +
+                    resultText = `Sumo Logic Query Results (${mode} - ${outputFormat})\n` +
                         `====================================\n` +
                         `Query: ${cleanedQuery.split('\n')[0]}...\n` +
                         `From: ${from} (${fromTime})\n` +
                         `To: ${to} (${toTime})\n` +
                         `Results: ${resultCount} ${mode}\n` +
                         `\n` +
-                        resultText
-                    : resultText, // For JSON and CSV, just show the raw data
-                language: language
-            });
-            yield vscode.window.showTextDocument(doc, { preview: false });
-            vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)`);
+                        formatRecordsAsTable(results);
+                    fileExtension = 'txt';
+                    break;
+            }
+            // Write results to file
+            const outputWriter = new outputWriter_1.OutputWriter(context);
+            const queryPreview = cleanedQuery.split('\n')[0].substring(0, 50);
+            const filename = `query_${queryPreview}_${mode}_${from}_to_${to}`;
+            try {
+                const filePath = yield outputWriter.writeAndOpen('queries', filename, resultText, fileExtension);
+                vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)`);
+            }
+            catch (error) {
+                vscode.window.showErrorMessage(`Failed to write results: ${error}`);
+            }
         }));
     });
 }

@@ -11,6 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProfileManager = void 0;
 const vscode = require("vscode");
+const path = require("path");
+const fs = require("fs");
 /**
  * Profile storage keys
  */
@@ -88,6 +90,46 @@ class ProfileManager {
         });
     }
     /**
+     * Get the file storage path for profiles
+     */
+    getFileStoragePath() {
+        var _a;
+        const config = vscode.workspace.getConfiguration('sumologic');
+        let storagePath = config.get('fileStoragePath') || '${workspaceFolder}/output';
+        // Get workspace root
+        const workspaceFolder = (_a = vscode.workspace.workspaceFolders) === null || _a === void 0 ? void 0 : _a[0];
+        if (!workspaceFolder) {
+            throw new Error('No workspace folder open');
+        }
+        // Replace ${workspaceFolder} variable with actual workspace path
+        storagePath = storagePath.replace(/\$\{workspaceFolder\}/g, workspaceFolder.uri.fsPath);
+        // If it's an absolute path, use it as-is, otherwise make it relative to workspace
+        if (path.isAbsolute(storagePath)) {
+            return storagePath;
+        }
+        else {
+            return path.join(workspaceFolder.uri.fsPath, storagePath);
+        }
+    }
+    /**
+     * Get the directory path for a specific profile
+     */
+    getProfileDirectory(profileName) {
+        return path.join(this.getFileStoragePath(), profileName);
+    }
+    /**
+     * Create directory for a profile
+     */
+    createProfileDirectory(profileName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const profileDir = this.getProfileDirectory(profileName);
+            // Create directory if it doesn't exist
+            if (!fs.existsSync(profileDir)) {
+                fs.mkdirSync(profileDir, { recursive: true });
+            }
+        });
+    }
+    /**
      * Create a new profile
      */
     createProfile(profile, accessId, accessKey) {
@@ -100,6 +142,8 @@ class ProfileManager {
             // Store credentials securely
             yield this.context.secrets.store(getProfileAccessIdKey(profile.name), accessId);
             yield this.context.secrets.store(getProfileAccessKeyKey(profile.name), accessKey);
+            // Create profile directory
+            yield this.createProfileDirectory(profile.name);
             // Add profile to list
             profiles.push(profile);
             yield this.saveProfiles(profiles);
@@ -183,6 +227,17 @@ class ProfileManager {
         return __awaiter(this, void 0, void 0, function* () {
             const profiles = yield this.getProfiles();
             return profiles.length > 0;
+        });
+    }
+    /**
+     * Ensure all profile directories exist (run on startup)
+     */
+    ensureProfileDirectoriesExist() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const profiles = yield this.getProfiles();
+            for (const profile of profiles) {
+                yield this.createProfileDirectory(profile.name);
+            }
         });
     }
 }

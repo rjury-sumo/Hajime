@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searchJob';
 import { createClient } from './authenticate';
 import { getDynamicCompletionProvider } from '../extension';
+import { OutputWriter } from '../outputWriter';
 
 /**
  * Parse query metadata from comments
@@ -396,41 +397,41 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
         // Format results based on selected format
         let resultText: string;
-        let language: string;
+        let fileExtension: string;
 
         switch (outputFormat) {
             case 'json':
                 resultText = formatResultsAsJSON(results);
-                language = 'json';
+                fileExtension = 'json';
                 break;
             case 'csv':
                 resultText = formatRecordsAsCSV(results);
-                language = 'csv';
+                fileExtension = 'csv';
                 break;
             case 'table':
             default:
-                resultText = formatRecordsAsTable(results);
-                language = 'plaintext';
+                resultText = `Sumo Logic Query Results (${mode} - ${outputFormat})\n` +
+                             `====================================\n` +
+                             `Query: ${cleanedQuery.split('\n')[0]}...\n` +
+                             `From: ${from} (${fromTime})\n` +
+                             `To: ${to} (${toTime})\n` +
+                             `Results: ${resultCount} ${mode}\n` +
+                             `\n` +
+                             formatRecordsAsTable(results);
+                fileExtension = 'txt';
                 break;
         }
 
-        // Create output document
-        const doc = await vscode.workspace.openTextDocument({
-            content: outputFormat === 'table'
-                ? `Sumo Logic Query Results (${mode} - ${outputFormat})\n` +
-                  `====================================\n` +
-                  `Query: ${cleanedQuery.split('\n')[0]}...\n` +
-                  `From: ${from} (${fromTime})\n` +
-                  `To: ${to} (${toTime})\n` +
-                  `Results: ${resultCount} ${mode}\n` +
-                  `\n` +
-                  resultText
-                : resultText, // For JSON and CSV, just show the raw data
-            language: language
-        });
+        // Write results to file
+        const outputWriter = new OutputWriter(context);
+        const queryPreview = cleanedQuery.split('\n')[0].substring(0, 50);
+        const filename = `query_${queryPreview}_${mode}_${from}_to_${to}`;
 
-        await vscode.window.showTextDocument(doc, { preview: false });
-
-        vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)`);
+        try {
+            const filePath = await outputWriter.writeAndOpen('queries', filename, resultText, fileExtension);
+            vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to write results: ${error}`);
+        }
     });
 }

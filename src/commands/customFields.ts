@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CustomFieldsClient } from '../api/customFields';
 import { createClient } from './authenticate';
 import { getDynamicCompletionProvider } from '../extension';
+import { OutputWriter } from '../outputWriter';
 
 /**
  * Command to fetch custom fields and add to autocomplete
@@ -85,22 +86,25 @@ export async function fetchCustomFieldsCommand(context: vscode.ExtensionContext)
         // Format as table
         const tableText = CustomFieldsClient.formatCustomFieldsAsTable(customFields);
 
-        // Display in new document
-        const doc = await vscode.workspace.openTextDocument({
-            content: `Sumo Logic Custom Fields (${activeProfile.name})\n` +
-                     `==========================================\n` +
-                     `Total: ${customFields.length} fields\n` +
-                     `\n` +
-                     tableText +
-                     `\n` +
-                     `\nℹ️ Custom field names have been added to autocomplete.`,
-            language: 'plaintext'
-        });
+        const outputText = `Sumo Logic Custom Fields (${activeProfile.name})\n` +
+                          `==========================================\n` +
+                          `Total: ${customFields.length} fields\n` +
+                          `\n` +
+                          tableText +
+                          `\n` +
+                          `\nℹ️ Custom field names have been added to autocomplete.`;
 
-        await vscode.window.showTextDocument(doc, { preview: false });
+        // Write to file
+        const outputWriter = new OutputWriter(context);
+        const filename = `customfields_${activeProfile.name}`;
 
-        vscode.window.showInformationMessage(
-            `Found ${customFields.length} custom fields. Names added to autocomplete.`
-        );
+        try {
+            await outputWriter.writeAndOpen('customfields', filename, outputText, 'txt');
+            vscode.window.showInformationMessage(
+                `Found ${customFields.length} custom fields. Names added to autocomplete.`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to write custom fields data: ${error}`);
+        }
     });
 }

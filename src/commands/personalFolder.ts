@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ContentClient } from '../api/content';
 import { createClient } from './authenticate';
+import { OutputWriter } from '../outputWriter';
 
 /**
  * Command to fetch and display a folder by ID
@@ -81,21 +82,22 @@ export async function getFolderCommand(context: vscode.ExtensionContext): Promis
         const folder = response.data;
 
         // Format the output (reuse the same formatter)
-        const outputText = ContentClient.formatPersonalFolder(folder);
+        const outputText = `Sumo Logic Folder (${activeProfile.name})\n` +
+                          `${'='.repeat(80)}\n\n` +
+                          ContentClient.formatPersonalFolder(folder);
 
-        // Display in new document
-        const doc = await vscode.workspace.openTextDocument({
-            content: `Sumo Logic Folder (${activeProfile.name})\n` +
-                     `${'='.repeat(80)}\n\n` +
-                     outputText,
-            language: 'plaintext'
-        });
+        // Write to file
+        const outputWriter = new OutputWriter(context);
+        const filename = `folder_${folder.name}_${folderId}`;
 
-        await vscode.window.showTextDocument(doc, { preview: false });
-
-        vscode.window.showInformationMessage(
-            `Folder loaded: ${folder.name} (${folder.children.length} items)`
-        );
+        try {
+            await outputWriter.writeAndOpen('folders', filename, outputText, 'txt');
+            vscode.window.showInformationMessage(
+                `Folder loaded: ${folder.name} (${folder.children.length} items)`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to write folder data: ${error}`);
+        }
     });
 }
 
@@ -159,23 +161,24 @@ export async function getPersonalFolderCommand(context: vscode.ExtensionContext)
         const folder = response.data;
 
         // Format the output
-        const outputText = ContentClient.formatPersonalFolder(folder);
+        const outputText = `Sumo Logic Personal Folder (${activeProfile.name})\n` +
+                          `${'='.repeat(80)}\n\n` +
+                          ContentClient.formatPersonalFolder(folder) +
+                          `\n\n` +
+                          `ℹ️ The Personal Folder ID (${folder.id}) is used as the default\n` +
+                          `location for saving content in Sumo Logic.\n`;
 
-        // Display in new document
-        const doc = await vscode.workspace.openTextDocument({
-            content: `Sumo Logic Personal Folder (${activeProfile.name})\n` +
-                     `${'='.repeat(80)}\n\n` +
-                     outputText +
-                     `\n\n` +
-                     `ℹ️ The Personal Folder ID (${folder.id}) is used as the default\n` +
-                     `location for saving content in Sumo Logic.\n`,
-            language: 'plaintext'
-        });
+        // Write to file
+        const outputWriter = new OutputWriter(context);
+        const filename = `personal_folder_${activeProfile.name}`;
 
-        await vscode.window.showTextDocument(doc, { preview: false });
-
-        vscode.window.showInformationMessage(
-            `Personal folder loaded: ${folder.children.length} items found.`
-        );
+        try {
+            await outputWriter.writeAndOpen('folders', filename, outputText, 'txt');
+            vscode.window.showInformationMessage(
+                `Personal folder loaded: ${folder.children.length} items found.`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to write folder data: ${error}`);
+        }
     });
 }

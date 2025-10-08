@@ -14,6 +14,7 @@ const vscode = require("vscode");
 const partitions_1 = require("../api/partitions");
 const authenticate_1 = require("./authenticate");
 const extension_1 = require("../extension");
+const outputWriter_1 = require("../outputWriter");
 /**
  * Command to fetch partitions, display them, and add to autocomplete
  */
@@ -81,21 +82,25 @@ function fetchPartitionsCommand(context) {
             }
             // Format as table
             const tableText = partitions_1.PartitionsClient.formatPartitionsAsTable(partitions);
-            // Display in new document
-            const doc = yield vscode.workspace.openTextDocument({
-                content: `Sumo Logic Partitions (${activeProfile.name})\n` +
-                    `=========================================\n` +
-                    `Total: ${partitions.length} partitions\n` +
-                    `\n` +
-                    `Use in queries: _index=partition_name or _view=partition_name\n` +
-                    `\n` +
-                    tableText +
-                    `\n` +
-                    `\nℹ️ Partition names have been added to autocomplete for _index and _view.`,
-                language: 'plaintext'
-            });
-            yield vscode.window.showTextDocument(doc, { preview: false });
-            vscode.window.showInformationMessage(`Found ${partitions.length} partitions. Names added to autocomplete.`);
+            const outputText = `Sumo Logic Partitions (${activeProfile.name})\n` +
+                `=========================================\n` +
+                `Total: ${partitions.length} partitions\n` +
+                `\n` +
+                `Use in queries: _index=partition_name or _view=partition_name\n` +
+                `\n` +
+                tableText +
+                `\n` +
+                `\nℹ️ Partition names have been added to autocomplete for _index and _view.`;
+            // Write to file
+            const outputWriter = new outputWriter_1.OutputWriter(context);
+            const filename = `partitions_${activeProfile.name}`;
+            try {
+                yield outputWriter.writeAndOpen('partitions', filename, outputText, 'txt');
+                vscode.window.showInformationMessage(`Found ${partitions.length} partitions. Names added to autocomplete.`);
+            }
+            catch (error) {
+                vscode.window.showErrorMessage(`Failed to write partitions data: ${error}`);
+            }
         }));
     });
 }

@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * Connection profile for a Sumo Logic organization
@@ -86,6 +88,49 @@ export class ProfileManager {
     }
 
     /**
+     * Get the file storage path for profiles
+     */
+    private getFileStoragePath(): string {
+        const config = vscode.workspace.getConfiguration('sumologic');
+        let storagePath = config.get<string>('fileStoragePath') || '${workspaceFolder}/output';
+
+        // Get workspace root
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            throw new Error('No workspace folder open');
+        }
+
+        // Replace ${workspaceFolder} variable with actual workspace path
+        storagePath = storagePath.replace(/\$\{workspaceFolder\}/g, workspaceFolder.uri.fsPath);
+
+        // If it's an absolute path, use it as-is, otherwise make it relative to workspace
+        if (path.isAbsolute(storagePath)) {
+            return storagePath;
+        } else {
+            return path.join(workspaceFolder.uri.fsPath, storagePath);
+        }
+    }
+
+    /**
+     * Get the directory path for a specific profile
+     */
+    getProfileDirectory(profileName: string): string {
+        return path.join(this.getFileStoragePath(), profileName);
+    }
+
+    /**
+     * Create directory for a profile
+     */
+    private async createProfileDirectory(profileName: string): Promise<void> {
+        const profileDir = this.getProfileDirectory(profileName);
+
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(profileDir)) {
+            fs.mkdirSync(profileDir, { recursive: true });
+        }
+    }
+
+    /**
      * Create a new profile
      */
     async createProfile(profile: SumoLogicProfile, accessId: string, accessKey: string): Promise<void> {
@@ -99,6 +144,9 @@ export class ProfileManager {
         // Store credentials securely
         await this.context.secrets.store(getProfileAccessIdKey(profile.name), accessId);
         await this.context.secrets.store(getProfileAccessKeyKey(profile.name), accessKey);
+
+        // Create profile directory
+        await this.createProfileDirectory(profile.name);
 
         // Add profile to list
         profiles.push(profile);
@@ -190,5 +238,16 @@ export class ProfileManager {
     async hasProfiles(): Promise<boolean> {
         const profiles = await this.getProfiles();
         return profiles.length > 0;
+    }
+
+    /**
+     * Ensure all profile directories exist (run on startup)
+     */
+    async ensureProfileDirectoriesExist(): Promise<void> {
+        const profiles = await this.getProfiles();
+
+        for (const profile of profiles) {
+            await this.createProfileDirectory(profile.name);
+        }
     }
 }

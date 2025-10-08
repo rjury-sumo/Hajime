@@ -39,6 +39,11 @@
                 "sumologic.activeProfile": {
                     "type": "string",
                     "description": "Currently active connection profile"
+                },
+                "sumologic.fileStoragePath": {
+                    "type": "string",
+                    "default": "${workspaceFolder}/output",
+                    "description": "Directory path for storing profile-specific files. Supports ${workspaceFolder} variable. Can be absolute or relative to workspace root."
                 }
             }
         },

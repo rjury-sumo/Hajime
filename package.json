@@ -87,6 +87,10 @@
             {
                 "command": "sumologic.getPersonalFolder",
                 "title": "Sumo Logic: Get Personal Folder"
+            },
+            {
+                "command": "sumologic.getFolder",
+                "title": "Sumo Logic: Get Folder by ID"
             }
         ],
         "menus": {

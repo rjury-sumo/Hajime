@@ -65,6 +65,7 @@ The extension includes 4500+ parser snippets from Sumo Logic apps:
 | **Sumo Logic: View Autocomplete Data** | View all autocomplete data (discovered fields, custom fields, partitions) for the active profile. Shows what's stored and will be available in autocomplete. |
 | **Sumo Logic: Clear Autocomplete Data** | Clear all autocomplete data for the active profile. Useful if you want to start fresh. |
 | **Sumo Logic: Get Personal Folder** | Fetch and display the user's personal folder from Sumo Logic. Shows folder properties (ID, name, description, dates) and lists all content items in a table. The Personal Folder ID is important as it's the default location for saved content. |
+| **Sumo Logic: Get Folder by ID** | Fetch and display any folder by ID. Prompts for folder ID, then shows folder properties and contents in the same format as Personal Folder. Useful for exploring the content library. |
 
 #### Multi-Profile Support
 

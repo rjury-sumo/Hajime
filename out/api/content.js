@@ -26,6 +26,16 @@ class ContentClient extends client_1.SumoLogicClient {
         });
     }
     /**
+     * Get a folder by ID
+     * Endpoint: GET /api/v2/content/folders/{id}
+     * Docs: https://api.sumologic.com/docs/#operation/getFolder
+     */
+    getFolder(folderId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.makeRequest(`/api/v2/content/folders/${folderId}`, 'GET');
+        });
+    }
+    /**
      * Format personal folder as a readable report
      */
     static formatPersonalFolder(folder) {

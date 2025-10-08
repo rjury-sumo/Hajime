@@ -53,6 +53,18 @@ export class ContentClient extends SumoLogicClient {
     }
 
     /**
+     * Get a folder by ID
+     * Endpoint: GET /api/v2/content/folders/{id}
+     * Docs: https://api.sumologic.com/docs/#operation/getFolder
+     */
+    async getFolder(folderId: string): Promise<ApiResponse<PersonalFolderResponse>> {
+        return this.makeRequest<PersonalFolderResponse>(
+            `/api/v2/content/folders/${folderId}`,
+            'GET'
+        );
+    }
+
+    /**
      * Format personal folder as a readable report
      */
     static formatPersonalFolder(folder: PersonalFolderResponse): string {

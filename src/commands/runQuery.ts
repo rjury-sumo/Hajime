@@ -7,6 +7,7 @@ import { OutputWriter } from '../outputWriter';
 /**
  * Parse query metadata from comments
  * Looks for special comments like:
+ * // @name my-query-name
  * // @from -1h
  * // @to now
  * // @timezone UTC
@@ -14,6 +15,7 @@ import { OutputWriter } from '../outputWriter';
  * // @output csv
  */
 function parseQueryMetadata(queryText: string): {
+    name?: string;
     from?: string;
     to?: string;
     timeZone?: string;
@@ -21,6 +23,7 @@ function parseQueryMetadata(queryText: string): {
     output?: 'table' | 'json' | 'csv';
 } {
     const metadata: {
+        name?: string;
         from?: string;
         to?: string;
         timeZone?: string;
@@ -31,6 +34,13 @@ function parseQueryMetadata(queryText: string): {
     const lines = queryText.split('\n');
     for (const line of lines) {
         const trimmed = line.trim();
+
+        // Match @name directive
+        const nameMatch = trimmed.match(/^\/\/\s*@name\s+(.+)$/i);
+        if (nameMatch) {
+            metadata.name = nameMatch[1].trim();
+            continue;
+        }
 
         // Match @from directive
         const fromMatch = trimmed.match(/^\/\/\s*@from\s+(.+)$/i);
@@ -78,7 +88,7 @@ function cleanQuery(queryText: string): string {
     const lines = queryText.split('\n');
     const cleanedLines = lines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(from|to|timezone|mode|output)\s+/i);
+        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output)\s+/i);
     });
     return cleanedLines.join('\n').trim();
 }
@@ -424,8 +434,8 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
         // Write results to file
         const outputWriter = new OutputWriter(context);
-        const queryPreview = cleanedQuery.split('\n')[0].substring(0, 50);
-        const filename = `query_${queryPreview}_${mode}_${from}_to_${to}`;
+        const queryIdentifier = metadata.name || cleanedQuery.split('\n')[0].substring(0, 50);
+        const filename = `query_${queryIdentifier}_${mode}_${from}_to_${to}`;
 
         try {
             const filePath = await outputWriter.writeAndOpen('queries', filename, resultText, fileExtension);

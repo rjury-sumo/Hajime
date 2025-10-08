@@ -5,9 +5,11 @@ import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
+import { ParserCompletionProvider } from './parserCompletions';
 
 // Global dynamic completion provider
 let dynamicCompletionProvider: DynamicCompletionProvider;
+let parserCompletionProvider: ParserCompletionProvider;
 
 export function getDynamicCompletionProvider(): DynamicCompletionProvider {
     return dynamicCompletionProvider;
@@ -84,12 +86,19 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize dynamic completion provider
     dynamicCompletionProvider = new DynamicCompletionProvider();
 
+    // Initialize parser completion provider
+    parserCompletionProvider = new ParserCompletionProvider();
+    parserCompletionProvider.loadParsers().then(() => {
+        console.log(`Loaded ${parserCompletionProvider.getParserCount()} parser snippets from ${parserCompletionProvider.getAppNames().length} apps`);
+    });
+
     // Combined completion provider that returns both static and dynamic items
     const provider = vscode.languages.registerCompletionItemProvider('sumo', {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext) {
-            // Combine static items with dynamically discovered fields
+            // Combine static items with dynamically discovered fields and parser snippets
             const dynamicItems = dynamicCompletionProvider.getCompletionItems();
-            return [...staticCompletionItems, ...dynamicItems];
+            const parserItems = parserCompletionProvider.getCompletionItems();
+            return [...staticCompletionItems, ...dynamicItems, ...parserItems];
         }
     });
 

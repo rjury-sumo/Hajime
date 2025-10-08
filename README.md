@@ -14,7 +14,11 @@ A Visual Studio Code extension providing language support for Sumo Logic search 
 - **IntelliSense/Autocomplete**: Intelligent code completion for:
   - 100+ Sumo Logic operators and functions
   - Built-in metadata fields
-  - Categorized suggestions (functions, fields, operators)
+  - 4500+ parser snippets from Sumo Logic apps (filterable by app name)
+  - Dynamic fields from query results
+  - Custom fields from API
+  - Partition names for _index and _view
+  - Categorized suggestions (functions, fields, operators, snippets)
 
 - **Snippets**: Pre-built code snippets for common patterns:
   - `parse regex` - Parse regex capture expression
@@ -34,6 +38,15 @@ A Visual Studio Code extension providing language support for Sumo Logic search 
 2. Start writing your Sumo Logic queries
 3. Use `Ctrl+Space` (Windows/Linux) or `Cmd+Space` (macOS) to trigger autocomplete
 4. Type `//` for single-line comments or `/* */` for block comments
+
+#### Parser Snippets
+
+The extension includes 4500+ parser snippets from Sumo Logic apps:
+
+- Type `parser` to see all available parser snippets
+- Filter by app name (e.g., type `1Password`, `AWS`, `Apache`, etc.)
+- Snippets are labeled with their app name and operation type
+- Preview the full parser code in the autocomplete documentation
 
 ### API Integration (Query Execution)
 

@@ -61,7 +61,8 @@
             },
             {
                 "command": "sumologic.runQuery",
-                "title": "Sumo Logic: Run Query"
+                "title": "Sumo Logic: Run Query",
+                "icon": "$(play)"
             },
             {
                 "command": "sumologic.testConnection",
@@ -84,6 +85,15 @@
                 "title": "Sumo Logic: Clear Autocomplete Data"
             }
         ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "sumologic.runQuery",
+                    "when": "resourceLangId == sumo",
+                    "group": "navigation"
+                }
+            ]
+        },
         "languages": [
             {
                 "id": "sumo",

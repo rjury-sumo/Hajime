@@ -88,7 +88,7 @@ Work with multiple Sumo Logic organizations using connection profiles:
 - 🔍 Dynamic autocomplete from query results, custom fields, and partitions
 - 💾 **Persistent autocomplete per profile** - autocomplete data is saved per profile and restored when switching
 
-See [MULTI-PROFILE-GUIDE.md](MULTI-PROFILE-GUIDE.md) for detailed documentation.
+See [MULTI-PROFILE-GUIDE.md](docs/MULTI-PROFILE-GUIDE.md) for detailed documentation.
 
 ## Example
 

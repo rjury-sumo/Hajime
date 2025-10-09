@@ -228,6 +228,13 @@ export function activate(context: vscode.ExtensionContext) {
         runQueryWebviewCmd,
         cleanupOldFilesCmd
     );
+
+    // Export context for tests
+    return {
+        context,
+        dynamicCompletionProvider,
+        parserCompletionProvider
+    };
 }
 
 export function deactivate() {

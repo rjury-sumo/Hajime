@@ -113,12 +113,22 @@
                 "command": "sumologic.runQueryAndChart",
                 "title": "Sumo Logic: Run Query and Chart Results",
                 "icon": "$(graph-line)"
+            },
+            {
+                "command": "sumologic.runQueryWebview",
+                "title": "Sumo Logic: Run Query in Webview",
+                "icon": "$(table)"
             }
         ],
         "menus": {
             "editor/title": [
                 {
                     "command": "sumologic.runQuery",
+                    "when": "resourceLangId == sumo",
+                    "group": "navigation"
+                },
+                {
+                    "command": "sumologic.runQueryWebview",
                     "when": "resourceLangId == sumo",
                     "group": "navigation"
                 },

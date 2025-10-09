@@ -7,6 +7,7 @@ import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/vi
 import { getPersonalFolderCommand, getFolderCommand } from './commands/personalFolder';
 import { chartCSVCommand } from './commands/chartCSV';
 import { runQueryAndChartCommand } from './commands/runQueryAndChart';
+import { runQueryWebviewCommand } from './commands/runQueryWebview';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -183,6 +184,10 @@ export function activate(context: vscode.ExtensionContext) {
         return runQueryAndChartCommand(context);
     });
 
+    const runQueryWebviewCmd = vscode.commands.registerCommand('sumologic.runQueryWebview', () => {
+        return runQueryWebviewCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -198,7 +203,8 @@ export function activate(context: vscode.ExtensionContext) {
         getPersonalFolderCmd,
         getFolderCmd,
         chartCSVCmd,
-        runQueryAndChartCmd
+        runQueryAndChartCmd,
+        runQueryWebviewCmd
     );
 }
 

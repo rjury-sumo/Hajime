@@ -198,7 +198,7 @@ function formatResultsAsJSON(results: any[]): string {
 /**
  * Format records as HTML for webview display with sorting, filtering, and pagination
  */
-function formatRecordsAsHTML(records: any[], queryInfo: { query: string; from: string; to: string; mode: string; count: number; pageSize: number }): string {
+export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; from: string; to: string; mode: string; count: number; pageSize: number }): string {
     if (records.length === 0) {
         return '<p>No results found</p>';
     }

@@ -62,14 +62,8 @@ function generateTimeseriesChart(headers: string[], data: any[]): string {
     const timesliceIndex = headers.indexOf('_timeslice');
     const valueColumns = headers.filter((h, idx) => idx !== timesliceIndex);
 
-    // Prepare series data
-    const series = valueColumns.map(col => ({
-        name: col,
-        type: 'line',
-        data: data.map(row => [row._timeslice, row[col]])
-    }));
-
-    const seriesConfig = JSON.stringify(series);
+    const valueColumnsConfig = JSON.stringify(valueColumns);
+    const dataConfig = JSON.stringify(data);
 
     return `
 <!DOCTYPE html>
@@ -109,10 +103,31 @@ function generateTimeseriesChart(headers: string[], data: any[]): string {
         .toolbar button:hover {
             background-color: var(--vscode-button-hoverBackground);
         }
+        .toolbar select {
+            padding: 4px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
     <div class="toolbar">
+        <label>Chart Type: </label>
+        <select id="chartType" onchange="updateChart()">
+            <option value="line">Line Chart</option>
+            <option value="bar">Bar Chart</option>
+        </select>
+        <label style="margin-left: 15px;">
+            <input type="checkbox" id="stackSeries" onchange="updateChart()">
+            Stack Series
+        </label>
+        <label style="margin-left: 15px;">
+            <input type="checkbox" id="areaStyle" onchange="updateChart()">
+            Area Fill
+        </label>
         <button onclick="chart.dispatchAction({type: 'restore'})">Reset Zoom</button>
         <button onclick="downloadChart()">Download PNG</button>
     </div>
@@ -122,73 +137,106 @@ function generateTimeseriesChart(headers: string[], data: any[]): string {
         const chartDom = document.getElementById('chart');
         const chart = echarts.init(chartDom, 'dark');
 
-        const option = {
-            title: {
-                text: 'Time Series Data',
-                textStyle: {
-                    color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
+        const valueColumns = ${valueColumnsConfig};
+        const allData = ${dataConfig};
+
+        function getOption() {
+            const chartType = document.getElementById('chartType').value;
+            const stackEnabled = document.getElementById('stackSeries').checked;
+            const areaEnabled = document.getElementById('areaStyle').checked;
+
+            // Prepare series data
+            const series = valueColumns.map(col => {
+                const s = {
+                    name: col,
+                    type: chartType,
+                    data: allData.map(row => [row._timeslice, row[col]])
+                };
+
+                if (stackEnabled) {
+                    s.stack = 'total';
                 }
-            },
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: {
-                    type: 'cross'
+
+                if (areaEnabled && chartType === 'line') {
+                    s.areaStyle = {};
                 }
-            },
-            legend: {
-                data: ${JSON.stringify(valueColumns)},
-                textStyle: {
-                    color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
-                }
-            },
-            grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '3%',
-                containLabel: true
-            },
-            toolbox: {
-                feature: {
-                    dataZoom: {
-                        yAxisIndex: 'none'
-                    },
-                    restore: {},
-                    saveAsImage: {}
-                },
-                iconStyle: {
-                    borderColor: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
-                }
-            },
-            xAxis: {
-                type: 'time',
-                axisLabel: {
-                    color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
-                }
-            },
-            yAxis: {
-                type: 'value',
-                axisLabel: {
-                    color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
-                }
-            },
-            dataZoom: [
-                {
-                    type: 'inside',
-                    start: 0,
-                    end: 100
-                },
-                {
-                    start: 0,
-                    end: 100,
+
+                return s;
+            });
+
+            return {
+                title: {
+                    text: 'Time Series Data',
                     textStyle: {
                         color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
                     }
-                }
-            ],
-            series: ${seriesConfig}
-        };
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    }
+                },
+                legend: {
+                    data: valueColumns,
+                    textStyle: {
+                        color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                toolbox: {
+                    feature: {
+                        dataZoom: {
+                            yAxisIndex: 'none'
+                        },
+                        restore: {},
+                        saveAsImage: {}
+                    },
+                    iconStyle: {
+                        borderColor: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
+                    }
+                },
+                xAxis: {
+                    type: 'time',
+                    axisLabel: {
+                        color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
+                    }
+                },
+                dataZoom: [
+                    {
+                        type: 'inside',
+                        start: 0,
+                        end: 100
+                    },
+                    {
+                        start: 0,
+                        end: 100,
+                        textStyle: {
+                            color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
+                        }
+                    }
+                ],
+                series: series
+            };
+        }
 
-        chart.setOption(option);
+        function updateChart() {
+            chart.setOption(getOption(), true);
+        }
+
+        // Initial render
+        updateChart();
 
         // Resize chart on window resize
         window.addEventListener('resize', () => {
@@ -290,6 +338,10 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
             <option value="line">Line Chart</option>
             <option value="pie">Pie Chart</option>
         </select>
+        <label style="margin-left: 15px;">
+            <input type="checkbox" id="stackSeries" onchange="updateChart()">
+            Stack Series
+        </label>
         <button onclick="downloadChart()">Download PNG</button>
     </div>
     <div id="chart"></div>
@@ -317,6 +369,7 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
         function getOption() {
             const chartType = document.getElementById('chartType').value;
             const xAxisColumn = document.getElementById('xAxisColumn').value;
+            const stackEnabled = document.getElementById('stackSeries').checked;
 
             // Get value columns (all columns except the x-axis)
             const valueColumns = allHeaders.filter(h => h !== xAxisColumn);
@@ -325,11 +378,20 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
             const categories = allData.map(row => String(row[xAxisColumn]));
 
             // Prepare series data
-            const seriesData = valueColumns.map(col => ({
-                name: col,
-                type: chartType === 'pie' ? 'pie' : chartType,
-                data: allData.map(row => row[col])
-            }));
+            const seriesData = valueColumns.map(col => {
+                const series = {
+                    name: col,
+                    type: chartType === 'pie' ? 'pie' : chartType,
+                    data: allData.map(row => row[col])
+                };
+
+                // Add stack property if enabled and not pie chart
+                if (stackEnabled && chartType !== 'pie') {
+                    series.stack = 'total';
+                }
+
+                return series;
+            });
 
             const baseOption = {
                 title: {

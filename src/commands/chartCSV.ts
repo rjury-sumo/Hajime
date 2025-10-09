@@ -300,9 +300,37 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
 
         const allHeaders = ${headersConfig};
         const allData = ${dataConfig};
-        let currentCategoryColumn = '${defaultCategoryColumn}';
+        const defaultCategoryColumn = '${defaultCategoryColumn}';
 
-        function getOption(chartType) {
+        // Populate X-axis dropdown
+        const xAxisSelect = document.getElementById('xAxisColumn');
+        allHeaders.forEach(header => {
+            const option = document.createElement('option');
+            option.value = header;
+            option.textContent = header;
+            if (header === defaultCategoryColumn) {
+                option.selected = true;
+            }
+            xAxisSelect.appendChild(option);
+        });
+
+        function getOption() {
+            const chartType = document.getElementById('chartType').value;
+            const xAxisColumn = document.getElementById('xAxisColumn').value;
+
+            // Get value columns (all columns except the x-axis)
+            const valueColumns = allHeaders.filter(h => h !== xAxisColumn);
+
+            // Get categories from selected column
+            const categories = allData.map(row => String(row[xAxisColumn]));
+
+            // Prepare series data
+            const seriesData = valueColumns.map(col => ({
+                name: col,
+                type: chartType === 'pie' ? 'pie' : chartType,
+                data: allData.map(row => row[col])
+            }));
+
             const baseOption = {
                 title: {
                     text: 'Categorical Data',
@@ -317,7 +345,7 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
                     }
                 },
                 legend: {
-                    data: ${JSON.stringify(valueColumns)},
+                    data: valueColumns,
                     textStyle: {
                         color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
                     }
@@ -376,20 +404,17 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
                             color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
                         }
                     },
-                    series: seriesData.map(s => ({
-                        ...s,
-                        type: chartType
-                    }))
+                    series: seriesData
                 };
             }
         }
 
-        chart.setOption(getOption('bar'));
-
-        function changeChartType() {
-            const chartType = document.getElementById('chartType').value;
-            chart.setOption(getOption(chartType), true);
+        function updateChart() {
+            chart.setOption(getOption(), true);
         }
+
+        // Initial render
+        updateChart();
 
         // Resize chart on window resize
         window.addEventListener('resize', () => {

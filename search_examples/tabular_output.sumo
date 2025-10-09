@@ -1,0 +1,9 @@
+// @mode records
+// @output csv
+// @from -24h
+// @to now
+// @timezone UTC
+_sourceCategory = * 
+| timeslice 15m
+| sum(_size) as bytes by _sourceCategory | sort _sourcecategory asc  
+

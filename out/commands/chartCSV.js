@@ -217,18 +217,19 @@ function generateTimeseriesChart(headers, data) {
  * Generate ECharts HTML for categorical data (bar chart)
  */
 function generateCategoricalChart(headers, data) {
-    // Assume first column is category, rest are values
-    const categoryColumn = headers[0];
-    const valueColumns = headers.slice(1);
-    // Prepare series data
-    const categories = data.map(row => row[categoryColumn]);
-    const series = valueColumns.map(col => ({
-        name: col,
-        type: 'bar',
-        data: data.map(row => row[col])
-    }));
-    const seriesConfig = JSON.stringify(series);
-    const categoriesConfig = JSON.stringify(categories);
+    // Default: use last string column as category, or last column if all numeric
+    let defaultCategoryColumn = headers[headers.length - 1];
+    // Try to find a good string column for categories (prefer non-numeric columns)
+    for (let i = headers.length - 1; i >= 0; i--) {
+        const col = headers[i];
+        const firstValue = data[0][col];
+        if (typeof firstValue === 'string' || isNaN(Number(firstValue))) {
+            defaultCategoryColumn = col;
+            break;
+        }
+    }
+    const headersConfig = JSON.stringify(headers);
+    const dataConfig = JSON.stringify(data);
     return `
 <!DOCTYPE html>
 <html>
@@ -279,8 +280,11 @@ function generateCategoricalChart(headers, data) {
 </head>
 <body>
     <div class="toolbar">
-        <label>Chart Type: </label>
-        <select id="chartType" onchange="changeChartType()">
+        <label>X-Axis: </label>
+        <select id="xAxisColumn" onchange="updateChart()">
+        </select>
+        <label style="margin-left: 15px;">Chart Type: </label>
+        <select id="chartType" onchange="updateChart()">
             <option value="bar">Bar Chart</option>
             <option value="line">Line Chart</option>
             <option value="pie">Pie Chart</option>
@@ -293,10 +297,39 @@ function generateCategoricalChart(headers, data) {
         const chartDom = document.getElementById('chart');
         const chart = echarts.init(chartDom, 'dark');
 
-        const categories = ${categoriesConfig};
-        const seriesData = ${seriesConfig};
+        const allHeaders = ${headersConfig};
+        const allData = ${dataConfig};
+        const defaultCategoryColumn = '${defaultCategoryColumn}';
 
-        function getOption(chartType) {
+        // Populate X-axis dropdown
+        const xAxisSelect = document.getElementById('xAxisColumn');
+        allHeaders.forEach(header => {
+            const option = document.createElement('option');
+            option.value = header;
+            option.textContent = header;
+            if (header === defaultCategoryColumn) {
+                option.selected = true;
+            }
+            xAxisSelect.appendChild(option);
+        });
+
+        function getOption() {
+            const chartType = document.getElementById('chartType').value;
+            const xAxisColumn = document.getElementById('xAxisColumn').value;
+
+            // Get value columns (all columns except the x-axis)
+            const valueColumns = allHeaders.filter(h => h !== xAxisColumn);
+
+            // Get categories from selected column
+            const categories = allData.map(row => String(row[xAxisColumn]));
+
+            // Prepare series data
+            const seriesData = valueColumns.map(col => ({
+                name: col,
+                type: chartType === 'pie' ? 'pie' : chartType,
+                data: allData.map(row => row[col])
+            }));
+
             const baseOption = {
                 title: {
                     text: 'Categorical Data',
@@ -311,7 +344,7 @@ function generateCategoricalChart(headers, data) {
                     }
                 },
                 legend: {
-                    data: ${JSON.stringify(valueColumns)},
+                    data: valueColumns,
                     textStyle: {
                         color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
                     }
@@ -370,20 +403,17 @@ function generateCategoricalChart(headers, data) {
                             color: getComputedStyle(document.body).getPropertyValue('--vscode-foreground')
                         }
                     },
-                    series: seriesData.map(s => ({
-                        ...s,
-                        type: chartType
-                    }))
+                    series: seriesData
                 };
             }
         }
 
-        chart.setOption(getOption('bar'));
-
-        function changeChartType() {
-            const chartType = document.getElementById('chartType').value;
-            chart.setOption(getOption(chartType), true);
+        function updateChart() {
+            chart.setOption(getOption(), true);
         }
+
+        // Initial render
+        updateChart();
 
         // Resize chart on window resize
         window.addEventListener('resize', () => {

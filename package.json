@@ -108,12 +108,22 @@
                 "command": "sumologic.chartCSV",
                 "title": "Sumo Logic: Chart CSV Data",
                 "icon": "$(graph)"
+            },
+            {
+                "command": "sumologic.runQueryAndChart",
+                "title": "Sumo Logic: Run Query and Chart Results",
+                "icon": "$(graph-line)"
             }
         ],
         "menus": {
             "editor/title": [
                 {
                     "command": "sumologic.runQuery",
+                    "when": "resourceLangId == sumo",
+                    "group": "navigation"
+                },
+                {
+                    "command": "sumologic.runQueryAndChart",
                     "when": "resourceLangId == sumo",
                     "group": "navigation"
                 },

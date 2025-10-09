@@ -6,6 +6,7 @@ import { fetchPartitionsCommand } from './commands/partitions';
 import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
 import { getPersonalFolderCommand, getFolderCommand } from './commands/personalFolder';
 import { chartCSVCommand } from './commands/chartCSV';
+import { runQueryAndChartCommand } from './commands/runQueryAndChart';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -178,6 +179,10 @@ export function activate(context: vscode.ExtensionContext) {
         return chartCSVCommand(context, uri);
     });
 
+    const runQueryAndChartCmd = vscode.commands.registerCommand('sumologic.runQueryAndChart', () => {
+        return runQueryAndChartCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -192,7 +197,8 @@ export function activate(context: vscode.ExtensionContext) {
         clearAutocompleteCmd,
         getPersonalFolderCmd,
         getFolderCmd,
-        chartCSVCmd
+        chartCSVCmd,
+        runQueryAndChartCmd
     );
 }
 

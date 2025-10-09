@@ -118,6 +118,10 @@
                 "command": "sumologic.runQueryWebview",
                 "title": "Sumo Logic: Run Query in Webview",
                 "icon": "$(table)"
+            },
+            {
+                "command": "sumologic.cleanupOldFiles",
+                "title": "Sumo Logic: Cleanup Old Files"
             }
         ],
         "menus": {

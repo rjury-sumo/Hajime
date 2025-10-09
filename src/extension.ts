@@ -8,6 +8,7 @@ import { getPersonalFolderCommand, getFolderCommand } from './commands/personalF
 import { chartCSVCommand } from './commands/chartCSV';
 import { runQueryAndChartCommand } from './commands/runQueryAndChart';
 import { runQueryWebviewCommand } from './commands/runQueryWebview';
+import { cleanupOldFilesCommand } from './commands/cleanupOldFiles';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -204,6 +205,10 @@ export function activate(context: vscode.ExtensionContext) {
         return runQueryWebviewCommand(context);
     });
 
+    const cleanupOldFilesCmd = vscode.commands.registerCommand('sumologic.cleanupOldFiles', () => {
+        return cleanupOldFilesCommand(context);
+    });
+
     context.subscriptions.push(
         provider,
         createProfileCmd,
@@ -220,7 +225,8 @@ export function activate(context: vscode.ExtensionContext) {
         getFolderCmd,
         chartCSVCmd,
         runQueryAndChartCmd,
-        runQueryWebviewCmd
+        runQueryWebviewCmd,
+        cleanupOldFilesCmd
     );
 }
 

@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
+const os = require("os");
 const test_electron_1 = require("@vscode/test-electron");
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -18,8 +19,20 @@ function main() {
             const extensionDevelopmentPath = path.resolve(__dirname, '../../');
             // The path to test runner
             const extensionTestsPath = path.resolve(__dirname, './suite/index');
+            // Download and get the VS Code executable path
+            let vscodeExecutablePath = yield (0, test_electron_1.downloadAndUnzipVSCode)('stable');
+            // On macOS, we need to use the CLI script instead of Electron directly
+            if (os.platform() === 'darwin') {
+                const [cli] = (0, test_electron_1.resolveCliArgsFromVSCodeExecutablePath)(vscodeExecutablePath);
+                vscodeExecutablePath = cli;
+            }
             // Download VS Code, unzip it and run the integration test
-            yield (0, test_electron_1.runTests)({ extensionDevelopmentPath, extensionTestsPath });
+            yield (0, test_electron_1.runTests)({
+                vscodeExecutablePath,
+                extensionDevelopmentPath,
+                extensionTestsPath,
+                launchArgs: []
+            });
         }
         catch (err) {
             console.error('Failed to run tests:', err);

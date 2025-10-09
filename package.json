@@ -181,7 +181,10 @@
         "lint": "eslint \"src/**/*.ts\"",
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile",
-        "test": "node ./out/test/runTest.js"
+        "test": "node ./out/test/runTest.js",
+        "test:unit": "npm test",
+        "test:integration": "SUMO_ACCESS_ID=$SUMO_ACCESS_ID SUMO_ACCESS_KEY=$SUMO_ACCESS_KEY npm test",
+        "test:all": "npm run test:unit && npm run test:integration"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",

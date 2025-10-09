@@ -6,7 +6,8 @@ export function run(): Promise<void> {
     // Create the mocha test
     const mocha = new Mocha({
         ui: 'tdd',
-        color: true
+        color: true,
+        reporter: 'spec' // Use spec reporter for detailed output
     });
 
     const testsRoot = path.resolve(__dirname, '..');
@@ -14,6 +15,8 @@ export function run(): Promise<void> {
     return new Promise((resolve, reject) => {
         // Find all test files
         const files = findTestFiles(testsRoot);
+
+        console.log(`Found ${files.length} test files`);
 
         // Add files to the test suite
         files.forEach((f: string) => mocha.addFile(f));

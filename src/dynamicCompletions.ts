@@ -68,33 +68,36 @@ export class DynamicCompletionProvider {
     private rebuildCompletionItems(): void {
         this.completionItems = [];
 
-        // Add discovered fields
+        // Add discovered fields (sort after metadata with 'bbb' prefix)
         this.discoveredFields.forEach(fieldName => {
             const item = new vscode.CompletionItem(fieldName, vscode.CompletionItemKind.Field);
             item.detail = 'Field from query results';
             item.documentation = new vscode.MarkdownString(
                 `Field discovered from query execution (profile: ${this.currentProfile}).`
             );
+            item.sortText = `bbb_${fieldName}`; // After metadata (aaa), before custom fields
             this.completionItems.push(item);
         });
 
-        // Add custom fields
+        // Add custom fields (sort after discovered fields with 'ccc' prefix)
         this.customFields.forEach(fieldName => {
             const item = new vscode.CompletionItem(fieldName, vscode.CompletionItemKind.Field);
             item.detail = 'Custom field (from API)';
             item.documentation = new vscode.MarkdownString(
                 `Custom field from Sumo Logic organization (profile: ${this.currentProfile}).`
             );
+            item.sortText = `ccc_${fieldName}`; // After discovered fields
             this.completionItems.push(item);
         });
 
-        // Add partitions
+        // Add partitions (sort with custom fields using 'ccc' prefix)
         this.partitions.forEach(partitionName => {
             const item = new vscode.CompletionItem(partitionName, vscode.CompletionItemKind.Value);
             item.detail = 'Partition (for _index or _view)';
             item.documentation = new vscode.MarkdownString(
                 `Partition from Sumo Logic (profile: ${this.currentProfile}).\n\nUse with \`_index=${partitionName}\` or \`_view=${partitionName}\``
             );
+            item.sortText = `ccc_${partitionName}`; // Sort with custom fields
             this.completionItems.push(item);
         });
     }

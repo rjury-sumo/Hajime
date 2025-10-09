@@ -44,11 +44,12 @@ export class ParserCompletionProvider {
                     `**App**: ${parserSnippet.app || 'General'}\n\n\`\`\`sumo\n${preview}\n\`\`\``
                 );
 
-                // Use filterText to enable searching by app name or parser content
+                // Require "parser" prefix for filtering to prevent accidental matches
                 item.filterText = `parser ${parserSnippet.app} ${parserSnippet.parser}`;
 
-                // Sort by app name, then parser length (shorter first)
-                item.sortText = `${parserSnippet.app || 'zzz'}_${String(parserSnippet.parser.length).padStart(10, '0')}`;
+                // Sort after built-in language items by using 'zzz' prefix
+                // This ensures parser snippets appear after keywords, functions, etc.
+                item.sortText = `zzz_parser_${parserSnippet.app || 'zzz'}_${String(parserSnippet.parser.length).padStart(10, '0')}`;
 
                 return item;
             });
@@ -75,9 +76,34 @@ export class ParserCompletionProvider {
     }
 
     /**
-     * Get all parser completion items
+     * Get all parser completion items with proper range to replace "parser" prefix
      */
-    getCompletionItems(): vscode.CompletionItem[] {
+    getCompletionItems(document?: vscode.TextDocument, position?: vscode.Position): vscode.CompletionItem[] {
+        // If document and position are provided, set range to replace "parser" word
+        if (document && position) {
+            const linePrefix = document.lineAt(position).text.substring(0, position.character);
+            const match = linePrefix.match(/\bparser\b/i);
+
+            if (match && match.index !== undefined) {
+                // Found "parser" word - create range to replace it
+                const startPos = new vscode.Position(position.line, match.index);
+                const endPos = position;
+                const range = new vscode.Range(startPos, endPos);
+
+                // Clone completion items with the range set
+                return this.completionItems.map(item => {
+                    const newItem = new vscode.CompletionItem(item.label, item.kind);
+                    newItem.insertText = item.insertText;
+                    newItem.detail = item.detail;
+                    newItem.documentation = item.documentation;
+                    newItem.filterText = item.filterText;
+                    newItem.sortText = item.sortText;
+                    newItem.range = range; // Replace "parser" with the snippet
+                    return newItem;
+                });
+            }
+        }
+
         return this.completionItems;
     }
 

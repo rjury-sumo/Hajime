@@ -60,10 +60,11 @@ function createCompletionItems(): vscode.CompletionItem[] {
         completionItems.push(completionItem);
     });
 
-    // Add metadata fields
+    // Add metadata fields with highest priority (aaa prefix)
     metadata.forEach(item => {
         const completionItem = new vscode.CompletionItem(item, vscode.CompletionItemKind.Field);
         completionItem.detail = 'Metadata field';
+        completionItem.sortText = `aaa_${item}`; // Ensure metadata appears first
         completionItems.push(completionItem);
     });
 
@@ -114,10 +115,25 @@ export function activate(context: vscode.ExtensionContext) {
     // Combined completion provider that returns both static and dynamic items
     const provider = vscode.languages.registerCompletionItemProvider('sumo', {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext) {
-            // Combine static items with dynamically discovered fields and parser snippets
+            // Get the text before the cursor to check if user is typing "parser"
+            const linePrefix = document.lineAt(position).text.substring(0, position.character);
+            const words = linePrefix.trim().toLowerCase().split(/\s+/);
+            const lastWord = words[words.length - 1];
+
+            // Only include parser snippets if user has typed "parser"
+            const includeParserSnippets = lastWord.startsWith('parser') || words.includes('parser');
+
+            // Combine static items with dynamically discovered fields
             const dynamicItems = dynamicCompletionProvider.getCompletionItems();
-            const parserItems = parserCompletionProvider.getCompletionItems();
-            return [...staticCompletionItems, ...dynamicItems, ...parserItems];
+            const items = [...staticCompletionItems, ...dynamicItems];
+
+            // Add parser snippets only if user typed "parser"
+            if (includeParserSnippets) {
+                const parserItems = parserCompletionProvider.getCompletionItems(document, position);
+                items.push(...parserItems);
+            }
+
+            return items;
         }
     });
 

@@ -1,8 +1,62 @@
 # Sumo Logic Query Language Support
 
-A Visual Studio Code extension providing language support for Sumo Logic search queries.
+A comprehensive Visual Studio Code extension that provides a complete IDE experience for working with Sumo Logic. Write, execute, and visualize queries, manage multiple deployment connections, and interact with Sumo Logic APIs - all from within VS Code.
 
-## Features
+## Overview
+
+**Hajime** transforms VS Code into a powerful development environment for Sumo Logic, offering:
+
+### 🎯 IDE Experience for Query Development
+Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
+- **4500+ Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.)
+- **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
+- **Context-Aware Suggestions** - metadata field values suggested as you type (e.g., `_sourceCategory=` shows your actual categories)
+- **Syntax Highlighting** with full support for operators, functions, comments, and regex patterns
+- **Smart Snippets** for common query patterns
+
+### 🔌 Multi-Profile Connection Management
+Connect to multiple Sumo Logic deployments and easily switch between them:
+- **Secure Credential Storage** using VS Code's secret storage
+- **Multiple Profiles** - Production, Development, Customer environments, etc.
+- **Quick Profile Switching** from the status bar
+- **Per-Profile Data** - autocomplete suggestions, query history, and outputs organized by profile
+- **API Integration** - execute queries, fetch metadata, manage collectors, explore content library
+
+### 📊 Query Execution with Multiple Output Formats
+Execute queries directly from VS Code with flexible output options:
+- **Traditional Output** - formatted tables, JSON, or CSV files
+- **Interactive Webview** - paginated, sortable, filterable table for exploring large result sets
+- **Auto-Charting** - automatic visualization with Apache ECharts (line, bar, pie, scatter charts)
+- **Query Metadata Directives** - control time range, timezone, output format via comments in your query
+- **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries
+
+### 📈 Advanced Data Visualization
+Visualize query results and data files with interactive charts:
+- **Automatic Chart Selection** - chooses appropriate chart type based on your data
+- **Time-Series Charts** - line and area charts for timeslice queries
+- **Category Charts** - bar and pie charts for aggregations
+- **CSV Charting** - visualize any CSV file with the built-in chart engine
+- **Apache ECharts Integration** - professional, interactive charts with zoom, pan, and export
+
+### 🔧 API Integration & Metadata Management
+Fetch and manage configuration from your Sumo Logic deployment:
+- **Collectors & Sources** - list, inspect, and export collector/source configurations
+- **Custom Fields** - fetch field schemas for accurate autocomplete
+- **Partitions** - retrieve partition definitions for `_index` and `_view` usage
+- **Content Library** - browse folders and saved content
+- **Metadata Caching** - cache common field values for faster autocomplete
+
+## Quick Start
+
+1. **Install the Extension** - Search for "Sumo Logic Query Language" in VS Code extensions
+2. **Create a Profile** - Run `Sumo Logic: Create/Update Connection Profile` from command palette
+3. **Create a Query** - Create a new file with `.sumo` extension or run `Sumo Logic: New Query File`
+4. **Write Your Query** - Use autocomplete (`Ctrl+Space`) to discover operators, functions, and parsers
+5. **Execute** - Click the ▶️ button in the toolbar or run `Sumo Logic: Run Query`
+
+## Detailed Features
+
+### Language Support
 
 - **Syntax Highlighting**: Full syntax highlighting for Sumo Logic query language including:
   - Keywords and operators (`and`, `or`, `not`, `in`)
@@ -18,90 +72,137 @@ A Visual Studio Code extension providing language support for Sumo Logic search 
   - Dynamic fields from query results
   - Custom fields from API
   - Partition names for _index and _view
+  - Metadata field values (context-aware)
   - Categorized suggestions (functions, fields, operators, snippets)
-
-- **Snippets**: Pre-built code snippets for common patterns:
-  - `parse regex` - Parse regex capture expression
-  - `transpose` - Timeslice and transpose for multiple series
-  - `count` - Count by field with sort
 
 - **Language Configuration**:
   - Auto-closing brackets, quotes, and parentheses
   - Comment toggling support
   - Smart bracket matching
 
-## Usage
+## Usage Guide
 
-### Basic Query Editing
+### Writing Queries
 
-1. Create or open a file with `.sumo` extension
-2. Start writing your Sumo Logic queries
-3. Use `Ctrl+Space` (Windows/Linux) or `Cmd+Space` (macOS) to trigger autocomplete
-4. Type `//` for single-line comments or `/* */` for block comments
+1. **Create a Query File**:
+   - Create a file with `.sumo` extension, or
+   - Run `Sumo Logic: New Query File` for a template with metadata directives
 
-#### Parser Snippets
+2. **Use Autocomplete**:
+   - Press `Ctrl+Space` (Windows/Linux) or `Cmd+Space` (macOS) to trigger suggestions
+   - Type `parser` to see 4500+ parser snippets from Sumo Logic apps
+   - Filter by app name (e.g., `AWS`, `Azure`, `Apache`, etc.)
+   - After `=` in metadata fields, see cached values from your environment
 
-The extension includes 4500+ parser snippets from Sumo Logic apps:
+3. **Add Query Metadata** (optional):
+   ```sumo
+   // @from -7d
+   // @to now
+   // @timezone UTC
+   // @mode records
+   // @output table
 
-- Type `parser` to see all available parser snippets
-- Filter by app name (e.g., type `1Password`, `AWS`, `Apache`, etc.)
-- Snippets are labeled with their app name and operation type
-- Preview the full parser code in the autocomplete documentation
+   _sourceCategory=prod/application error
+   | count by _sourceHost
+   ```
 
-### API Integration (Query Execution)
+### Executing Queries
 
-#### Available Commands
+There are three ways to execute queries, each with different visualization options:
+
+#### 1. Standard Query Execution
+**Command**: `Sumo Logic: Run Query` (toolbar ▶️ button)
+
+Outputs results in your choice of format:
+- **Table** - Formatted text table (default)
+- **JSON** - Raw JSON response
+- **CSV** - Comma-separated values (aggregated queries only)
+
+Specify format using `// @output table|json|csv` directive in your query.
+
+#### 2. Interactive Webview Table
+**Command**: `Sumo Logic: Run Query in Webview` (toolbar 📋 button)
+
+Displays results in an interactive table with:
+- **Pagination** - configurable page size
+- **Sorting** - click column headers to sort
+- **Filtering** - search across all columns
+- **Export** - copy or download data
+
+Perfect for exploring large result sets (thousands of rows).
+
+#### 3. Auto-Charting
+**Command**: `Sumo Logic: Run Query and Chart Results` (toolbar 📈 button)
+
+Automatically generates interactive charts from your query results:
+- **Time-Series** - Line/area charts for timeslice queries
+- **Category Data** - Bar/pie charts for aggregations
+- **Interactive** - Zoom, pan, export via Apache ECharts
+
+Also works on CSV files: Right-click any `.csv` file → `Sumo Logic: Chart CSV Data`
+
+### Managing Connections
+
+**Connection profiles** let you work with multiple Sumo Logic deployments:
+
+1. **Create a Profile**:
+   - Run `Sumo Logic: Create/Update Connection Profile`
+   - Enter profile name (e.g., `Production`, `Dev`, `Customer-ABC`)
+   - Select region (us1, us2, eu, au, de, jp, ca, in) or enter custom endpoint
+   - Enter Access ID and Access Key (stored securely)
+
+2. **Switch Profiles**:
+   - Click the profile name in the status bar (bottom-right), or
+   - Run `Sumo Logic: Switch Profile`
+   - All queries and API calls use the active profile
+
+3. **Manage Profiles**:
+   - `Sumo Logic: List Profiles` - View all configured profiles
+   - `Sumo Logic: Test Connection` - Verify API connectivity
+   - `Sumo Logic: Delete Profile` - Remove a profile and its credentials
+
+**Profile Features**:
+- 🔐 Credentials stored securely in VS Code's secret storage
+- 💾 Per-profile autocomplete data (fields, partitions, metadata values)
+- 📁 Organized output: `output/<profile>/queries/`, `collectors/`, etc.
+- 🔄 Quick switching without re-entering credentials
+
+### Fetching Metadata & Configuration
+
+Enhance autocomplete and export configuration from your Sumo Logic deployment:
+
+| Command | What It Does | Output Location |
+|---------|--------------|-----------------|
+| **Fetch Custom Fields for Autocomplete** | Retrieves custom field definitions from your org | Adds to autocomplete + `output/<profile>/customfields/` |
+| **Fetch Partitions for Autocomplete** | Retrieves partition list and routing expressions | Adds to autocomplete + `output/<profile>/partitions/` |
+| **Fetch Collectors** | Lists all collectors with health stats (alive/dead, by type) | `output/<profile>/collectors/` (table format) |
+| **Get Collector by ID** | Gets detailed configuration for a specific collector | `output/<profile>/collectors/` (JSON) |
+| **Get Sources for Collector** | Lists all sources for a collector with health info | `output/<profile>/collectors/` (JSON) |
+| **Cache Key Metadata** | Analyzes query results to cache common field values | Adds to autocomplete cache |
+| **Get Personal Folder** | Shows your personal folder contents | Opens in new tab |
+| **Get Folder by ID** | Shows any folder's contents and properties | Opens in new tab |
+
+All fetched data enhances autocomplete and is persisted per profile.
+
+### Utility Commands
 
 | Command | Description |
 |---------|-------------|
-| **Sumo Logic: Create/Update Connection Profile** | Create or update a connection profile with Access ID, Access Key, and region. Credentials are stored securely per profile. |
-| **Sumo Logic: Switch Profile** | Switch between configured connection profiles. Active profile is shown in the status bar. |
-| **Sumo Logic: List Profiles** | Display all configured connection profiles. |
-| **Sumo Logic: Delete Profile** | Remove a connection profile and its credentials. |
-| **Sumo Logic: Test Connection** | Verify the active profile's API connectivity. |
-| **Sumo Logic: Run Query** | Execute the current `.sumo` file as a search job and display results in a new window. Supports metadata directives:<br/>• `// @from -7d` - Set query start time (relative or absolute)<br/>• `// @to now` - Set query end time (relative or absolute)<br/>• `// @timezone UTC` - Set timezone for query execution<br/>• `// @mode records` - Returns aggregated query results (default)<br/>• `// @mode messages` - Returns raw log messages for non-aggregated queries<br/>• `// @output table` - Output format: table (default), json, or csv<br/>Auto-detects aggregation and prompts if ambiguous. Supports multiple output formats:<br/>• **Table** - Formatted table view (default)<br/>• **JSON** - JSON format<br/>• **CSV** - CSV format (records only)<br/>Query results contribute to session autocomplete. |
-| **Sumo Logic: Fetch Custom Fields for Autocomplete** | Fetch organization custom fields from API and add to autocomplete. Displays fields in a formatted table. Data is persisted per profile. Requires "Manage fields" permission. |
-| **Sumo Logic: Fetch Partitions for Autocomplete** | Fetch partitions list from API, display as formatted table, and cache partition names for `_index` and `_view` autocomplete. Data is persisted per profile. Requires "View Partitions" permission. |
-| **Sumo Logic: Fetch Collectors** | Fetch all collectors with automatic pagination (handles >1000 collectors). Displays formatted table with statistics (total, alive/dead, by type). Saves to `output/<profile>/collectors/`. Requires "Manage or View Collectors" capability. |
-| **Sumo Logic: Get Collector by ID** | Fetch details for a specific collector by ID. Prompts for collector ID and saves full collector configuration as JSON to `output/<profile>/collectors/`. Requires "Manage or View Collectors" capability. |
-| **Sumo Logic: Get Sources for Collector** | Fetch all sources for a specific collector with automatic pagination. Prompts for collector ID and saves sources array as JSON to `output/<profile>/collectors/`. Shows alive/dead source counts. Requires "Manage or View Collectors" capability. |
-| **Sumo Logic: View Autocomplete Data** | View all autocomplete data (discovered fields, custom fields, partitions) for the active profile. Shows what's stored and will be available in autocomplete. |
-| **Sumo Logic: Clear Autocomplete Data** | Clear all autocomplete data for the active profile. Useful if you want to start fresh. |
-| **Sumo Logic: Get Personal Folder** | Fetch and display the user's personal folder from Sumo Logic. Shows folder properties (ID, name, description, dates) and lists all content items in a table. The Personal Folder ID is important as it's the default location for saved content. |
-| **Sumo Logic: Get Folder by ID** | Fetch and display any folder by ID. Prompts for folder ID, then shows folder properties and contents in the same format as Personal Folder. Useful for exploring the content library. |
-| **Sumo Logic: Run Query in Webview** | Execute query and display results in an interactive webview table with pagination, sorting, and filtering. Supports both records and messages mode. |
-| **Sumo Logic: Run Query and Chart Results** | Execute query and automatically generate interactive charts (line, bar, pie, scatter) based on the query results. Best for time-series and aggregated data. |
-| **Sumo Logic: Chart CSV Data** | Create interactive charts from any CSV file. Right-click a CSV file or use the command palette to visualize data with ECharts. |
-| **Sumo Logic: Cleanup Old Files** | Remove old query result files from the output directory. Prompts for the number of days to keep. Helps manage disk space when running many queries. |
-| **Sumo Logic: Cache Key Metadata** | Cache metadata field values (_sourceCategory, _collector, etc.) for autocomplete. Analyzes recent query results to suggest common field values. |
-| **Sumo Logic: New Query File** | Create a new `.sumo` query file with a template including common metadata directives. Quick way to start writing a new query. |
+| **New Query File** | Create a `.sumo` file with template and metadata directives |
+| **Cleanup Old Files** | Remove old query results (by age) to manage disk space |
+| **View Autocomplete Data** | Inspect what's cached for autocomplete in active profile |
+| **Clear Autocomplete Data** | Clear all autocomplete cache for active profile |
 
-#### Multi-Profile Support
+## Example Workflows
 
-Work with multiple Sumo Logic organizations using connection profiles:
-
-1. **Create a Profile**: Run `Sumo Logic: Create/Update Connection Profile`
-   - Enter profile name (e.g., `Production`, `Development`, `Customer-ABC`)
-   - Select deployment region (us1, us2, eu, au, de, jp, ca, in)
-   - Enter Access ID and Access Key
-
-2. **Switch Profiles**: Click the profile name in the status bar (bottom-right) or use `Sumo Logic: Switch Profile`
-
-3. **Run Queries**: Open a `.sumo` file and run `Sumo Logic: Run Query` - uses the active profile
-
-**Features:**
-- 📁 Multiple organization support
-- 🔄 Quick profile switching via status bar
-- 🔐 Secure credential storage per profile
-- ✅ Visual indicator showing active profile
-- 🔍 Dynamic autocomplete from query results, custom fields, and partitions
-- 💾 **Persistent autocomplete per profile** - autocomplete data is saved per profile and restored when switching
-
-See [MULTI-PROFILE-GUIDE.md](docs/MULTI-PROFILE-GUIDE.md) for detailed documentation.
-
-## Example
+### Workflow 1: Writing and Executing a Query
 
 ```sumo
+// Query metadata (optional)
+// @from -24h
+// @to now
+// @output table
+
 // Search for errors in production
 _sourceCategory=prod/application error
 | parse regex field=_raw "(?<error_type>\w+Error)"
@@ -109,27 +210,101 @@ _sourceCategory=prod/application error
 | sort _count desc
 ```
 
+1. Use autocomplete to discover operators and fields
+2. Click ▶️ to execute with table output
+3. Fields like `error_type` automatically added to autocomplete
+4. Try 📋 button for interactive table or 📈 for charts
+
+### Workflow 2: Exploring Time-Series Data
+
+```sumo
+// @from -7d
+// @to now
+
+_sourceCategory=metrics
+| timeslice 1h
+| count by _timeslice, host
+| transpose row _timeslice column host
+```
+
+1. Execute with `Run Query and Chart Results` command
+2. Get automatic line chart showing trends by host
+3. Interactive chart with zoom, pan, legend toggle
+4. Export chart as image if needed
+
+### Workflow 3: Managing Collectors
+
+1. Run `Fetch Collectors` to get overview with stats
+2. Note collector ID from the table
+3. Run `Get Collector by ID` to see full configuration (JSON)
+4. Run `Get Sources for Collector` to audit source setup
+5. JSON files saved to `output/<profile>/collectors/` for documentation
+
+## Configuration
+
+### Extension Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `sumologic.fileStoragePath` | `${workspaceFolder}/output` | Directory for output files. Supports `${workspaceFolder}` variable. |
+| `sumologic.webviewPageSize` | `100` | Number of rows per page in webview tables (10-10000) |
+
+The extension activates automatically when you open `.sumo` files.
+
+### Query Metadata Directives
+
+Control query execution with comment directives:
+
+```sumo
+// @from -7d              // Start time (relative: -1h, -7d or absolute: 2024-01-01T00:00:00)
+// @to now                // End time (relative or absolute)
+// @timezone UTC          // Timezone for query execution
+// @mode records          // Result type: records (aggregated) or messages (raw logs)
+// @output table          // Output format: table, json, or csv
+```
+
 ## Requirements
 
 - Visual Studio Code 1.74.0 or higher
-
-## Extension Settings
-
-This extension activates automatically when you open `.sumo` files. No additional configuration required.
+- Sumo Logic Access ID and Access Key (for API integration)
+- Appropriate permissions in Sumo Logic:
+  - Query execution: Basic user
+  - Custom fields: "Manage fields" capability
+  - Partitions: "View Partitions" capability
+  - Collectors: "Manage or View Collectors" capability
 
 ## Known Issues
 
-None at this time. Please report issues on the GitHub repository.
+None at this time. Please report issues on the [GitHub repository](https://github.com/yourusername/hajime).
+
+## Frequently Asked Questions
+
+**Q: Where are my credentials stored?**
+A: Credentials are stored securely in VS Code's Secret Storage API, not in plain text files.
+
+**Q: Can I use custom endpoints (not standard regions)?**
+A: Yes, when creating a profile, you can enter a custom endpoint URL instead of selecting a region.
+
+**Q: How do I see my query history?**
+A: Query results are saved to `output/<profile>/queries/` with timestamps in filenames.
+
+**Q: Can I share profiles across workspaces?**
+A: Profiles are stored globally in VS Code, so they're available in all workspaces. However, autocomplete data and output files are workspace-specific.
+
+**Q: What if I have more than 1000 collectors/sources?**
+A: The extension automatically handles pagination, fetching all items regardless of count.
 
 ## Release Notes
 
-### 0.0.3
+See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
-- Optimized completion provider performance
-- Added proper completion item categorization
-- Fixed syntax highlighting for comments
-- Improved extension activation (now activates only for .sumo files)
-- Added comprehensive documentation
+### Latest Updates
+
+- **Collector Management**: Full API integration for collectors and sources
+- **Advanced Charting**: Apache ECharts integration with auto-chart selection
+- **Interactive Webview**: Sortable, filterable tables for query results
+- **Metadata Autocomplete**: Context-aware suggestions for field values
+- **4500+ Parsers**: Comprehensive parser library from Sumo Logic apps
 
 ## Development
 

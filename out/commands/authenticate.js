@@ -218,10 +218,16 @@ function switchProfileCommand(context) {
         try {
             yield profileManager.setActiveProfile(selected.label);
             // Load autocomplete data for the new profile
-            const { getDynamicCompletionProvider } = yield Promise.resolve().then(() => require('../extension'));
+            const { getDynamicCompletionProvider, getMetadataCompletionProvider } = yield Promise.resolve().then(() => require('../extension'));
             const dynamicProvider = getDynamicCompletionProvider();
             if (dynamicProvider) {
                 yield dynamicProvider.loadProfileData(selected.label);
+            }
+            // Load metadata cache for the new profile
+            const metadataProvider = getMetadataCompletionProvider();
+            if (metadataProvider) {
+                const metadataDir = profileManager.getProfileMetadataDirectory(selected.label);
+                yield metadataProvider.loadMetadataCache(metadataDir, selected.label);
             }
             vscode.window.showInformationMessage(`Switched to profile '${selected.label}'`);
         }

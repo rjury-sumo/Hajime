@@ -236,10 +236,17 @@ export async function switchProfileCommand(context: vscode.ExtensionContext): Pr
         await profileManager.setActiveProfile(selected.label);
 
         // Load autocomplete data for the new profile
-        const { getDynamicCompletionProvider } = await import('../extension');
+        const { getDynamicCompletionProvider, getMetadataCompletionProvider } = await import('../extension');
         const dynamicProvider = getDynamicCompletionProvider();
         if (dynamicProvider) {
             await dynamicProvider.loadProfileData(selected.label);
+        }
+
+        // Load metadata cache for the new profile
+        const metadataProvider = getMetadataCompletionProvider();
+        if (metadataProvider) {
+            const metadataDir = profileManager.getProfileMetadataDirectory(selected.label);
+            await metadataProvider.loadMetadataCache(metadataDir, selected.label);
         }
 
         vscode.window.showInformationMessage(`Switched to profile '${selected.label}'`);

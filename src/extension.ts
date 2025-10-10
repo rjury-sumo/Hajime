@@ -124,6 +124,9 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize metadata completion provider
     metadataCompletionProvider = new MetadataCompletionProvider();
 
+    // Link the dynamic completion provider so metadata can access partitions
+    metadataCompletionProvider.setDynamicCompletionProvider(dynamicCompletionProvider);
+
     // Load metadata cache for active profile
     (async () => {
         const profileManager = await import('./profileManager');

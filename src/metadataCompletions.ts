@@ -12,6 +12,7 @@ interface MetadataFieldCache {
     _sourceHost: string[];
     _sourceName: string[];
     _index: string[];
+    _view: string[];
 }
 
 /**
@@ -25,13 +26,22 @@ export class MetadataCompletionProvider {
         _source: [],
         _sourceHost: [],
         _sourceName: [],
-        _index: []
+        _index: [],
+        _view: []
     };
 
     private metadataDir: string | null = null;
     private currentProfile: string | null = null;
+    private dynamicCompletionProvider: any = null;
 
     constructor() {}
+
+    /**
+     * Set the dynamic completion provider to access partition data
+     */
+    setDynamicCompletionProvider(provider: any): void {
+        this.dynamicCompletionProvider = provider;
+    }
 
     /**
      * Load metadata cache for a specific profile
@@ -75,7 +85,8 @@ export class MetadataCompletionProvider {
             _source: new Set<string>(merge ? this.cache._source : []),
             _sourceHost: new Set<string>(merge ? this.cache._sourceHost : []),
             _sourceName: new Set<string>(merge ? this.cache._sourceName : []),
-            _index: new Set<string>(merge ? this.cache._index : [])
+            _index: new Set<string>(merge ? this.cache._index : []),
+            _view: new Set<string>(merge ? this.cache._view : [])
         };
 
         // Process results - handle case-insensitive field names from API
@@ -123,7 +134,7 @@ export class MetadataCompletionProvider {
         const textBeforeCursor = line.substring(0, position.character);
 
         // Match: fieldname (0 or 1 space) = (anything after)
-        const fieldMatch = textBeforeCursor.match(/(_sourceCategory|_collector|_source|_sourceHost|_sourceName|_index)\s?=(.*)$/i);
+        const fieldMatch = textBeforeCursor.match(/(_sourceCategory|_collector|_source|_sourceHost|_sourceName|_index|_view)\s?=(.*)$/i);
 
         if (!fieldMatch) {
             return [];
@@ -138,7 +149,16 @@ export class MetadataCompletionProvider {
         else if (fieldLower === '_sourcename') field = '_sourceName';
         else field = fieldMatch[1] as keyof MetadataFieldCache;
 
-        const values = this.cache[field] || [];
+        let values = this.cache[field] || [];
+
+        // For _index and _view, also include partition names from dynamic provider
+        if ((field === '_index' || field === '_view') && this.dynamicCompletionProvider) {
+            const partitions = this.dynamicCompletionProvider.getPartitionNames() || [];
+            // Combine and deduplicate
+            const combined = new Set([...values, ...partitions]);
+            values = Array.from(combined).sort();
+        }
+
         if (values.length === 0) {
             return [];
         }
@@ -178,7 +198,8 @@ export class MetadataCompletionProvider {
             _source: [],
             _sourceHost: [],
             _sourceName: [],
-            _index: []
+            _index: [],
+            _view: []
         };
     }
 

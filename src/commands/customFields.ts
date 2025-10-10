@@ -78,9 +78,9 @@ export async function fetchCustomFieldsCommand(context: vscode.ExtensionContext)
         // Add to dynamic completion provider
         const dynamicProvider = getDynamicCompletionProvider();
         if (dynamicProvider) {
-            fieldNames.forEach(fieldName => {
-                dynamicProvider.addCustomField(fieldName);
-            });
+            for (const fieldName of fieldNames) {
+                await dynamicProvider.addCustomField(fieldName);
+            }
         }
 
         // Format as table

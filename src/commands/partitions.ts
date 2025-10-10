@@ -78,9 +78,9 @@ export async function fetchPartitionsCommand(context: vscode.ExtensionContext): 
         // Add to dynamic completion provider
         const dynamicProvider = getDynamicCompletionProvider();
         if (dynamicProvider) {
-            partitionNames.forEach(name => {
-                dynamicProvider.addPartition(name);
-            });
+            for (const name of partitionNames) {
+                await dynamicProvider.addPartition(name);
+            }
         }
 
         // Format as table

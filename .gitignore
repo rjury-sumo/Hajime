@@ -5,4 +5,5 @@ out/*
 output/*
 .vscode-test/*
 .vscode/launch.json
-.claude/*out/*
+.claude/*
+out/*

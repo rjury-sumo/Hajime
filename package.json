@@ -126,6 +126,10 @@
             {
                 "command": "sumologic.cacheKeyMetadata",
                 "title": "Sumo Logic: Cache Key Metadata"
+            },
+            {
+                "command": "sumologic.newSumoFile",
+                "title": "Sumo Logic: New Query File"
             }
         ],
         "menus": {

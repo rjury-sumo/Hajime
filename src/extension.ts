@@ -10,6 +10,7 @@ import { runQueryAndChartCommand } from './commands/runQueryAndChart';
 import { runQueryWebviewCommand } from './commands/runQueryWebview';
 import { cleanupOldFilesCommand } from './commands/cleanupOldFiles';
 import { cacheKeyMetadataCommand } from './commands/cacheKeyMetadata';
+import { newSumoFileCommand } from './commands/newSumoFile';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -241,6 +242,10 @@ export function activate(context: vscode.ExtensionContext) {
         return cacheKeyMetadataCommand(context, metadataCompletionProvider);
     });
 
+    const newSumoFileCmd = vscode.commands.registerCommand('sumologic.newSumoFile', () => {
+        return newSumoFileCommand();
+    });
+
     context.subscriptions.push(
         metadataProvider,
         provider,
@@ -260,7 +265,8 @@ export function activate(context: vscode.ExtensionContext) {
         runQueryAndChartCmd,
         runQueryWebviewCmd,
         cleanupOldFilesCmd,
-        cacheKeyMetadataCmd
+        cacheKeyMetadataCmd,
+        newSumoFileCmd
     );
 
     // Export context for tests

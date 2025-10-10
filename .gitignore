@@ -6,4 +6,4 @@ out/extension.js.map
 output/*
 .vscode-test/*
 .vscode/launch.json
-.claude/*
+.claude/*out/*

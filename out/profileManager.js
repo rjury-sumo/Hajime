@@ -118,6 +118,12 @@ class ProfileManager {
         return path.join(this.getFileStoragePath(), profileName);
     }
     /**
+     * Get the metadata directory path for a specific profile
+     */
+    getProfileMetadataDirectory(profileName) {
+        return path.join(this.getProfileDirectory(profileName), 'metadata');
+    }
+    /**
      * Create directory for a profile
      */
     createProfileDirectory(profileName) {
@@ -126,6 +132,11 @@ class ProfileManager {
             // Create directory if it doesn't exist
             if (!fs.existsSync(profileDir)) {
                 fs.mkdirSync(profileDir, { recursive: true });
+            }
+            // Also create metadata subdirectory
+            const metadataDir = this.getProfileMetadataDirectory(profileName);
+            if (!fs.existsSync(metadataDir)) {
+                fs.mkdirSync(metadataDir, { recursive: true });
             }
         });
     }

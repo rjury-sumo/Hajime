@@ -9,16 +9,23 @@ import { chartCSVCommand } from './commands/chartCSV';
 import { runQueryAndChartCommand } from './commands/runQueryAndChart';
 import { runQueryWebviewCommand } from './commands/runQueryWebview';
 import { cleanupOldFilesCommand } from './commands/cleanupOldFiles';
+import { cacheKeyMetadataCommand } from './commands/cacheKeyMetadata';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
+import { MetadataCompletionProvider } from './metadataCompletions';
 
-// Global dynamic completion provider
+// Global completion providers
 let dynamicCompletionProvider: DynamicCompletionProvider;
 let parserCompletionProvider: ParserCompletionProvider;
+let metadataCompletionProvider: MetadataCompletionProvider;
 
 export function getDynamicCompletionProvider(): DynamicCompletionProvider {
     return dynamicCompletionProvider;
+}
+
+export function getMetadataCompletionProvider(): MetadataCompletionProvider {
+    return metadataCompletionProvider;
 }
 
 // Build completion items once at activation
@@ -112,6 +119,27 @@ export function activate(context: vscode.ExtensionContext) {
     parserCompletionProvider.loadParsers().then(() => {
         console.log(`Loaded ${parserCompletionProvider.getParserCount()} parser snippets from ${parserCompletionProvider.getAppNames().length} apps`);
     });
+
+    // Initialize metadata completion provider
+    metadataCompletionProvider = new MetadataCompletionProvider();
+
+    // Load metadata cache for active profile
+    (async () => {
+        const profileManager = await import('./profileManager');
+        const pm = new profileManager.ProfileManager(context);
+        const activeProfile = await pm.getActiveProfile();
+        if (activeProfile) {
+            const metadataDir = pm.getProfileMetadataDirectory(activeProfile.name);
+            await metadataCompletionProvider.loadMetadataCache(metadataDir, activeProfile.name);
+        }
+    })();
+
+    // Metadata completion provider - triggers on '='
+    const metadataProvider = vscode.languages.registerCompletionItemProvider('sumo', {
+        provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
+            return metadataCompletionProvider.provideCompletionItems(document, position);
+        }
+    }, '=');
 
     // Combined completion provider that returns both static and dynamic items
     const provider = vscode.languages.registerCompletionItemProvider('sumo', {
@@ -209,7 +237,12 @@ export function activate(context: vscode.ExtensionContext) {
         return cleanupOldFilesCommand(context);
     });
 
+    const cacheKeyMetadataCmd = vscode.commands.registerCommand('sumologic.cacheKeyMetadata', () => {
+        return cacheKeyMetadataCommand(context, metadataCompletionProvider);
+    });
+
     context.subscriptions.push(
+        metadataProvider,
         provider,
         createProfileCmd,
         switchProfileCmd,
@@ -226,14 +259,16 @@ export function activate(context: vscode.ExtensionContext) {
         chartCSVCmd,
         runQueryAndChartCmd,
         runQueryWebviewCmd,
-        cleanupOldFilesCmd
+        cleanupOldFilesCmd,
+        cacheKeyMetadataCmd
     );
 
     // Export context for tests
     return {
         context,
         dynamicCompletionProvider,
-        parserCompletionProvider
+        parserCompletionProvider,
+        metadataCompletionProvider
     };
 }
 

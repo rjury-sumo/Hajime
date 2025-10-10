@@ -5,3 +5,5 @@ out/extension.js.map
 .DS_Store
 output/*
 .vscode-test/*
+.vscode/launch.json
+.claude/*

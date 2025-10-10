@@ -122,6 +122,10 @@
             {
                 "command": "sumologic.cleanupOldFiles",
                 "title": "Sumo Logic: Cleanup Old Files"
+            },
+            {
+                "command": "sumologic.cacheKeyMetadata",
+                "title": "Sumo Logic: Cache Key Metadata"
             }
         ],
         "menus": {

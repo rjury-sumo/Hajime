@@ -119,6 +119,13 @@ export class ProfileManager {
     }
 
     /**
+     * Get the metadata directory path for a specific profile
+     */
+    getProfileMetadataDirectory(profileName: string): string {
+        return path.join(this.getProfileDirectory(profileName), 'metadata');
+    }
+
+    /**
      * Create directory for a profile
      */
     private async createProfileDirectory(profileName: string): Promise<void> {
@@ -127,6 +134,12 @@ export class ProfileManager {
         // Create directory if it doesn't exist
         if (!fs.existsSync(profileDir)) {
             fs.mkdirSync(profileDir, { recursive: true });
+        }
+
+        // Also create metadata subdirectory
+        const metadataDir = this.getProfileMetadataDirectory(profileName);
+        if (!fs.existsSync(metadataDir)) {
+            fs.mkdirSync(metadataDir, { recursive: true });
         }
     }
 

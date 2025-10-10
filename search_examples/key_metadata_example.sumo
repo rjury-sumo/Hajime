@@ -1,0 +1,32 @@
+// @mode records
+
+// scope
+// there are three probable scopes a user could use to scope the returned metadata, only one of these would be used
+// 1 '*' scope returns all continuous tier data for a cloudflex customer, but for flex customer this returns only any partition data that is in the default partition scope only.
+_sourceCategory = * 
+
+//// 2 a specific user specified scope
+//// examples are:
+//_sourcecategory=foo/bar
+//_index=some_index
+//
+//// 3 datatier. cloudflex customers can pick from four options to return data in a specific tier scope:
+//_datatier=all
+//_datatier=continuous
+//_datatier=infrequent
+//_datatier=frequent
+
+
+// sampling option using one of these speeds up query by sampling data but could result in incomplete results
+// no sampling
+//_messageid=*0 // 10%
+//(_messageid=*0 or _messageid=*5) // 20%
+
+// this line pre-summarizes the metadata using key fields. 
+// if the customer is a cloud SIEM customer you could add ,_siemforward to the aggregation to show if data is forwarded to SIEM or not
+// adding this field in a non cloud SIEM instance will generate an error that the field does not exist and cause query to fail.
+| sum(_size) as bytes, count by _sourceCategory,_view,_collector,_source,_sourceHost,_sourceName
+
+// _view is a reserved field name that won't work properly in output if saved to a scheduled view
+// it could also be null which means it's in sumologic_default
+| if (isnull(_view),"sumologic_default",_view) as _index | fields -_view

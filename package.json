@@ -89,6 +89,18 @@
                 "title": "Sumo Logic: Fetch Partitions for Autocomplete"
             },
             {
+                "command": "sumologic.fetchCollectors",
+                "title": "Sumo Logic: Fetch Collectors"
+            },
+            {
+                "command": "sumologic.getCollector",
+                "title": "Sumo Logic: Get Collector by ID"
+            },
+            {
+                "command": "sumologic.getSources",
+                "title": "Sumo Logic: Get Sources for Collector"
+            },
+            {
                 "command": "sumologic.viewAutocomplete",
                 "title": "Sumo Logic: View Autocomplete Data"
             },

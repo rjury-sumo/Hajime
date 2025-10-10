@@ -3,6 +3,7 @@ import { authenticateCommand, testConnectionCommand, switchProfileCommand, listP
 import { runQueryCommand } from './commands/runQuery';
 import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
+import { fetchCollectorsCommand, getCollectorCommand, getSourcesCommand } from './commands/collectors';
 import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
 import { getPersonalFolderCommand, getFolderCommand } from './commands/personalFolder';
 import { chartCSVCommand } from './commands/chartCSV';
@@ -209,6 +210,18 @@ export function activate(context: vscode.ExtensionContext) {
         return fetchPartitionsCommand(context);
     });
 
+    const fetchCollectorsCmd = vscode.commands.registerCommand('sumologic.fetchCollectors', () => {
+        return fetchCollectorsCommand(context);
+    });
+
+    const getCollectorCmd = vscode.commands.registerCommand('sumologic.getCollector', () => {
+        return getCollectorCommand(context);
+    });
+
+    const getSourcesCmd = vscode.commands.registerCommand('sumologic.getSources', () => {
+        return getSourcesCommand(context);
+    });
+
     const viewAutocompleteCmd = vscode.commands.registerCommand('sumologic.viewAutocomplete', () => {
         return viewAutocompleteCommand(context);
     });
@@ -260,6 +273,9 @@ export function activate(context: vscode.ExtensionContext) {
         runQueryCmd,
         fetchCustomFieldsCmd,
         fetchPartitionsCmd,
+        fetchCollectorsCmd,
+        getCollectorCmd,
+        getSourcesCmd,
         viewAutocompleteCmd,
         clearAutocompleteCmd,
         getPersonalFolderCmd,

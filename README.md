@@ -74,7 +74,7 @@ Fetch and manage configuration from your Sumo Logic deployment:
 - **IntelliSense/Autocomplete**: Intelligent code completion for:
   - 100+ Sumo Logic operators and functions
   - Built-in metadata fields
-  - 4500+ parser snippets from Sumo Logic apps (filterable by app name)
+  - hundreds of parser snippets from Sumo Logic apps (filterable by app name)
   - Dynamic fields from query results
   - Custom fields from API
   - Partition names for _index and _view

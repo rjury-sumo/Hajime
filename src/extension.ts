@@ -5,7 +5,7 @@ import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
 import { fetchCollectorsCommand, getCollectorCommand, getSourcesCommand } from './commands/collectors';
 import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
-import { getPersonalFolderCommand, getFolderCommand } from './commands/personalFolder';
+import { getPersonalFolderCommand, getFolderCommand, getContentByPathCommand, getContentByIdCommand } from './commands/personalFolder';
 import { chartCSVCommand } from './commands/chartCSV';
 import { runQueryAndChartCommand } from './commands/runQueryAndChart';
 import { runQueryWebviewCommand } from './commands/runQueryWebview';
@@ -238,6 +238,14 @@ export function activate(context: vscode.ExtensionContext) {
         return getFolderCommand(context);
     });
 
+    const getContentByPathCmd = vscode.commands.registerCommand('sumologic.getContentByPath', () => {
+        return getContentByPathCommand(context);
+    });
+
+    const getContentByIdCmd = vscode.commands.registerCommand('sumologic.getContentById', () => {
+        return getContentByIdCommand(context);
+    });
+
     const chartCSVCmd = vscode.commands.registerCommand('sumologic.chartCSV', (uri?: vscode.Uri) => {
         return chartCSVCommand(context, uri);
     });
@@ -280,6 +288,8 @@ export function activate(context: vscode.ExtensionContext) {
         clearAutocompleteCmd,
         getPersonalFolderCmd,
         getFolderCmd,
+        getContentByPathCmd,
+        getContentByIdCmd,
         chartCSVCmd,
         runQueryAndChartCmd,
         runQueryWebviewCmd,

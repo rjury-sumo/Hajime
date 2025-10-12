@@ -117,6 +117,14 @@
                 "title": "Sumo Logic: Get Folder by ID"
             },
             {
+                "command": "sumologic.getContentByPath",
+                "title": "Sumo Logic: Get Content by Path"
+            },
+            {
+                "command": "sumologic.getContentById",
+                "title": "Sumo Logic: Get Content Path by ID"
+            },
+            {
                 "command": "sumologic.chartCSV",
                 "title": "Sumo Logic: Chart CSV Data",
                 "icon": "$(graph)"

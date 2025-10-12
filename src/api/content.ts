@@ -65,34 +65,71 @@ export class ContentClient extends SumoLogicClient {
     }
 
     /**
-     * Format personal folder as a readable report
+     * Get content by path
+     * Endpoint: GET /api/v2/content/path
+     * Docs: https://api.sumologic.com/docs/#operation/getItemByPath
      */
-    static formatPersonalFolder(folder: PersonalFolderResponse): string {
+    async getContent(path: string): Promise<ApiResponse<ContentItem>> {
+        const encodedPath = encodeURIComponent(path);
+        return this.makeRequest<ContentItem>(
+            `/api/v2/content/path?path=${encodedPath}`,
+            'GET'
+        );
+    }
+
+    /**
+     * Get content path by ID
+     * Endpoint: GET /api/v2/content/{id}/path
+     * Docs: https://api.sumologic.com/docs/#operation/getPathById
+     */
+    async getContentPath(contentId: string): Promise<ApiResponse<{ path: string }>> {
+        return this.makeRequest<{ path: string }>(
+            `/api/v2/content/${contentId}/path`,
+            'GET'
+        );
+    }
+
+    /**
+     * Format content item with properties and optional children table
+     * This is a reusable formatter for any content item (folder, dashboard, search, etc.)
+     */
+    static formatContentItem(item: ContentItem | PersonalFolderResponse, title?: string): string {
         let output = '';
 
-        // Folder properties section
-        output += 'Personal Folder Properties\n';
+        // Properties section
+        output += `${title || 'Content Item'} Properties\n`;
         output += '='.repeat(80) + '\n\n';
-        output += `ID:          ${folder.id}\n`;
-        output += `Name:        ${folder.name}\n`;
-        output += `Parent ID:   ${folder.parentId}\n`;
-        output += `Description: ${folder.description || '(none)'}\n`;
-        output += `Item Type:   ${folder.itemType}\n`;
-        output += `Created At:  ${folder.createdAt}\n`;
-        output += `Modified At: ${folder.modifiedAt}\n`;
+        output += `ID:          ${item.id}\n`;
+        output += `Name:        ${item.name}\n`;
+        output += `Parent ID:   ${item.parentId}\n`;
+        output += `Description: ${item.description || '(none)'}\n`;
+        output += `Item Type:   ${item.itemType}\n`;
+        output += `Created At:  ${item.createdAt}\n`;
+        output += `Created By:  ${item.createdBy}\n`;
+        output += `Modified At: ${item.modifiedAt}\n`;
+        output += `Modified By: ${item.modifiedBy}\n`;
+        output += `Permissions: ${item.permissions.join(', ')}\n`;
         output += '\n\n';
 
-        // Children section
-        output += `Personal Folder Contents (${folder.children.length} items)\n`;
-        output += '='.repeat(80) + '\n\n';
-
-        if (folder.children.length === 0) {
+        // Children section (if exists)
+        if (item.children && item.children.length > 0) {
+            output += `Contents (${item.children.length} items)\n`;
+            output += '='.repeat(80) + '\n\n';
+            output += ContentClient.formatChildrenAsTable(item.children);
+        } else if (item.children) {
+            output += 'Contents\n';
+            output += '='.repeat(80) + '\n\n';
             output += '(empty)\n';
-        } else {
-            output += ContentClient.formatChildrenAsTable(folder.children);
         }
 
         return output;
+    }
+
+    /**
+     * Format personal folder as a readable report
+     */
+    static formatPersonalFolder(folder: PersonalFolderResponse): string {
+        return ContentClient.formatContentItem(folder, 'Personal Folder');
     }
 
     /**

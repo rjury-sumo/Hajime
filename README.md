@@ -8,7 +8,7 @@ A comprehensive Visual Studio Code extension that provides a complete IDE experi
 
 ### 🎯 IDE Experience for Query Development
 Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
-- **4500+ Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.)
+- **hundreds ofParser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list.
 - **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
 - **Context-Aware Suggestions** - metadata field values suggested as you type (e.g., `_sourceCategory=` shows your actual categories)
 - **Syntax Highlighting** with full support for operators, functions, comments, and regex patterns
@@ -30,6 +30,9 @@ Execute queries directly from VS Code with flexible output options:
 - **Query Metadata Directives** - control time range, timezone, output format via comments in your query
 - **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries
 
+![alt text](<docs/images/sumo buttons.png>)
+![alt text](docs/images/query.webview.output.png)
+
 ### 📈 Advanced Data Visualization
 Visualize query results and data files with interactive charts:
 - **Automatic Chart Selection** - chooses appropriate chart type based on your data
@@ -37,6 +40,9 @@ Visualize query results and data files with interactive charts:
 - **Category Charts** - bar and pie charts for aggregations
 - **CSV Charting** - visualize any CSV file with the built-in chart engine
 - **Apache ECharts Integration** - professional, interactive charts with zoom, pan, and export
+
+![category](docs/images/category.echart.png)
+![tiemseries](docs/images/timeseries.transpose.echart.png)
 
 ### 🔧 API Integration & Metadata Management
 Fetch and manage configuration from your Sumo Logic deployment:

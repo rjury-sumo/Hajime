@@ -319,6 +319,230 @@ export async function getContentByIdCommand(context: vscode.ExtensionContext): P
 }
 
 /**
+ * Helper function to handle export workflow
+ */
+async function handleExport(
+    context: vscode.ExtensionContext,
+    exportName: string,
+    exportFn: (client: ContentClient, isAdminMode?: boolean) => Promise<any>,
+    filenamePrefix: string,
+    includeTimestamp: boolean = true
+): Promise<void> {
+    // Prompt for isAdminMode
+    const isAdminModeChoice = await vscode.window.showQuickPick(
+        ['No', 'Yes'],
+        {
+            placeHolder: 'Export as admin? (isAdminMode parameter)',
+            ignoreFocusOut: true
+        }
+    );
+
+    if (!isAdminModeChoice) {
+        return; // User cancelled
+    }
+
+    const isAdminMode = isAdminModeChoice === 'Yes';
+
+    const baseClient = await createClient(context);
+
+    if (!baseClient) {
+        vscode.window.showErrorMessage('No active profile. Please create a profile first.');
+        return;
+    }
+
+    // Get credentials from the active profile
+    const profileManager = await import('../profileManager');
+    const pm = new profileManager.ProfileManager(context);
+    const activeProfile = await pm.getActiveProfile();
+
+    if (!activeProfile) {
+        vscode.window.showErrorMessage('No active profile found.');
+        return;
+    }
+
+    const credentials = await pm.getProfileCredentials(activeProfile.name);
+    if (!credentials) {
+        vscode.window.showErrorMessage('No credentials found for active profile.');
+        return;
+    }
+
+    const client = new ContentClient({
+        accessId: credentials.accessId,
+        accessKey: credentials.accessKey,
+        endpoint: pm.getProfileEndpoint(activeProfile)
+    });
+
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Exporting ${exportName}...`,
+        cancellable: false
+    }, async (progress) => {
+        progress.report({ message: 'Starting export job...' });
+
+        const response = await exportFn(client, isAdminMode);
+
+        if (response.error) {
+            // Check if it's a permission error
+            if (response.statusCode === 403 || response.statusCode === 401) {
+                vscode.window.showWarningMessage(
+                    `Unable to export ${exportName}: Insufficient permissions. You may need admin access or special permissions.`
+                );
+            } else if (response.statusCode === 404) {
+                vscode.window.showErrorMessage(
+                    `${exportName} not found. This may mean:\n` +
+                    `- The folder doesn't exist in your environment\n` +
+                    `- You need admin permissions to access it\n` +
+                    `- Try setting isAdminMode to "Yes"\n\n` +
+                    `Error: ${response.error}`
+                );
+            } else if (response.statusCode === 408) {
+                vscode.window.showErrorMessage(`Export timed out: ${response.error}`);
+            } else {
+                vscode.window.showErrorMessage(
+                    `Failed to export ${exportName}:\n` +
+                    `Status: ${response.statusCode || 'unknown'}\n` +
+                    `Error: ${response.error}`
+                );
+            }
+            return;
+        }
+
+        if (!response.data) {
+            vscode.window.showWarningMessage('No export data returned from API.');
+            return;
+        }
+
+        const exportData = response.data;
+
+        progress.report({ message: 'Export complete, saving files...' });
+
+        // Sanitize name for filename
+        const sanitizeName = (name: string | undefined): string => {
+            // Remove invalid filename characters and limit length
+            if (!name) {
+                return 'unnamed';
+            }
+            return name
+                .replace(/[^a-zA-Z0-9_-]/g, '_')
+                .substring(0, 50); // Limit to 50 chars
+        };
+
+        const safeName = sanitizeName(exportData.name);
+        const filename = `${filenamePrefix}_${safeName}`;
+
+        // Build workspace-relative path for the JSON link
+        const jsonRelativePath = `./output/${activeProfile.name}/content/${filename}`;
+
+        // Format outputs
+        const jsonOutput = JSON.stringify(exportData, null, 2);
+        const summaryOutput = ContentClient.formatExportSummary(exportData, jsonRelativePath, includeTimestamp);
+
+        // Write to files
+        const outputWriter = new OutputWriter(context);
+
+        try {
+            // Write JSON file (don't open in editor)
+            await outputWriter.writeAndOpen('content', filename, jsonOutput, 'json', false, includeTimestamp);
+
+            // Write summary file (markdown) - open this one
+            await outputWriter.writeAndOpen('content', `${filename}_summary`, summaryOutput, 'md', true, includeTimestamp);
+
+            // Count items if it's a folder with children
+            let itemCount = 0;
+            const countItems = (item: any): number => {
+                let count = 1;
+                // Global folder uses 'data' property instead of 'children'
+                const childrenArray = item.children || item.data;
+                if (childrenArray && Array.isArray(childrenArray)) {
+                    for (const child of childrenArray) {
+                        count += countItems(child);
+                    }
+                }
+                return count;
+            };
+
+            itemCount = countItems(exportData);
+
+            const adminModeNote = isAdminMode ? ' (admin mode)' : '';
+            const displayName = exportData.name || exportName;
+            const displayType = exportData.type || 'folder';
+            vscode.window.showInformationMessage(
+                `${exportName} exported${adminModeNote}: ${displayName} (${displayType}, ${itemCount} item${itemCount > 1 ? 's' : ''})`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to write export data: ${error}`);
+        }
+    });
+}
+
+/**
+ * Command to export content by ID
+ */
+export async function exportContentCommand(context: vscode.ExtensionContext): Promise<void> {
+    const contentId = await vscode.window.showInputBox({
+        prompt: 'Enter the content ID to export (folder, search, dashboard, etc.)',
+        placeHolder: '0000000000ABC123',
+        ignoreFocusOut: true,
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Content ID cannot be empty';
+            }
+            return null;
+        }
+    });
+
+    if (!contentId) {
+        return;
+    }
+
+    await handleExport(
+        context,
+        `content ${contentId}`,
+        (client, isAdminMode) => client.exportContent(contentId, isAdminMode),
+        `export_content_${contentId}`
+    );
+}
+
+/**
+ * Command to export Admin Recommended folder
+ */
+export async function exportAdminRecommendedCommand(context: vscode.ExtensionContext): Promise<void> {
+    await handleExport(
+        context,
+        'Admin Recommended folder',
+        (client, isAdminMode) => client.exportAdminRecommendedFolder(isAdminMode),
+        'export_admin_recommended',
+        false // No timestamp - overwrites previous exports
+    );
+}
+
+/**
+ * Command to export Global folder
+ */
+export async function exportGlobalFolderCommand(context: vscode.ExtensionContext): Promise<void> {
+    await handleExport(
+        context,
+        'Global folder',
+        (client, isAdminMode) => client.exportGlobalFolder(isAdminMode),
+        'export_global',
+        false // No timestamp - overwrites previous exports
+    );
+}
+
+/**
+ * Command to export Installed Apps folder
+ */
+export async function exportInstalledAppsCommand(context: vscode.ExtensionContext): Promise<void> {
+    await handleExport(
+        context,
+        'Installed Apps folder',
+        (client, isAdminMode) => client.exportInstalledAppsFolder(isAdminMode),
+        'export_installed_apps',
+        false // No timestamp - overwrites previous exports
+    );
+}
+
+/**
  * Command to fetch and display the user's personal folder
  */
 export async function getPersonalFolderCommand(context: vscode.ExtensionContext): Promise<void> {

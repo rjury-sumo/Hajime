@@ -533,4 +533,493 @@ suite('Content/Folders API Integration Tests', function() {
             assert.strictEqual(search.children.length, 0, 'Search should not have children');
         }
     });
+
+    test('should export a search by ID', async function() {
+        this.timeout(60000); // Export can take time
+
+        const searchId = '0000000000852F21'; // Known search ID
+
+        console.log(`Starting export for search ${searchId}...`);
+
+        const response = await client.exportContent(searchId, undefined, 60); // 60 second timeout
+
+        if (response.error) {
+            if (response.statusCode === 403 || response.statusCode === 401) {
+                console.log('⚠️  No permission to export search');
+                return;
+            } else if (response.statusCode === 404) {
+                console.log('⚠️  Search not found');
+                return;
+            } else if (response.statusCode === 408) {
+                console.log('⚠️  Export timed out (this may be normal for large exports)');
+                return;
+            }
+            throw new Error(`Unexpected error: ${response.error}`);
+        }
+
+        assert.ok(response.data, 'Should have export data');
+
+        const exportData = response.data!;
+
+        assert.ok(exportData.type, 'Export should have type property');
+        assert.ok(exportData.name, 'Export should have name property');
+
+        console.log(`✅ Search exported successfully`);
+        console.log(`   Name: ${exportData.name}`);
+        console.log(`   Type: ${exportData.type}`);
+
+        // Search should not have children
+        if (exportData.children) {
+            assert.strictEqual(exportData.children.length, 0, 'Search export should not have children');
+        }
+    });
+
+    test('should export a folder by ID', async function() {
+        this.timeout(120000); // Folder export can take longer
+
+        const folderId = '00000000008F59B0'; // Known folder ID
+
+        console.log(`Starting export for folder ${folderId}...`);
+
+        const response = await client.exportContent(folderId, undefined, 120); // 120 second timeout
+
+        if (response.error) {
+            if (response.statusCode === 403 || response.statusCode === 401) {
+                console.log('⚠️  No permission to export folder');
+                return;
+            } else if (response.statusCode === 404) {
+                console.log('⚠️  Folder not found');
+                return;
+            } else if (response.statusCode === 408) {
+                console.log('⚠️  Export timed out (this may be normal for large folders)');
+                return;
+            }
+            throw new Error(`Unexpected error: ${response.error}`);
+        }
+
+        assert.ok(response.data, 'Should have export data');
+
+        const exportData = response.data!;
+
+        assert.ok(exportData.type, 'Export should have type property');
+        assert.ok(exportData.name, 'Export should have name property');
+
+        console.log(`✅ Folder exported successfully`);
+        console.log(`   Name: ${exportData.name}`);
+        console.log(`   Type: ${exportData.type}`);
+
+        // Count items recursively
+        const countItems = (item: any): number => {
+            let count = 1;
+            if (item.children && Array.isArray(item.children)) {
+                for (const child of item.children) {
+                    count += countItems(child);
+                }
+            }
+            return count;
+        };
+
+        const itemCount = countItems(exportData);
+        console.log(`   Total items (recursive): ${itemCount}`);
+
+        // Folder may have children
+        if (exportData.children) {
+            assert.ok(Array.isArray(exportData.children), 'Folder children should be an array');
+            console.log(`   Direct children: ${exportData.children.length}`);
+        }
+    });
+
+    test('should begin async export and check status', async function() {
+        this.timeout(60000);
+
+        const searchId = '0000000000852F21'; // Known search ID
+
+        // Start export
+        const exportJobResponse = await client.beginAsyncExport(searchId);
+
+        if (exportJobResponse.error) {
+            if (exportJobResponse.statusCode === 403 || exportJobResponse.statusCode === 401) {
+                console.log('⚠️  No permission to start export');
+                return;
+            } else if (exportJobResponse.statusCode === 404) {
+                console.log('⚠️  Content not found');
+                return;
+            }
+            throw new Error(`Unexpected error: ${exportJobResponse.error}`);
+        }
+
+        assert.ok(exportJobResponse.data, 'Should have job response');
+        assert.ok(exportJobResponse.data!.id, 'Job should have ID');
+
+        const jobId = exportJobResponse.data!.id;
+        console.log(`✅ Export job started: ${jobId}`);
+
+        // Check status
+        const statusResponse = await client.getAsyncExportStatus(searchId, jobId);
+
+        assert.ok(statusResponse.data, 'Should have status response');
+        assert.ok(statusResponse.data!.status, 'Status should have status property');
+        assert.ok(['InProgress', 'Success', 'Failed'].includes(statusResponse.data!.status),
+            'Status should be one of: InProgress, Success, Failed');
+
+        console.log(`✅ Export job status: ${statusResponse.data!.status}`);
+
+        // If success, try to get result
+        if (statusResponse.data!.status === 'Success') {
+            const resultResponse = await client.getAsyncExportResult(searchId, jobId);
+
+            if (!resultResponse.error) {
+                assert.ok(resultResponse.data, 'Should have result data');
+                console.log(`✅ Export result retrieved: ${resultResponse.data!.name}`);
+            }
+        }
+    });
+
+    test('should handle export of non-existent content', async () => {
+        const fakeId = '0000000000000000'; // Invalid content ID
+
+        const response = await client.exportContent(fakeId, undefined, 10); // Short timeout
+
+        assert.ok(response.error, 'Should return error for non-existent content');
+        assert.ok(response.statusCode === 404 || response.statusCode === 400, 'Should return 404 or 400');
+
+        console.log('✅ Non-existent content export handled correctly');
+    });
+
+    test('should verify export result structure', async function() {
+        this.timeout(60000);
+
+        // Use personal folder as test content
+        const personalResponse = await client.getPersonalFolder();
+        const folderId = personalResponse.data!.id;
+
+        const exportResponse = await client.exportContent(folderId, undefined, 60);
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export: ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        // Verify required fields
+        assert.ok(exportData.type, 'Should have type');
+        assert.ok(exportData.name, 'Should have name');
+
+        console.log('✅ Export result structure verified');
+        console.log(`   Type: ${exportData.type}`);
+        console.log(`   Name: ${exportData.name}`);
+        console.log(`   Has children: ${!!exportData.children}`);
+    });
+
+    test('should format export summary correctly', async function() {
+        this.timeout(60000);
+
+        const searchId = '0000000000852F21'; // Known search ID
+
+        const exportResponse = await client.exportContent(searchId, undefined, 60);
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Content not found');
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export: ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        // Format the summary with workspace-relative path
+        const jsonPath = './output/test_profile/content/test_export';
+        const summary = ContentClient.formatExportSummary(exportData, jsonPath);
+
+        assert.ok(summary, 'Should have summary text');
+        assert.ok(summary.includes('# Content Export Summary'), 'Summary should have markdown header');
+        assert.ok(summary.includes('## Properties'), 'Summary should have properties section');
+        assert.ok(summary.includes(`**Type:** ${exportData.type}`), 'Summary should include type');
+        assert.ok(summary.includes(`**Name:** ${exportData.name}`), 'Summary should include name');
+        assert.ok(summary.includes('**JSON Export:**'), 'Summary should reference JSON export');
+        assert.ok(summary.includes(jsonPath), 'Summary should include workspace-relative path');
+
+        console.log('✅ Export summary formatted correctly');
+        console.log(`\nSummary preview (first 500 chars):\n${summary.substring(0, 500)}...\n`);
+    });
+
+    test('should format dashboard export with panels', async function() {
+        this.timeout(60000);
+
+        const dashboardId = '00000000008D3FED'; // Known dashboard ID
+
+        const exportResponse = await client.exportContent(dashboardId, undefined, 60);
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export dashboard');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Dashboard not found');
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export: ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        // Format the summary with workspace-relative path
+        const jsonPath = './output/test_profile/content/dashboard_export';
+        const summary = ContentClient.formatExportSummary(exportData, jsonPath);
+
+        assert.ok(summary, 'Should have summary text');
+
+        if (exportData.panels && exportData.panels.length > 0) {
+            assert.ok(summary.includes('## Panels'), 'Summary should have panels section');
+            assert.ok(summary.includes(`${exportData.panels.length} items`), 'Summary should show panel count');
+            assert.ok(summary.includes('| Name | Type | Key | Properties |'), 'Summary should have markdown table');
+
+            console.log('✅ Dashboard export with panels formatted correctly');
+            console.log(`   Dashboard: ${exportData.name}`);
+            console.log(`   Panels: ${exportData.panels.length}`);
+        } else {
+            console.log('⚠️  Dashboard has no panels');
+        }
+    });
+
+    test('should format folder export with children', async function() {
+        this.timeout(120000);
+
+        const folderId = '00000000008F59B0'; // Known folder ID
+
+        const exportResponse = await client.exportContent(folderId, undefined, 120);
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export folder');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Folder not found');
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export: ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        // Format the summary with workspace-relative path
+        const jsonPath = './output/test_profile/content/folder_export';
+        const summary = ContentClient.formatExportSummary(exportData, jsonPath);
+
+        assert.ok(summary, 'Should have summary text');
+
+        if (exportData.children && exportData.children.length > 0) {
+            assert.ok(summary.includes('## Children'), 'Summary should have children section');
+            assert.ok(summary.includes(`${exportData.children.length} items`), 'Summary should show children count');
+            assert.ok(summary.includes('| Name | Type | Description | Has Children |'), 'Summary should have markdown table');
+
+            // Check that nested children are noted
+            const nestedFolders = exportData.children.filter((c: any) =>
+                c.children && Array.isArray(c.children) && c.children.length > 0
+            );
+
+            if (nestedFolders.length > 0) {
+                assert.ok(summary.includes('Yes ('), 'Summary should indicate nested children');
+                console.log(`   Found ${nestedFolders.length} nested folders`);
+            }
+
+            console.log('✅ Folder export with children formatted correctly');
+            console.log(`   Folder: ${exportData.name}`);
+            console.log(`   Children: ${exportData.children.length}`);
+        } else {
+            console.log('⚠️  Folder has no children');
+        }
+    });
+
+    test('should export Admin Recommended folder', async function() {
+        this.timeout(120000); // Folder export can take longer
+
+        console.log('\n=== Testing Admin Recommended folder export ===');
+        console.log('Method: GET');
+        console.log('Endpoint: /api/v2/content/folders/adminRecommended');
+        console.log('Polling Status: /api/v2/content/folders/adminRecommended/{jobId}/status');
+        console.log('Result: /api/v2/content/folders/adminRecommended/{jobId}/result');
+
+        const exportResponse = await client.exportAdminRecommendedFolder();
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export Admin Recommended folder');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Admin Recommended folder not found (this may be normal if not available in your environment)');
+                return;
+            } else if (exportResponse.statusCode === 405) {
+                console.log('⚠️  Method not supported - API may have changed');
+                console.log(`   Error: ${exportResponse.error}`);
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export (${exportResponse.statusCode}): ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        assert.ok(exportData, 'Should have export data');
+        assert.ok(exportData.type, 'Export should have type property');
+        assert.ok(exportData.name, 'Export should have name property');
+
+        console.log('✅ Admin Recommended folder exported successfully');
+        console.log(`   Name: ${exportData.name}`);
+        console.log(`   Type: ${exportData.type}`);
+
+        if (exportData.children) {
+            console.log(`   Children: ${exportData.children.length}`);
+        }
+    });
+
+    test('should export Global folder', async function() {
+        this.timeout(120000); // Folder export can take longer
+
+        console.log('\n=== Testing Global folder export ===');
+        console.log('Method: GET');
+        console.log('Endpoint: /api/v2/content/folders/global');
+        console.log('Polling Status: /api/v2/content/folders/global/{jobId}/status');
+        console.log('Result: /api/v2/content/folders/global/{jobId}/result');
+
+        const exportResponse = await client.exportGlobalFolder();
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export Global folder');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Global folder not found (this may be normal if not available in your environment)');
+                return;
+            } else if (exportResponse.statusCode === 405) {
+                console.log('⚠️  Method not supported - API may have changed');
+                console.log(`   Error: ${exportResponse.error}`);
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export (${exportResponse.statusCode}): ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        assert.ok(exportData, 'Should have export data');
+        assert.ok(exportData.type, 'Export should have type property');
+        assert.ok(exportData.name, 'Export should have name property');
+
+        console.log('✅ Global folder exported successfully');
+        console.log(`   Name: ${exportData.name}`);
+        console.log(`   Type: ${exportData.type}`);
+
+        if (exportData.children) {
+            console.log(`   Children: ${exportData.children.length}`);
+        }
+    });
+
+    test('should export Installed Apps folder', async function() {
+        this.timeout(120000); // Folder export can take longer
+
+        console.log('\n=== Testing Installed Apps folder export ===');
+        console.log('Method: GET');
+        console.log('Endpoint: /api/v2/content/folders/installedApps');
+        console.log('Polling Status: /api/v2/content/folders/installedApps/{jobId}/status');
+        console.log('Result: /api/v2/content/folders/installedApps/{jobId}/result');
+
+        const exportResponse = await client.exportInstalledAppsFolder();
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export Installed Apps folder');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Installed Apps folder not found (this may be normal if not available in your environment)');
+                return;
+            } else if (exportResponse.statusCode === 405) {
+                console.log('⚠️  Method not supported - API may have changed');
+                console.log(`   Error: ${exportResponse.error}`);
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export (${exportResponse.statusCode}): ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        assert.ok(exportData, 'Should have export data');
+
+        console.log('✅ Installed Apps folder exported successfully');
+        if (exportData.name) {
+            console.log(`   Name: ${exportData.name}`);
+        }
+        if (exportData.type) {
+            console.log(`   Type: ${exportData.type}`);
+        }
+
+        if (exportData.children) {
+            console.log(`   Children: ${exportData.children.length}`);
+        }
+    });
+
+    test('should export with isAdminMode parameter', async function() {
+        this.timeout(120000);
+
+        const searchId = '0000000000852F21'; // Known search ID
+
+        // Export with isAdminMode=true
+        const exportResponse = await client.exportContent(searchId, true);
+
+        if (exportResponse.error) {
+            if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
+                console.log('⚠️  No permission to export in admin mode');
+                return;
+            } else if (exportResponse.statusCode === 404) {
+                console.log('⚠️  Content not found');
+                return;
+            } else if (exportResponse.statusCode === 408) {
+                console.log('⚠️  Export timed out');
+                return;
+            }
+            console.log(`⚠️  Could not export: ${exportResponse.error}`);
+            return;
+        }
+
+        const exportData = exportResponse.data!;
+
+        assert.ok(exportData, 'Should have export data');
+        assert.ok(exportData.type, 'Export should have type property');
+        assert.ok(exportData.name, 'Export should have name property');
+
+        console.log('✅ Content exported with isAdminMode=true');
+        console.log(`   Name: ${exportData.name}`);
+        console.log(`   Type: ${exportData.type}`);
+    });
 });

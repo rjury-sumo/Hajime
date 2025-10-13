@@ -1,0 +1,52 @@
+/**
+ * Command to export content by ID
+ */
+export async function exportContentCommand(context: vscode.ExtensionContext): Promise<void> {
+    // Prompt for content ID
+    const contentId = await vscode.window.showInputBox({
+        prompt: 'Enter the content ID to export (folder, search, dashboard, etc.)',
+        placeHolder: '0000000000ABC123',
+        ignoreFocusOut: true,
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Content ID cannot be empty';
+            }
+            return null;
+        }
+    });
+
+    if (!contentId) {
+        return; // User cancelled
+    }
+
+    await handleExport(
+        context,
+        `content ${contentId}`,
+        (client, isAdminMode) => client.exportContent(contentId, isAdminMode),
+        `export_content_${contentId}`
+    );
+}
+
+/**
+ * Command to export Admin Recommended folder
+ */
+export async function exportAdminRecommendedCommand(context: vscode.ExtensionContext): Promise<void> {
+    await handleExport(
+        context,
+        'Admin Recommended folder',
+        (client, isAdminMode) => client.exportAdminRecommendedFolder(isAdminMode),
+        'export_admin_recommended'
+    );
+}
+
+/**
+ * Command to export Global folder
+ */
+export async function exportGlobalFolderCommand(context: vscode.ExtensionContext): Promise<void> {
+    await handleExport(
+        context,
+        'Global folder',
+        (client, isAdminMode) => client.exportGlobalFolder(isAdminMode),
+        'export_global'
+    );
+}

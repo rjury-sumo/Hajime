@@ -41,13 +41,15 @@ export class OutputWriter {
      * @param filename The base filename (will be sanitized and timestamped)
      * @param content The content to write
      * @param extension The file extension (default: 'json')
+     * @param includeTimestamp Whether to add timestamp to filename (default: true)
      * @returns The full path to the created file
      */
     async writeOutput(
         subdirectory: string,
         filename: string,
         content: string,
-        extension: string = 'json'
+        extension: string = 'json',
+        includeTimestamp: boolean = true
     ): Promise<string> {
         const profileManager = new ProfileManager(this.context);
         const activeProfile = await profileManager.getActiveProfile();
@@ -67,10 +69,11 @@ export class OutputWriter {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        // Create timestamped filename
+        // Create filename with or without timestamp
         const sanitizedFilename = this.sanitizeFilename(filename);
-        const timestamp = this.getTimestamp();
-        const fullFilename = `${sanitizedFilename}_${timestamp}.${extension}`;
+        const fullFilename = includeTimestamp
+            ? `${sanitizedFilename}_${this.getTimestamp()}.${extension}`
+            : `${sanitizedFilename}.${extension}`;
         const filePath = path.join(outputDir, fullFilename);
 
         // Write file
@@ -86,6 +89,7 @@ export class OutputWriter {
      * @param content The content to write
      * @param extension The file extension (default: 'json')
      * @param openInEditor Whether to open the file in the editor (default: true)
+     * @param includeTimestamp Whether to add timestamp to filename (default: true)
      * @returns The full path to the created file
      */
     async writeAndOpen(
@@ -93,9 +97,10 @@ export class OutputWriter {
         filename: string,
         content: string,
         extension: string = 'json',
-        openInEditor: boolean = true
+        openInEditor: boolean = true,
+        includeTimestamp: boolean = true
     ): Promise<string> {
-        const filePath = await this.writeOutput(subdirectory, filename, content, extension);
+        const filePath = await this.writeOutput(subdirectory, filename, content, extension, includeTimestamp);
 
         if (openInEditor) {
             const document = await vscode.workspace.openTextDocument(filePath);

@@ -125,6 +125,22 @@
                 "title": "Sumo Logic: Get Content Path by ID"
             },
             {
+                "command": "sumologic.exportContent",
+                "title": "Sumo Logic: Export Content by ID"
+            },
+            {
+                "command": "sumologic.exportAdminRecommended",
+                "title": "Sumo Logic: Export Admin Recommended Folder"
+            },
+            {
+                "command": "sumologic.exportGlobalFolder",
+                "title": "Sumo Logic: Export Global Folder"
+            },
+            {
+                "command": "sumologic.exportInstalledApps",
+                "title": "Sumo Logic: Export Installed Apps Folder"
+            },
+            {
                 "command": "sumologic.chartCSV",
                 "title": "Sumo Logic: Chart CSV Data",
                 "icon": "$(graph)"

@@ -190,6 +190,33 @@ Enhance autocomplete and export configuration from your Sumo Logic deployment:
 
 All fetched data enhances autocomplete and is persisted per profile.
 
+### Content Library Export
+
+Export content items and special folders from the Sumo Logic Content Library as JSON with markdown summaries:
+
+| Command | What It Does | Output |
+|---------|--------------|--------|
+| **Get Content by Path** | Fetch content item using its full path | Summary or JSON format |
+| **Get Content by ID** | Fetch content item by ID (also shows path) | Summary or JSON format |
+| **Export Content** | Export any content item (folder, dashboard, search, etc.) with full definition including children | JSON + Markdown summary |
+| **Export Admin Recommended Folder** | Export the Admin Recommended system folder | JSON + Markdown summary (overwrites) |
+| **Export Global Folder** | Export the Global system folder | JSON + Markdown summary (overwrites) |
+| **Export Installed Apps Folder** | Export the Installed Apps system folder | JSON + Markdown summary (overwrites) |
+
+**Export Features**:
+- 📦 **Two file formats**: Full JSON export + human-readable markdown summary
+- 🔗 **Linked files**: Markdown summary includes a link to the JSON file
+- 📊 **Formatted tables**: Children, panels, and other arrays displayed as tables in markdown
+- 🔄 **Async job polling**: Automatically waits for export jobs to complete
+- 🆔 **ID tracking**: All items include their Sumo Logic content ID for reference
+- 📁 **Organization**: Files saved to `output/<profile>/content/`
+
+**File Naming**:
+- Regular content exports: Timestamped files (e.g., `export_content_12345_Dashboard_20250113_143025.json`)
+- System folder exports: Single overwriting file (e.g., `export_admin_recommended_Admin_Recommended.json`)
+
+All fetched data enhances autocomplete and is persisted per profile.
+
 ### Utility Commands
 
 | Command | Description |

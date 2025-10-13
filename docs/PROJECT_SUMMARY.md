@@ -50,6 +50,14 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
 ### 4. Content Library Integration
 - **Personal Folder**: Fetch and view user's personal folder with properties and contents
 - **Folder by ID**: Retrieve any folder by ID with tabular content display
+- **Content by Path/ID**: Fetch individual content items by full path or content ID
+- **Content Export**: Full export of content items with async job polling
+  - Export any content item (folders, dashboards, searches, etc.) with complete definition
+  - Export special system folders (Admin Recommended, Global, Installed Apps)
+  - Dual output format: JSON + Markdown summary
+  - Markdown includes formatted tables for children, panels, and properties
+  - Automatic async job polling with timeout handling
+  - Smart filename handling: timestamped for regular exports, overwriting for system folders
 - **Formatted Output**: Professional table formatting for folder contents showing:
   - Name, Type, ID
   - Description
@@ -61,9 +69,13 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
   - Poll for completion
   - Fetch records and messages
   - Automatic job cleanup
-- **Content API**: Integration with Content Library API
+- **Content API**: Integration with Content Library API v2
   - Get personal folder
   - Get folder by ID
+  - Get content by path or ID
+  - Export content with async job polling (folders, dashboards, searches, etc.)
+  - Export special system folders (Admin Recommended, Global, Installed Apps)
+  - Dual output: full JSON export + formatted markdown summary
 - **Custom Fields API**: Fetch custom field schemas from deployment
 - **Partitions API**: Fetch partition definitions for autocomplete
 - **Collectors API**: Full Collector Management API integration
@@ -98,6 +110,10 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
 - **`client.ts`**: Base `SumoLogicClient` with authentication and request handling
 - **`searchJob.ts`**: `SearchJobClient` for query execution
 - **`content.ts`**: `ContentClient` for folder/library operations
+  - Get content by path or ID
+  - Export content with async job polling
+  - Export special folders (Admin Recommended, Global, Installed Apps)
+  - Format export summaries as markdown with tables
 - **`customFields.ts`**: `CustomFieldsClient` for custom field schema fetching
 - **`partitions.ts`**: `PartitionsClient` for partition definition fetching
 - **`collectors.ts`**: `CollectorsClient` for collector and source management
@@ -113,7 +129,12 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
 - **`runQueryWebview.ts`**: Interactive webview table with pagination
 - **`runQueryAndChart.ts`**: Automatic chart generation from query results
 - **`chartCSV.ts`**: Visualize CSV files with interactive charts
-- **`personalFolder.ts`**: Personal folder and folder-by-ID commands
+- **`personalFolder.ts`**: Content library commands
+  - Personal folder and folder-by-ID commands
+  - Get content by path or ID
+  - Export content (any type: folders, dashboards, searches)
+  - Export special folders (Admin Recommended, Global, Installed Apps)
+  - Shared export handler with job polling and dual output format
 - **`customFields.ts`**: Fetch custom fields for autocomplete
 - **`partitions.ts`**: Fetch partitions for autocomplete
 - **`collectors.ts`**: Collector and source management
@@ -136,9 +157,9 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
 - **`profileManager.ts`**: Profile CRUD operations and active profile management
   - Profile directory creation and management
   - Per-profile output directories (`output/<profile>/`)
-  - Subdirectories: `queries/`, `customfields/`, `partitions/`, `collectors/`, `metadata/`
+  - Subdirectories: `queries/`, `customfields/`, `partitions/`, `collectors/`, `content/`, `metadata/`
 - **`statusBar.ts`**: Status bar UI showing active profile
-- **`outputWriter.ts`**: Centralized file writing with timestamps and auto-open
+- **`outputWriter.ts`**: Centralized file writing with optional timestamps and auto-open
 - **`dynamicCompletions.ts`**: Per-profile autocomplete state storage
 
 ### Data Flow
@@ -275,6 +296,12 @@ Output formatting includes:
 | **Content Library** | | |
 | `Sumo Logic: Get Personal Folder` | View personal folder | - |
 | `Sumo Logic: Get Folder by ID` | View any folder by ID | - |
+| `Sumo Logic: Get Content by Path` | Fetch content by full path | - |
+| `Sumo Logic: Get Content by ID` | Fetch content by ID | - |
+| `Sumo Logic: Export Content` | Export any content item with full definition | - |
+| `Sumo Logic: Export Admin Recommended Folder` | Export Admin Recommended system folder | - |
+| `Sumo Logic: Export Global Folder` | Export Global system folder | - |
+| `Sumo Logic: Export Installed Apps Folder` | Export Installed Apps system folder | - |
 | **Autocomplete & Cache** | | |
 | `Sumo Logic: View Autocomplete Data` | Show stored autocomplete items | - |
 | `Sumo Logic: Clear Autocomplete Data` | Clear autocomplete for profile | - |
@@ -373,7 +400,7 @@ npm run lint          # Run ESLint
 6. **New Query File**: Template creation for new .sumo files
 7. **Output Organization**: Profile-specific directory structure
 
-### Session 4 (Collector Management - Current)
+### Session 4 (Collector Management)
 1. **Collectors API Integration**: Full Collector Management API support
    - `fetchCollectorsCommand`: List all collectors with pagination
    - `getCollectorCommand`: Get single collector by ID
@@ -383,6 +410,52 @@ npm run lint          # Run ESLint
 4. **Statistics**: Collector health stats (alive/dead, by type, ephemeral count)
 5. **Integration Testing**: Comprehensive test suite for collectors API
 6. **Documentation**: Updated README and PROJECT_SUMMARY with all new features
+
+### Session 5 (Content Export - Current)
+1. **Content Retrieval Commands**: Get content by path or ID
+   - `getContentByPathCommand`: Fetch content using full library path
+   - `getContentByIdCommand`: Fetch content by ID with path lookup
+   - Support for both summary and JSON output formats
+2. **Content Export with Async Job Polling**: Full export functionality
+   - `exportContentCommand`: Export any content item (folders, dashboards, searches, etc.)
+   - Async job pattern: start job → poll status → retrieve result
+   - Configurable timeout (default 300 seconds)
+   - Automatic error handling for permissions, timeouts, not found
+3. **Special System Folder Exports**: Three special folder types
+   - `exportAdminRecommendedCommand`: Admin Recommended folder
+   - `exportGlobalFolderCommand`: Global folder (uses `data` property instead of `children`)
+   - `exportInstalledAppsCommand`: Installed Apps folder
+   - GET method for all folder exports (not POST)
+4. **Dual Output Format**: JSON + Markdown for all exports
+   - Full JSON export with complete content definition
+   - Markdown summary with formatted tables and properties
+   - Markdown includes clickable link to JSON file
+   - Only markdown file opens in editor (JSON saved but not opened)
+5. **Smart Filename Handling**: Different strategies for different export types
+   - Regular content exports: Timestamped files for version tracking
+   - System folder exports: Single overwriting file (no timestamp)
+6. **Flexible Content Structure Support**: Handle various API response formats
+   - Standard folders: `children` array
+   - Global folder: `data` array instead of `children`
+   - Graceful handling of missing `name` or `type` properties
+7. **Rich Markdown Formatting**: Professional summary output
+   - Property tables with key-value pairs
+   - Children tables with ID, Name, Type, Description, Has Children columns
+   - Panels tables for dashboard exports
+   - Search configuration sections
+   - Nested children counting for accurate item totals
+8. **Shared Export Handler**: Reusable code pattern
+   - Single `handleExport()` function handles all export types
+   - Consistent UX across all export commands
+   - Prompts for `isAdminMode` parameter
+   - Progress notifications during async operations
+9. **Integration Testing**: Comprehensive test coverage
+   - Tests for all export types with real API endpoints
+   - Graceful handling of 403, 404, 405, 408 errors
+   - Detailed logging of API endpoints being called
+10. **OutputWriter Enhancement**: Optional timestamp control
+    - Added `includeTimestamp` parameter to `writeOutput()` and `writeAndOpen()`
+    - Allows system folder exports to overwrite previous versions
 
 ## Future Enhancement Ideas
 
@@ -401,7 +474,27 @@ npm run lint          # Run ESLint
 
 - [Sumo Logic API Docs](https://api.sumologic.com/docs/)
 - [Search Job API](https://api.sumologic.com/docs/#tag/searchJobManagement)
-- [Content API](https://api.sumologic.com/docs/#tag/contentManagement)
+- [Content API v2](https://api.sumologic.com/docs/#tag/contentManagement)
+  - Get Personal Folder: `GET /api/v2/content/folders/personal`
+  - Get Folder: `GET /api/v2/content/folders/{id}`
+  - Get Content by Path: `GET /api/v2/content/path?path={path}`
+  - Get Content Path: `GET /api/v2/content/{id}/path`
+  - Export Content (async):
+    - Start: `POST /api/v2/content/{id}/export`
+    - Status: `GET /api/v2/content/{id}/export/{jobId}/status`
+    - Result: `GET /api/v2/content/{id}/export/{jobId}/result`
+  - Export Admin Recommended (async):
+    - Start: `GET /api/v2/content/folders/adminRecommended`
+    - Status: `GET /api/v2/content/folders/adminRecommended/{jobId}/status`
+    - Result: `GET /api/v2/content/folders/adminRecommended/{jobId}/result`
+  - Export Global Folder (async):
+    - Start: `GET /api/v2/content/folders/global`
+    - Status: `GET /api/v2/content/folders/global/{jobId}/status`
+    - Result: `GET /api/v2/content/folders/global/{jobId}/result`
+  - Export Installed Apps (async):
+    - Start: `GET /api/v2/content/folders/installedApps`
+    - Status: `GET /api/v2/content/folders/installedApps/{jobId}/status`
+    - Result: `GET /api/v2/content/folders/installedApps/{jobId}/result`
 - [Custom Fields API](https://api.sumologic.com/docs/#operation/listBuiltInFields)
 - [Partitions API](https://api.sumologic.com/docs/#operation/listPartitions)
 - [Collector Management API](https://help.sumologic.com/docs/api/collector-management/collector-api-methods-examples/)

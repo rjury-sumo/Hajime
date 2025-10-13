@@ -5,7 +5,7 @@ import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
 import { fetchCollectorsCommand, getCollectorCommand, getSourcesCommand } from './commands/collectors';
 import { viewAutocompleteCommand, clearAutocompleteCommand } from './commands/viewAutocomplete';
-import { getPersonalFolderCommand, getFolderCommand, getContentByPathCommand, getContentByIdCommand } from './commands/personalFolder';
+import { getPersonalFolderCommand, getFolderCommand, getContentByPathCommand, getContentByIdCommand, exportContentCommand, exportAdminRecommendedCommand, exportGlobalFolderCommand, exportInstalledAppsCommand } from './commands/personalFolder';
 import { chartCSVCommand } from './commands/chartCSV';
 import { runQueryAndChartCommand } from './commands/runQueryAndChart';
 import { runQueryWebviewCommand } from './commands/runQueryWebview';
@@ -246,6 +246,22 @@ export function activate(context: vscode.ExtensionContext) {
         return getContentByIdCommand(context);
     });
 
+    const exportContentCmd = vscode.commands.registerCommand('sumologic.exportContent', () => {
+        return exportContentCommand(context);
+    });
+
+    const exportAdminRecommendedCmd = vscode.commands.registerCommand('sumologic.exportAdminRecommended', () => {
+        return exportAdminRecommendedCommand(context);
+    });
+
+    const exportGlobalFolderCmd = vscode.commands.registerCommand('sumologic.exportGlobalFolder', () => {
+        return exportGlobalFolderCommand(context);
+    });
+
+    const exportInstalledAppsCmd = vscode.commands.registerCommand('sumologic.exportInstalledApps', () => {
+        return exportInstalledAppsCommand(context);
+    });
+
     const chartCSVCmd = vscode.commands.registerCommand('sumologic.chartCSV', (uri?: vscode.Uri) => {
         return chartCSVCommand(context, uri);
     });
@@ -290,6 +306,10 @@ export function activate(context: vscode.ExtensionContext) {
         getFolderCmd,
         getContentByPathCmd,
         getContentByIdCmd,
+        exportContentCmd,
+        exportAdminRecommendedCmd,
+        exportGlobalFolderCmd,
+        exportInstalledAppsCmd,
         chartCSVCmd,
         runQueryAndChartCmd,
         runQueryWebviewCmd,

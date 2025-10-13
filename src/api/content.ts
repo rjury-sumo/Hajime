@@ -449,18 +449,16 @@ export class ContentClient extends SumoLogicClient {
      * Format export result as a readable markdown summary
      * Shows top-level properties and tables for array properties (children, panels, etc.)
      * @param exportData The export data to format
-     * @param jsonRelativePath Workspace-relative path to JSON file (e.g., ./output/profile/content/export_name_id)
-     * @param includeTimestamp Whether the JSON file includes a timestamp (default: true)
+     * @param jsonFilename The actual JSON filename (e.g., export_content_123_name_20251013_143022.json)
      */
-    static formatExportSummary(exportData: ExportResultResponse, jsonRelativePath: string, includeTimestamp: boolean = true): string {
+    static formatExportSummary(exportData: ExportResultResponse, jsonFilename: string): string {
         let output = '';
 
         // Header
         output += `# Content Export Summary\n\n`;
         output += `**Name:** ${exportData.name}  \n`;
         output += `**Type:** ${exportData.type}  \n\n`;
-        const jsonLink = includeTimestamp ? `${jsonRelativePath}_*.json` : `${jsonRelativePath}.json`;
-        output += `[View Full JSON Export](${jsonLink})\n\n`;
+        output += `[View Full JSON Export](./${jsonFilename})\n\n`;
         output += '---\n\n';
 
         // Top-level properties (excluding arrays and objects)

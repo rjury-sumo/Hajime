@@ -740,17 +740,17 @@ suite('Content/Folders API Integration Tests', function() {
 
         const exportData = exportResponse.data!;
 
-        // Format the summary with workspace-relative path
-        const jsonPath = './output/test_profile/content/test_export';
-        const summary = ContentClient.formatExportSummary(exportData, jsonPath);
+        // Format the summary with a test filename
+        const jsonFilename = 'test_export_20251013_143022.json';
+        const summary = ContentClient.formatExportSummary(exportData, jsonFilename);
 
         assert.ok(summary, 'Should have summary text');
         assert.ok(summary.includes('# Content Export Summary'), 'Summary should have markdown header');
         assert.ok(summary.includes('## Properties'), 'Summary should have properties section');
         assert.ok(summary.includes(`**Type:** ${exportData.type}`), 'Summary should include type');
         assert.ok(summary.includes(`**Name:** ${exportData.name}`), 'Summary should include name');
-        assert.ok(summary.includes('**JSON Export:**'), 'Summary should reference JSON export');
-        assert.ok(summary.includes(jsonPath), 'Summary should include workspace-relative path');
+        assert.ok(summary.includes('View Full JSON Export'), 'Summary should reference JSON export');
+        assert.ok(summary.includes(jsonFilename), 'Summary should include JSON filename');
 
         console.log('✅ Export summary formatted correctly');
         console.log(`\nSummary preview (first 500 chars):\n${summary.substring(0, 500)}...\n`);
@@ -780,9 +780,9 @@ suite('Content/Folders API Integration Tests', function() {
 
         const exportData = exportResponse.data!;
 
-        // Format the summary with workspace-relative path
-        const jsonPath = './output/test_profile/content/dashboard_export';
-        const summary = ContentClient.formatExportSummary(exportData, jsonPath);
+        // Format the summary with a test filename
+        const jsonFilename = 'dashboard_export_20251013_143022.json';
+        const summary = ContentClient.formatExportSummary(exportData, jsonFilename);
 
         assert.ok(summary, 'Should have summary text');
 
@@ -823,9 +823,9 @@ suite('Content/Folders API Integration Tests', function() {
 
         const exportData = exportResponse.data!;
 
-        // Format the summary with workspace-relative path
-        const jsonPath = './output/test_profile/content/folder_export';
-        const summary = ContentClient.formatExportSummary(exportData, jsonPath);
+        // Format the summary with a test filename
+        const jsonFilename = 'folder_export_20251013_143022.json';
+        const summary = ContentClient.formatExportSummary(exportData, jsonFilename);
 
         assert.ok(summary, 'Should have summary text');
 

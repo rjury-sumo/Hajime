@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ContentClient } from '../api/content';
 import { createClient } from './authenticate';
 import { OutputWriter } from '../outputWriter';
@@ -430,19 +431,19 @@ async function handleExport(
         const safeName = sanitizeName(exportData.name);
         const filename = `${filenamePrefix}_${safeName}`;
 
-        // Build workspace-relative path for the JSON link
-        const jsonRelativePath = `./output/${activeProfile.name}/content/${filename}`;
-
-        // Format outputs
+        // Format JSON output
         const jsonOutput = JSON.stringify(exportData, null, 2);
-        const summaryOutput = ContentClient.formatExportSummary(exportData, jsonRelativePath, includeTimestamp);
 
         // Write to files
         const outputWriter = new OutputWriter(context);
 
         try {
-            // Write JSON file (don't open in editor)
-            await outputWriter.writeAndOpen('content', filename, jsonOutput, 'json', false, includeTimestamp);
+            // Write JSON file (don't open in editor) and get the actual filename
+            const jsonFilePath = await outputWriter.writeAndOpen('content', filename, jsonOutput, 'json', false, includeTimestamp);
+            const jsonFilename = path.basename(jsonFilePath);
+
+            // Format summary with the actual JSON filename
+            const summaryOutput = ContentClient.formatExportSummary(exportData, jsonFilename);
 
             // Write summary file (markdown) - open this one
             await outputWriter.writeAndOpen('content', `${filename}_summary`, summaryOutput, 'md', true, includeTimestamp);

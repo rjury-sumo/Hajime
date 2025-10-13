@@ -258,7 +258,8 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
             { label: 'Test Connection', command: 'sumologic.testConnection', icon: 'plug' },
             { label: 'Fetch Custom Fields', command: 'sumologic.fetchCustomFields', icon: 'refresh' },
             { label: 'Fetch Partitions', command: 'sumologic.fetchPartitions', icon: 'refresh' },
-            { label: 'Cache Key Metadata', command: 'sumologic.cacheKeyMetadata', icon: 'database' }
+            { label: 'Cache Key Metadata', command: 'sumologic.cacheKeyMetadata', icon: 'database' },
+            { label: 'View Autocomplete Data', command: 'sumologic.viewAutocomplete', icon: 'list-tree' }
         ];
 
         return actions.map(action =>

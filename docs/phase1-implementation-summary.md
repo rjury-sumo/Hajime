@@ -17,11 +17,16 @@ Created a comprehensive tree view provider (`SumoExplorerProvider`) with the fol
 
 #### Root Level Sections:
 - **Active Profile Display** - Shows currently active profile at the top with checkmark icon
-- **Quick Actions** - Common commands for fast access
+- **Quick Actions** - Common commands for fast access (New Query, Run Query, Test Connection, Fetch Fields/Partitions, Cache Metadata)
 - **Profiles** - All configured profiles with ability to switch
 - **Recent Queries** - Last 10 modified .sumo files from active profile directory
-- **Collectors** - Placeholder for collector management
-- **Content** - Quick access to content export commands
+- **Collectors** - Quick action to fetch collectors
+- **Content** - Export system folders and content:
+  - Get Personal Folder
+  - Export Content by ID
+  - Export Admin Recommended
+  - Export Global Folder ✨ **NEW**
+  - Export Installed Apps ✨ **NEW**
 
 #### Tree Item Types:
 - Profile items (with click-to-switch)

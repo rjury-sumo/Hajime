@@ -6,6 +6,15 @@ A comprehensive Visual Studio Code extension that provides a complete IDE experi
 
 **Hajime** transforms VS Code into a powerful development environment for Sumo Logic, offering:
 
+### 🎯 Tree View Sidebar for Easy Navigation
+Dedicated sidebar in the activity bar provides one-click access to:
+- **Active Profile** - See current connection at a glance
+- **Quick Actions** - Common commands (New Query, Test Connection, Fetch Metadata)
+- **Profiles** - Switch between deployments with a single click
+- **Recent Queries** - Last 10 .sumo files for quick access
+- **Content Explorer** - Export system folders (Global, Admin Recommended, Installed Apps)
+- **Collectors** - Quick access to collector management
+
 ### 🎯 IDE Experience for Query Development
 Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
 - **hundreds ofParser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list.
@@ -24,11 +33,13 @@ Connect to multiple Sumo Logic deployments and easily switch between them:
 
 ### 📊 Query Execution with Multiple Output Formats
 Execute queries directly from VS Code with flexible output options:
+- **CodeLens Actions** - Inline buttons (▶ Run | 📊 Webview | 📈 Chart) appear above queries
 - **Traditional Output** - formatted tables, JSON, or CSV files
 - **Interactive Webview** - paginated, sortable, filterable table for exploring large result sets
 - **Auto-Charting** - automatic visualization with Apache ECharts (line, bar, pie, scatter charts)
 - **Query Metadata Directives** - control time range, timezone, output format via comments in your query
 - **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries
+- **Context Menus** - Right-click in .sumo files or file explorer for quick actions
 
 ![alt text](<docs/images/sumo buttons.png>)
 ![alt text](docs/images/query.webview.output.png)
@@ -55,10 +66,11 @@ Fetch and manage configuration from your Sumo Logic deployment:
 ## Quick Start
 
 1. **Install the Extension** - Search for "Sumo Logic Query Language" in VS Code extensions
-2. **Create a Profile** - Run `Sumo Logic: Create/Update Connection Profile` from command palette
-3. **Create a Query** - Create a new file with `.sumo` extension or run `Sumo Logic: New Query File`
-4. **Write Your Query** - Use autocomplete (`Ctrl+Space`) to discover operators, functions, and parsers
-5. **Execute** - Click the ▶️ button in the toolbar or run `Sumo Logic: Run Query`
+2. **Open Sumo Logic Sidebar** - Click the Sumo Logic icon in the activity bar (left sidebar)
+3. **Create a Profile** - Click "Create your first profile" in the sidebar or run `Sumo Logic: Create/Update Connection Profile`
+4. **Create a Query** - Click "New Query" in Quick Actions or create a file with `.sumo` extension
+5. **Write Your Query** - Use autocomplete (`Ctrl+Space`) to discover operators, functions, and parsers
+6. **Execute** - Click the inline ▶ Run Query button above your query, or use toolbar buttons
 
 ## Detailed Features
 
@@ -152,26 +164,29 @@ Also works on CSV files: Right-click any `.csv` file → `Sumo Logic: Chart CSV 
 **Connection profiles** let you work with multiple Sumo Logic deployments:
 
 1. **Create a Profile**:
-   - Run `Sumo Logic: Create/Update Connection Profile`
+   - Click the Sumo Logic icon in the activity bar to open the sidebar
+   - Click the + button in the view header, or click "Create your first profile"
+   - Or run `Sumo Logic: Create/Update Connection Profile` from command palette
    - Enter profile name (e.g., `Production`, `Dev`, `Customer-ABC`)
    - Select region (us1, us2, eu, au, de, jp, ca, in) or enter custom endpoint
    - Enter Access ID and Access Key (stored securely)
 
 2. **Switch Profiles**:
+   - Click any profile in the sidebar's Profiles section, or
    - Click the profile name in the status bar (bottom-right), or
-   - Run `Sumo Logic: Switch Profile`
+   - Run `Sumo Logic: Switch Profile` from command palette
    - All queries and API calls use the active profile
 
 3. **Manage Profiles**:
-   - `Sumo Logic: List Profiles` - View all configured profiles
-   - `Sumo Logic: Test Connection` - Verify API connectivity
-   - `Sumo Logic: Delete Profile` - Remove a profile and its credentials
+   - Right-click a profile in the sidebar for quick actions (Switch, Delete, Test Connection)
+   - Or use command palette: `List Profiles`, `Test Connection`, `Delete Profile`
 
 **Profile Features**:
 - 🔐 Credentials stored securely in VS Code's secret storage
 - 💾 Per-profile autocomplete data (fields, partitions, metadata values)
 - 📁 Organized output: `output/<profile>/queries/`, `collectors/`, etc.
 - 🔄 Quick switching without re-entering credentials
+- 👁️ Visual indicator showing active profile in sidebar
 
 ### Fetching Metadata & Configuration
 
@@ -192,7 +207,17 @@ All fetched data enhances autocomplete and is persisted per profile.
 
 ### Content Library Export
 
-Export content items and special folders from the Sumo Logic Content Library as JSON with markdown summaries:
+Export content items and special folders from the Sumo Logic Content Library as JSON with markdown summaries.
+
+**Access from Sidebar**:
+Open the Sumo Logic sidebar → expand the **Content** section to see:
+- Get Personal Folder...
+- Export Content by ID...
+- Export Admin Recommended
+- Export Global Folder
+- Export Installed Apps
+
+Or use command palette commands:
 
 | Command | What It Does | Output |
 |---------|--------------|--------|
@@ -333,6 +358,10 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
+- **Tree View Sidebar**: Dedicated activity bar with one-click access to profiles, queries, and actions
+- **CodeLens Provider**: Inline action buttons (▶ Run | 📊 Webview | 📈 Chart) above queries
+- **Context Menus**: Right-click profiles, .sumo files, and CSV files for quick actions
+- **Content Explorer**: Quick access to export Global Folder, Admin Recommended, and Installed Apps
 - **Collector Management**: Full API integration for collectors and sources
 - **Advanced Charting**: Apache ECharts integration with auto-chart selection
 - **Interactive Webview**: Sortable, filterable tables for query results

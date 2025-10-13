@@ -28,6 +28,24 @@
         "onLanguage:sumo"
     ],
     "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "sumo-explorer",
+                    "title": "Sumo Logic",
+                    "icon": "resources/sumo-icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "sumo-explorer": [
+                {
+                    "id": "sumoExplorer",
+                    "name": "Explorer",
+                    "contextualTitle": "Sumo Logic Explorer"
+                }
+            ]
+        },
         "configuration": {
             "title": "Sumo Logic",
             "properties": {
@@ -166,9 +184,72 @@
             {
                 "command": "sumologic.newSumoFile",
                 "title": "Sumo Logic: New Query File"
+            },
+            {
+                "command": "sumologic.refreshExplorer",
+                "title": "Sumo Logic: Refresh Explorer",
+                "icon": "$(refresh)"
             }
         ],
         "menus": {
+            "view/title": [
+                {
+                    "command": "sumologic.refreshExplorer",
+                    "when": "view == sumoExplorer",
+                    "group": "navigation"
+                },
+                {
+                    "command": "sumologic.createProfile",
+                    "when": "view == sumoExplorer",
+                    "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "sumologic.switchProfile",
+                    "when": "view == sumoExplorer && viewItem == profile",
+                    "group": "inline"
+                },
+                {
+                    "command": "sumologic.deleteProfile",
+                    "when": "view == sumoExplorer && viewItem == profile",
+                    "group": "profile"
+                },
+                {
+                    "command": "sumologic.testConnection",
+                    "when": "view == sumoExplorer && viewItem == profile",
+                    "group": "profile"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "sumologic.runQuery",
+                    "when": "resourceLangId == sumo",
+                    "group": "sumo@1"
+                },
+                {
+                    "command": "sumologic.runQueryWebview",
+                    "when": "resourceLangId == sumo",
+                    "group": "sumo@2"
+                },
+                {
+                    "command": "sumologic.runQueryAndChart",
+                    "when": "resourceLangId == sumo",
+                    "group": "sumo@3"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "sumologic.chartCSV",
+                    "when": "resourceExtname == .csv",
+                    "group": "sumo"
+                },
+                {
+                    "command": "sumologic.runQuery",
+                    "when": "resourceExtname == .sumo",
+                    "group": "sumo"
+                }
+            ],
             "editor/title": [
                 {
                     "command": "sumologic.runQuery",

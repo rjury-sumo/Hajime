@@ -16,6 +16,8 @@ import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
 import { MetadataCompletionProvider } from './metadataCompletions';
+import { SumoExplorerProvider } from './views/sumoExplorer';
+import { SumoCodeLensProvider } from './providers/codeLensProvider';
 
 // Global completion providers
 let dynamicCompletionProvider: DynamicCompletionProvider;
@@ -174,15 +176,25 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize status bar
     const statusBar = new StatusBarManager(context);
 
+    // Initialize tree view
+    const sumoExplorerProvider = new SumoExplorerProvider(context);
+    const treeView = vscode.window.registerTreeDataProvider('sumoExplorer', sumoExplorerProvider);
+
+    // Initialize CodeLens provider
+    const codeLensProvider = new SumoCodeLensProvider();
+    const codeLensDisposable = vscode.languages.registerCodeLensProvider('sumo', codeLensProvider);
+
     // Register commands
     const createProfileCmd = vscode.commands.registerCommand('sumologic.createProfile', async () => {
         await authenticateCommand(context);
         await statusBar.refresh();
+        sumoExplorerProvider.refresh();
     });
 
     const switchProfileCmd = vscode.commands.registerCommand('sumologic.switchProfile', async () => {
         await switchProfileCommand(context);
         await statusBar.refresh();
+        sumoExplorerProvider.refresh();
     });
 
     const listProfilesCmd = vscode.commands.registerCommand('sumologic.listProfiles', () => {
@@ -192,6 +204,7 @@ export function activate(context: vscode.ExtensionContext) {
     const deleteProfileCmd = vscode.commands.registerCommand('sumologic.deleteProfile', async () => {
         await deleteProfileCommand(context);
         await statusBar.refresh();
+        sumoExplorerProvider.refresh();
     });
 
     const testConnectionCmd = vscode.commands.registerCommand('sumologic.testConnection', () => {
@@ -286,7 +299,13 @@ export function activate(context: vscode.ExtensionContext) {
         return newSumoFileCommand();
     });
 
+    const refreshExplorerCmd = vscode.commands.registerCommand('sumologic.refreshExplorer', () => {
+        sumoExplorerProvider.refresh();
+    });
+
     context.subscriptions.push(
+        treeView,
+        codeLensDisposable,
         metadataProvider,
         provider,
         createProfileCmd,
@@ -315,7 +334,8 @@ export function activate(context: vscode.ExtensionContext) {
         runQueryWebviewCmd,
         cleanupOldFilesCmd,
         cacheKeyMetadataCmd,
-        newSumoFileCmd
+        newSumoFileCmd,
+        refreshExplorerCmd
     );
 
     // Export context for tests

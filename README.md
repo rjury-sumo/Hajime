@@ -36,7 +36,12 @@ Connect to multiple Sumo Logic deployments and easily switch between them:
 Execute queries directly from VS Code with flexible output options:
 - **CodeLens Actions** - Inline buttons (▶ Run | 📊 Webview | 📈 Chart) appear above queries
 - **Traditional Output** - formatted tables, JSON, or CSV files
-- **Interactive Webview** - paginated, sortable, filterable table for exploring large result sets
+- **Interactive Webview** - paginated, sortable, filterable table for exploring large result sets with:
+  - **Performance Metrics** - execution time and job statistics displayed
+  - **Export Options** - export to CSV or JSON with visible columns and filters applied
+  - **Copy Functionality** - copy visible data to clipboard in tab-separated format
+  - **Column Visibility** - show/hide columns dynamically
+  - **Global Search** - search across all columns simultaneously
 - **Auto-Charting** - automatic visualization with Apache ECharts (line, bar, pie, scatter charts)
 - **Query Metadata Directives** - control time range, timezone, output format via comments in your query
 - **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries
@@ -140,13 +145,16 @@ Outputs results in your choice of format:
 Specify format using `// @output table|json|csv` directive in your query.
 
 #### 2. Interactive Webview Table
-**Command**: `Sumo Logic: Run Query in Webview` (toolbar 📋 button)
+**Command**: `Sumo Logic: Run Query in Webview` (toolbar 📋 button or `Ctrl/Cmd+Shift+Enter`)
 
 Displays results in an interactive table with:
-- **Pagination** - configurable page size
-- **Sorting** - click column headers to sort
-- **Filtering** - search across all columns
-- **Export** - copy or download data
+- **Pagination** - configurable page size with page navigation
+- **Sorting** - click column headers to sort ascending/descending
+- **Filtering** - search across all columns with per-column filters
+- **Column Management** - show/hide columns, resize columns
+- **Performance Metrics** - view execution time and job statistics
+- **Export** - export to CSV or JSON with visible columns only
+- **Copy** - copy visible data to clipboard in tab-separated format
 
 Perfect for exploring large result sets (thousands of rows).
 
@@ -373,7 +381,13 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
-#### Phase 2: Developer Experience (Current)
+#### Phase 3: Results & Visualization (Current)
+- **Performance Metrics**: Execution time and job statistics displayed in webview results
+- **Enhanced Export**: Export to CSV or JSON with visible columns and filters applied
+- **Copy Functionality**: Copy visible data to clipboard in tab-separated format
+- **Improved Webview**: Enhanced interactive table with column management and global search
+
+#### Phase 2: Developer Experience
 - **Keyboard Shortcuts**: Power user shortcuts for all common operations (`Cmd/Ctrl+Enter` to run query, etc.)
 - **Enhanced Status Bar**: Connection status indicator (✓/✗/?), last query time, clickable profile switcher
 - **Improved Tooltips**: Detailed status bar tooltips with profile info, region, and last query time

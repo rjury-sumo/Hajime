@@ -307,9 +307,9 @@ Recommended sequence for implementation:
 5. ✅ **Command Organization** (cleanup and categorization - already consistent)
 6. ✅ **Status Bar Enhancements** (always-visible context)
 
-### Phase 3: Results & Visualization
-7. **Query Results Panel** (better output handling)
-8. **Webview Enhancements** (richer interactions)
+### Phase 3: Results & Visualization ✅ **COMPLETED**
+7. ✅ **Query Results Panel** (better output handling - webview already exists)
+8. ✅ **Webview Enhancements** (richer interactions - performance metrics, export options, copy functionality)
 
 ### Phase 4: Onboarding & Polish
 9. **Welcome Experience** (onboarding)
@@ -384,6 +384,58 @@ Ideas for future consideration:
 ---
 
 ## Implementation Notes
+
+### Phase 3 Implementation (Session 7)
+
+**Implemented Features:**
+
+1. **Query Performance Metrics** (`src/commands/runQuery.ts`)
+   - Added execution time tracking from job creation to results retrieval
+   - Captured final job stats (recordCount, messageCount) during polling
+   - Enhanced `formatRecordsAsHTML` signature to accept `executionTime` and `jobStats`
+   - Displayed metrics in webview header with formatted execution time (seconds)
+   - Shows both execution time and job statistics in query info section
+
+2. **Enhanced Export Options** (`src/commands/runQuery.ts`)
+   - **Export to JSON**: New JavaScript function `exportToJSON()`
+     - Builds JSON array from filtered data with visible columns only
+     - Pretty prints JSON with 2-space indentation
+     - Posts message to extension host for file save
+   - **Export to CSV**: Maintained existing CSV export functionality
+   - Added JSON export handler in message listener
+   - Separate file dialogs for CSV and JSON with appropriate filters
+   - Both exports respect column visibility and applied filters
+
+3. **Copy Functionality** (`src/commands/runQuery.ts`)
+   - **Copy Visible** button in toolbar
+   - JavaScript function `copyVisible()` copies filtered data to clipboard
+   - Tab-separated values (TSV) format for spreadsheet compatibility
+   - Uses modern navigator.clipboard API
+   - Shows temporary notification on successful copy
+   - Notification auto-dismisses after 3 seconds
+   - Respects all filters and column visibility
+
+4. **Webview Features Already Present**:
+   - Column management with show/hide dropdown
+   - Global search across all columns
+   - Column resizing with drag handles
+   - Per-column filtering in header row
+   - Pagination with configurable page size
+   - Sortable columns (ascending/descending)
+   - Column visibility toggles
+
+**Files Modified:**
+- `src/commands/runQuery.ts` - Enhanced webview HTML generation and message handling
+- `README.md` - Updated webview features section and Phase 3 in Latest Updates
+- `docs/project_summary.md` - Added Session 7 documentation
+- `docs/ux-improvement-plan.md` - Marked Phase 3 as complete
+
+**User Benefits:**
+- Query performance visibility for optimization decisions
+- Flexible export options for different downstream tools
+- Quick data sharing via clipboard
+- Professional data exploration matching enterprise BI tools
+- All filters and column selections preserved during export/copy
 
 ### Phase 2 Implementation (Session 6)
 

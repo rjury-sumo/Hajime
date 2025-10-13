@@ -198,7 +198,7 @@ function formatResultsAsJSON(results: any[]): string {
 /**
  * Format records as HTML for webview display with sorting, filtering, and pagination
  */
-export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; from: string; to: string; mode: string; count: number; pageSize: number }): string {
+export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; from: string; to: string; mode: string; count: number; pageSize: number; executionTime?: number; jobStats?: any }): string {
     if (records.length === 0) {
         return '<p>No results found</p>';
     }
@@ -473,6 +473,8 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         <div class="query-info"><strong>Mode:</strong> ${queryInfo.mode}</div>
         <div class="query-info"><strong>Time Range:</strong> ${queryInfo.from} to ${queryInfo.to}</div>
         <div class="query-info"><strong>Results:</strong> ${queryInfo.count} ${queryInfo.mode}</div>
+        ${queryInfo.executionTime ? `<div class="query-info"><strong>Execution Time:</strong> ${(queryInfo.executionTime / 1000).toFixed(2)}s</div>` : ''}
+        ${queryInfo.jobStats ? `<div class="query-info"><strong>Job Stats:</strong> Records: ${queryInfo.jobStats.recordCount || 0}, Messages: ${queryInfo.jobStats.messageCount || 0}</div>` : ''}
         <div class="query-code">${escapeHtml(queryInfo.query)}</div>
     </div>
     <div class="toolbar">
@@ -493,6 +495,8 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
                 </div>
             </div>
             <button class="toolbar-button" onclick="exportToCSV()">Export CSV</button>
+            <button class="toolbar-button" onclick="exportToJSON()">Export JSON</button>
+            <button class="toolbar-button secondary" onclick="copyVisible()">Copy Visible</button>
         </div>
     </div>
     <div class="table-container">
@@ -528,6 +532,9 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
     </div>
 
     <script>
+        // Acquire VS Code API first
+        const vscode = acquireVsCodeApi();
+
         const allData = ${recordsJson};
         const pageSize = ${queryInfo.pageSize};
         const columns = ${keysJson};
@@ -817,16 +824,83 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             });
 
             // Send CSV data to extension host for file save
-            if (typeof vscode !== 'undefined') {
-                vscode.postMessage({
-                    command: 'exportCSV',
-                    csvData: csv
-                });
-            }
+            vscode.postMessage({
+                command: 'exportCSV',
+                csvData: csv
+            });
         }
 
-        // Acquire VS Code API
-        const vscode = acquireVsCodeApi();
+        // Export to JSON
+        function exportToJSON() {
+            // Get visible columns
+            const visibleColumns = columns.filter((_, idx) => !hiddenColumns.has(idx));
+
+            // Build JSON array with only visible columns and filtered data
+            const jsonData = filteredData.map(rowIdx => {
+                const row = allData[rowIdx];
+                const obj = {};
+                visibleColumns.forEach(col => {
+                    obj[col] = row[col];
+                });
+                return obj;
+            });
+
+            const jsonString = JSON.stringify(jsonData, null, 2);
+
+            // Send JSON data to extension host for file save
+            vscode.postMessage({
+                command: 'exportJSON',
+                jsonData: jsonString
+            });
+        }
+
+        // Copy visible data to clipboard
+        function copyVisible() {
+            // Get visible columns
+            const visibleColumns = columns.filter((_, idx) => !hiddenColumns.has(idx));
+
+            // Build tab-separated content
+            let tsv = '';
+
+            // Header row
+            tsv += visibleColumns.join('\\t') + '\\n';
+
+            // Data rows (only filtered data)
+            filteredData.forEach(rowIdx => {
+                const row = allData[rowIdx];
+                tsv += visibleColumns.map(col => String(row[col] || '')).join('\\t') + '\\n';
+            });
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(tsv).then(() => {
+                showNotification('Copied ' + filteredData.length + ' rows to clipboard');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+
+        // Show temporary notification
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.cssText = \`
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background-color: var(--vscode-notifications-background);
+                color: var(--vscode-notifications-foreground);
+                border: 1px solid var(--vscode-notifications-border);
+                padding: 12px 16px;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                z-index: 10000;
+                animation: slideIn 0.3s ease-out;
+            \`;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
 
         // Column resizing functionality
         let resizingColumn = null;
@@ -1040,6 +1114,8 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
     // Execute search with progress
     let jobId: string | undefined;
+    const startTime = Date.now();
+    let finalJobStats: any;
 
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -1060,6 +1136,7 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
         // Poll for completion
         const pollResponse = await client.pollForCompletion(jobId, (status: SearchJobStatus) => {
+            finalJobStats = status;
             progress.report({
                 message: `State: ${status.state}, Records: ${status.recordCount}, Messages: ${status.messageCount}`
             });
@@ -1136,6 +1213,7 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             // Get page size from settings
             const config = vscode.workspace.getConfiguration('sumologic');
             const pageSize = config.get<number>('webviewPageSize') || 200;
+            const executionTime = Date.now() - startTime;
 
             const htmlContent = formatRecordsAsHTML(results, {
                 query: cleanedQuery,
@@ -1143,7 +1221,9 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
                 to: to,
                 mode: mode,
                 count: resultCount,
-                pageSize: pageSize
+                pageSize: pageSize,
+                executionTime: executionTime,
+                jobStats: finalJobStats
             });
 
             panel.webview.html = htmlContent;
@@ -1151,13 +1231,13 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             // Handle messages from webview
             panel.webview.onDidReceiveMessage(
                 async (message) => {
-                    if (message.command === 'exportCSV') {
-                        // Get workspace folder or use home directory
-                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-                        const defaultUri = workspaceFolder
-                            ? vscode.Uri.file(workspaceFolder.uri.fsPath)
-                            : undefined;
+                    const fs = await import('fs');
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    const defaultUri = workspaceFolder
+                        ? vscode.Uri.file(workspaceFolder.uri.fsPath)
+                        : undefined;
 
+                    if (message.command === 'exportCSV') {
                         // Prompt user for save location
                         const uri = await vscode.window.showSaveDialog({
                             defaultUri: defaultUri,
@@ -1169,9 +1249,23 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
                         });
 
                         if (uri) {
-                            const fs = await import('fs');
                             fs.writeFileSync(uri.fsPath, message.csvData, 'utf-8');
                             vscode.window.showInformationMessage(`CSV exported to ${uri.fsPath}`);
+                        }
+                    } else if (message.command === 'exportJSON') {
+                        // Prompt user for save location
+                        const uri = await vscode.window.showSaveDialog({
+                            defaultUri: defaultUri,
+                            filters: {
+                                'JSON Files': ['json'],
+                                'All Files': ['*']
+                            },
+                            saveLabel: 'Export JSON'
+                        });
+
+                        if (uri) {
+                            fs.writeFileSync(uri.fsPath, message.jsonData, 'utf-8');
+                            vscode.window.showInformationMessage(`JSON exported to ${uri.fsPath}`);
                         }
                     }
                 },

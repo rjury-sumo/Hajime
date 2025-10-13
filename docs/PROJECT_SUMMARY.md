@@ -374,7 +374,47 @@ npm run lint          # Run ESLint
 
 ## Recent Enhancements
 
-### Session 6 (Phase 2: Developer Experience - Current)
+### Session 7 (Phase 3: Results & Visualization - Current)
+1. **Query Performance Metrics**: Added execution time and job statistics tracking
+   - Execution time calculated from job creation to results retrieval
+   - Job stats (record count, message count) captured from polling
+   - Metrics displayed in webview header with formatted execution time
+   - Enhanced `formatRecordsAsHTML` to accept `executionTime` and `jobStats` parameters
+
+2. **Enhanced Export Options**: Multiple export formats with filtering
+   - **Export to JSON**: New export function for JSON format with proper formatting
+   - **Export to CSV**: Existing CSV export maintained
+   - Both exports respect visible columns and applied filters
+   - Message passing to extension host for file save dialogs
+   - Separate handlers for CSV and JSON export in extension
+
+3. **Copy Functionality**: Copy visible data to clipboard
+   - **Copy Visible** button copies filtered data in tab-separated format
+   - Uses navigator.clipboard API for modern clipboard access
+   - Shows temporary notification on successful copy
+   - Respects column visibility and data filters
+   - Tab-separated format for easy paste into spreadsheets
+
+4. **Improved Webview Features**:
+   - Column management (show/hide via dropdown menu)
+   - Global search across all columns
+   - Column resizing with drag handles
+   - Per-column filtering
+   - Pagination with configurable page size
+   - Sortable columns (click headers)
+
+**Files Modified:**
+- `src/commands/runQuery.ts` - Enhanced webview with performance metrics, JSON export, copy functionality
+- `README.md` - Updated with Phase 3 features and enhanced documentation
+- `docs/project_summary.md` - Added Session 7 documentation
+
+**User Benefits:**
+- Visibility into query performance for optimization
+- Flexible export options for different use cases
+- Quick copy for sharing data snippets
+- Professional data exploration experience
+
+### Session 6 (Phase 2: Developer Experience)
 1. **Keyboard Shortcuts**: Implemented intuitive keyboard shortcuts for power users
    - `Cmd/Ctrl+Enter`: Run Query
    - `Cmd/Ctrl+Shift+Enter`: Run Query in Webview

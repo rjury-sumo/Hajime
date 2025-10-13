@@ -285,13 +285,13 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
         // Handle messages from webview
         panel.webview.onDidReceiveMessage(
             async (message) => {
-                if (message.command === 'exportCSV') {
-                    // Get workspace folder or use home directory
-                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-                    const defaultUri = workspaceFolder
-                        ? vscode.Uri.file(workspaceFolder.uri.fsPath)
-                        : undefined;
+                const fs = await import('fs');
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                const defaultUri = workspaceFolder
+                    ? vscode.Uri.file(workspaceFolder.uri.fsPath)
+                    : undefined;
 
+                if (message.command === 'exportCSV') {
                     // Prompt user for save location
                     const uri = await vscode.window.showSaveDialog({
                         defaultUri: defaultUri,
@@ -303,9 +303,23 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
                     });
 
                     if (uri) {
-                        const fs = await import('fs');
                         fs.writeFileSync(uri.fsPath, message.csvData, 'utf-8');
                         vscode.window.showInformationMessage(`CSV exported to ${uri.fsPath}`);
+                    }
+                } else if (message.command === 'exportJSON') {
+                    // Prompt user for save location
+                    const uri = await vscode.window.showSaveDialog({
+                        defaultUri: defaultUri,
+                        filters: {
+                            'JSON Files': ['json'],
+                            'All Files': ['*']
+                        },
+                        saveLabel: 'Export JSON'
+                    });
+
+                    if (uri) {
+                        fs.writeFileSync(uri.fsPath, message.jsonData, 'utf-8');
+                        vscode.window.showInformationMessage(`JSON exported to ${uri.fsPath}`);
                     }
                 }
             },

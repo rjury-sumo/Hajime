@@ -374,6 +374,25 @@ npm run lint          # Run ESLint
 
 ## Recent Enhancements
 
+### Session 6 (Phase 2: Developer Experience - Current)
+1. **Keyboard Shortcuts**: Implemented intuitive keyboard shortcuts for power users
+   - `Cmd/Ctrl+Enter`: Run Query
+   - `Cmd/Ctrl+Shift+Enter`: Run Query in Webview
+   - `Cmd/Ctrl+Shift+C`: Run Query and Chart
+   - `Cmd/Ctrl+Shift+N`: New Query File
+   - `Cmd/Ctrl+K Cmd/Ctrl+S`: Switch Profile
+2. **Enhanced Status Bar**: Major status bar improvements
+   - Connection status indicator (✓ connected / ✗ disconnected / ? unknown)
+   - Clickable connection status to test connection
+   - Last query execution time tracking
+   - Detailed tooltips with profile info, region, and last query time
+   - Both profile and connection status items in status bar
+3. **Status Bar Integration**: Updated commands to interact with status bar
+   - Test connection command updates connection status
+   - Run query command updates last query time and connection status
+   - Status bar manager exported for use by commands
+4. **Command Organization**: All commands already have consistent "Sumo Logic:" prefix (verified)
+
 ### Session 1 (Initial Development)
 - Initial project setup with syntax highlighting
 - Basic autocomplete for operators and functions

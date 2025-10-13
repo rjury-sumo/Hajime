@@ -302,10 +302,10 @@ Recommended sequence for implementation:
 2. **Context Menus** (better discoverability)
 3. **CodeLens** (inline actions)
 
-### Phase 2: Developer Experience
-4. **Keyboard Shortcuts** (power user experience)
-5. **Command Organization** (cleanup and categorization)
-6. **Status Bar Enhancements** (always-visible context)
+### Phase 2: Developer Experience ✅ **COMPLETED**
+4. ✅ **Keyboard Shortcuts** (power user experience)
+5. ✅ **Command Organization** (cleanup and categorization - already consistent)
+6. ✅ **Status Bar Enhancements** (always-visible context)
 
 ### Phase 3: Results & Visualization
 7. **Query Results Panel** (better output handling)
@@ -380,6 +380,55 @@ Ideas for future consideration:
 - Support **accessibility** - keyboard navigation, screen readers
 - Enable **customization** - let users configure the experience
 - Provide **feedback** - progress indicators, success/error messages
+
+---
+
+## Implementation Notes
+
+### Phase 2 Implementation (Session 6)
+
+**Implemented Features:**
+
+1. **Keyboard Shortcuts** (`package.json`)
+   - Added `keybindings` contribution with 5 shortcuts
+   - Context-aware activation using `when` clauses
+   - Platform-specific bindings (Mac vs Windows/Linux)
+   - All shortcuts documented in README
+
+2. **Status Bar Enhancements** (`src/statusBar.ts`)
+   - Added second status bar item for connection status
+   - Connection status states: connected (✓), disconnected (✗), unknown (?)
+   - Last query time tracking with tooltip display
+   - Detailed tooltips showing profile name, region, and last query time
+   - Clickable items: profile item switches profiles, status item tests connection
+   - Both items use codicon icons for consistency
+
+3. **Command Integration**
+   - Test Connection command updates connection status
+   - Run Query command updates last query time and connection status
+   - Status bar manager exported from extension.ts for command access
+   - Uses dynamic import to avoid circular dependencies
+
+4. **Command Organization**
+   - Verified all 27 commands already have consistent "Sumo Logic:" prefix
+   - Context menus properly organized by type (editor, explorer, view)
+   - Commands appropriately hidden/shown based on context using `when` clauses
+
+**Files Modified:**
+- `package.json` - Added keybindings contribution
+- `src/statusBar.ts` - Enhanced with connection status and last query time
+- `src/extension.ts` - Exported statusBarManager
+- `src/commands/authenticate.ts` - Updated testConnection to update status bar
+- `src/commands/runQuery.ts` - Updated to track last query time
+- `README.md` - Added keyboard shortcuts section and Phase 2 updates
+- `docs/project_summary.md` - Added Session 6 documentation
+- `docs/ux-improvement-plan.md` - Marked Phase 2 as complete
+
+**User Benefits:**
+- Faster workflow with keyboard shortcuts (no mouse needed for common operations)
+- Always-visible connection status reduces guesswork
+- Quick access to profile switching and connection testing
+- Professional IDE experience matching VS Code conventions
 
 ---
 

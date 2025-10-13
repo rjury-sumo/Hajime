@@ -298,6 +298,36 @@
                 "scopeName": "source.sumo",
                 "path": "./syntaxes/sumo.tmLanguage.json"
             }
+        ],
+        "keybindings": [
+            {
+                "command": "sumologic.runQuery",
+                "key": "ctrl+enter",
+                "mac": "cmd+enter",
+                "when": "resourceLangId == sumo"
+            },
+            {
+                "command": "sumologic.runQueryWebview",
+                "key": "ctrl+shift+enter",
+                "mac": "cmd+shift+enter",
+                "when": "resourceLangId == sumo"
+            },
+            {
+                "command": "sumologic.runQueryAndChart",
+                "key": "ctrl+shift+c",
+                "mac": "cmd+shift+c",
+                "when": "resourceLangId == sumo"
+            },
+            {
+                "command": "sumologic.newSumoFile",
+                "key": "ctrl+shift+n",
+                "mac": "cmd+shift+n"
+            },
+            {
+                "command": "sumologic.switchProfile",
+                "key": "ctrl+k ctrl+s",
+                "mac": "cmd+k cmd+s"
+            }
         ]
     },
     "scripts": {

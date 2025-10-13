@@ -27,7 +27,8 @@ Rich language support for `.sumo` files with intelligent autocomplete that goes 
 Connect to multiple Sumo Logic deployments and easily switch between them:
 - **Secure Credential Storage** using VS Code's secret storage
 - **Multiple Profiles** - Production, Development, Customer environments, etc.
-- **Quick Profile Switching** from the status bar
+- **Quick Profile Switching** from the status bar (click to switch or use `Cmd/Ctrl+K Cmd/Ctrl+S`)
+- **Connection Status Indicator** - visual status in status bar (✓ connected / ✗ disconnected / ? unknown)
 - **Per-Profile Data** - autocomplete suggestions, query history, and outputs organized by profile
 - **API Integration** - execute queries, fetch metadata, manage collectors, explore content library
 
@@ -70,7 +71,7 @@ Fetch and manage configuration from your Sumo Logic deployment:
 3. **Create a Profile** - Click "Create your first profile" in the sidebar or run `Sumo Logic: Create/Update Connection Profile`
 4. **Create a Query** - Click "New Query" in Quick Actions or create a file with `.sumo` extension
 5. **Write Your Query** - Use autocomplete (`Ctrl+Space`) to discover operators, functions, and parsers
-6. **Execute** - Click the inline ▶ Run Query button above your query, or use toolbar buttons
+6. **Execute** - Click the inline ▶ Run Query button above your query, use toolbar buttons, or press `Ctrl+Enter` (Windows/Linux) or `Cmd+Enter` (Mac)
 
 ## Detailed Features
 
@@ -298,6 +299,20 @@ _sourceCategory=metrics
 4. Run `Get Sources for Collector` to audit source setup
 5. JSON files saved to `output/<profile>/collectors/` for documentation
 
+## Keyboard Shortcuts
+
+The extension provides convenient keyboard shortcuts for common operations:
+
+| Command | Windows/Linux | macOS | Description |
+|---------|---------------|-------|-------------|
+| **Run Query** | `Ctrl+Enter` | `Cmd+Enter` | Execute the current query with standard output |
+| **Run Query in Webview** | `Ctrl+Shift+Enter` | `Cmd+Shift+Enter` | Execute query with interactive table view |
+| **Run Query and Chart** | `Ctrl+Shift+C` | `Cmd+Shift+C` | Execute query and auto-generate chart |
+| **New Query File** | `Ctrl+Shift+N` | `Cmd+Shift+N` | Create a new .sumo query file |
+| **Switch Profile** | `Ctrl+K Ctrl+S` | `Cmd+K Cmd+S` | Switch between connection profiles |
+
+All keyboard shortcuts work when editing `.sumo` files (except Switch Profile which is global).
+
 ## Configuration
 
 ### Extension Settings
@@ -358,6 +373,12 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
+#### Phase 2: Developer Experience (Current)
+- **Keyboard Shortcuts**: Power user shortcuts for all common operations (`Cmd/Ctrl+Enter` to run query, etc.)
+- **Enhanced Status Bar**: Connection status indicator (✓/✗/?), last query time, clickable profile switcher
+- **Improved Tooltips**: Detailed status bar tooltips with profile info, region, and last query time
+
+#### Phase 1: Core UI
 - **Tree View Sidebar**: Dedicated activity bar with one-click access to profiles, queries, and actions
 - **CodeLens Provider**: Inline action buttons (▶ Run | 📊 Webview | 📈 Chart) above queries
 - **Context Menus**: Right-click profiles, .sumo files, and CSV files for quick actions

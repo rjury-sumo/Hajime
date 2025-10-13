@@ -1105,6 +1105,13 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             return;
         }
 
+        // Update status bar with last query time
+        const { getStatusBarManager } = await import('../extension');
+        const statusBar = getStatusBarManager();
+        if (statusBar) {
+            statusBar.setLastQueryTime(new Date());
+            statusBar.setConnectionStatus('connected');
+        }
 
         // Add discovered fields to autocomplete
         const dynamicProvider = getDynamicCompletionProvider();

@@ -345,6 +345,12 @@ export async function testConnectionCommand(context: vscode.ExtensionContext): P
 
     if (!client) {
         vscode.window.showErrorMessage(`No credentials found for profile '${activeProfile.name}'.`);
+        // Update status bar
+        const { getStatusBarManager } = await import('../extension');
+        const statusBar = getStatusBarManager();
+        if (statusBar) {
+            statusBar.setConnectionStatus('disconnected');
+        }
         return;
     }
 
@@ -355,10 +361,20 @@ export async function testConnectionCommand(context: vscode.ExtensionContext): P
     }, async () => {
         const response = await client.testConnection();
 
+        // Update status bar
+        const { getStatusBarManager } = await import('../extension');
+        const statusBar = getStatusBarManager();
+
         if (response.error) {
             vscode.window.showErrorMessage(`Connection failed for '${activeProfile.name}': ${response.error}`);
+            if (statusBar) {
+                statusBar.setConnectionStatus('disconnected');
+            }
         } else {
             vscode.window.showInformationMessage(`Successfully connected to '${activeProfile.name}' at ${client.getEndpoint()}`);
+            if (statusBar) {
+                statusBar.setConnectionStatus('connected');
+            }
         }
     });
 }

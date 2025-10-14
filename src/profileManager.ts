@@ -175,12 +175,7 @@ export class ProfileManager {
      * This is where exported/generated files are stored
      */
     getProfileOutputDirectory(profileName: string): string {
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (workspaceRoot) {
-            return path.join(workspaceRoot, 'output', profileName);
-        }
-        // Fallback to extension storage if no workspace
-        return path.join(this.getProfileDirectory(profileName), 'output');
+        return this.getProfileDirectory(profileName);
     }
 
     /**

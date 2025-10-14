@@ -64,6 +64,9 @@ export class DatabaseWebviewProvider {
                 case 'runContentCommand':
                     await DatabaseWebviewProvider.runContentCommand(data.contentId, data.itemType, data.name);
                     break;
+                case 'openInWeb':
+                    await DatabaseWebviewProvider.openInWeb(data.contentId);
+                    break;
                 case 'refreshData':
                     await DatabaseWebviewProvider.loadProfileData(DatabaseWebviewProvider.currentProfileName || '');
                     break;
@@ -232,6 +235,38 @@ export class DatabaseWebviewProvider {
             // Open content item
             vscode.commands.executeCommand('sumologic.viewLibraryContent', DatabaseWebviewProvider.currentProfileName, contentId, name);
         }
+    }
+
+    /**
+     * Open folder in Sumo Logic web UI
+     */
+    private static async openInWeb(contentId: string) {
+        if (!DatabaseWebviewProvider.profileManager) {
+            return;
+        }
+
+        const profiles = await DatabaseWebviewProvider.profileManager.getProfiles();
+        const profile = profiles.find(p => p.name === DatabaseWebviewProvider.currentProfileName);
+
+        if (!profile) {
+            vscode.window.showErrorMessage(`Profile not found: ${DatabaseWebviewProvider.currentProfileName}`);
+            return;
+        }
+
+        // Convert hex ID to decimal for web UI
+        const hexToDecimal = (hex: string): string => {
+            return BigInt('0x' + hex).toString(10);
+        };
+        const decimalId = hexToDecimal(contentId);
+
+        // Get instance name
+        const instanceName = await DatabaseWebviewProvider.profileManager.getInstanceName(profile);
+
+        // Construct library URL
+        const url = `https://${instanceName}/library/${decimalId}`;
+
+        // Open in browser
+        vscode.env.openExternal(vscode.Uri.parse(url));
     }
 
     /**
@@ -581,6 +616,11 @@ export class DatabaseWebviewProvider {
                 const createdBy = item.createdBy || '-';
                 const description = item.description || '';
 
+                // Add "Open" link for Folders to open in Sumo Logic web UI
+                const actions = item.itemType === 'Folder'
+                    ? \`<a class="action-link" onclick="runCommand('\${item.id}', '\${item.itemType}', '\${escapeHtml(item.name)}')">View</a> | <a class="action-link" onclick="openInWeb('\${item.id}')">Open</a>\`
+                    : \`<a class="action-link" onclick="runCommand('\${item.id}', '\${item.itemType}', '\${escapeHtml(item.name)}')">View</a>\`;
+
                 return \`
                     <tr>
                         <td>\${escapeHtml(item.name)}</td>
@@ -590,9 +630,7 @@ export class DatabaseWebviewProvider {
                         <td class="truncate" title="\${escapeHtml(createdBy)}">\${escapeHtml(createdBy)}</td>
                         <td class="truncate" title="\${escapeHtml(description)}">\${escapeHtml(description)}</td>
                         <td>
-                            <a class="action-link" onclick="runCommand('\${item.id}', '\${item.itemType}', '\${escapeHtml(item.name)}')">
-                                View
-                            </a>
+                            \${actions}
                         </td>
                     </tr>
                 \`;
@@ -684,6 +722,13 @@ export class DatabaseWebviewProvider {
                 contentId: contentId,
                 itemType: itemType,
                 name: name
+            });
+        }
+
+        function openInWeb(contentId) {
+            vscode.postMessage({
+                type: 'openInWeb',
+                contentId: contentId
             });
         }
 

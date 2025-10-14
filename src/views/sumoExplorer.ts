@@ -369,7 +369,7 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 TreeItemType.RecentQuery,
                 vscode.TreeItemCollapsibleState.None,
                 undefined,
-                { filePath: query.filePath, tooltip }
+                { filePath: query.filePath, path: query.filePath, tooltip }
             );
         });
     }

@@ -320,6 +320,11 @@
                     "group": "delete@1"
                 },
                 {
+                    "command": "sumologic.revealStorageInExplorer",
+                    "when": "view == sumoExplorer && viewItem == recentQuery",
+                    "group": "navigation@1"
+                },
+                {
                     "command": "sumologic.viewLibraryNodeDetails",
                     "when": "view == sumoExplorer && viewItem =~ /^library_/",
                     "group": "navigation@1"

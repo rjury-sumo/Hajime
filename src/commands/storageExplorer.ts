@@ -5,9 +5,11 @@ import * as fs from 'fs';
  * Reveal a storage item (file or folder) in the system file explorer
  */
 export async function revealStorageInExplorerCommand(treeItem: any): Promise<void> {
-    const filePath = treeItem?.data?.path;
+    // Try to get file path from different possible locations
+    const filePath = treeItem?.data?.path || treeItem?.data?.filePath;
 
     if (!filePath) {
+        console.error('No file path available. TreeItem:', JSON.stringify(treeItem, null, 2));
         vscode.window.showErrorMessage('No file path available');
         return;
     }

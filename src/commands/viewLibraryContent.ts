@@ -478,31 +478,50 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
     // Top-level string properties to display at the top
     const topLevelProps = ['name', 'description', 'title', 'theme', 'type'];
 
-    // Extract all queries from panels
+    // Detect dashboard version
+    const isV1Dashboard = content.type === 'DashboardSyncDefinition';
+
+    // Extract all queries from panels (handle both v1 and v2 formats)
     const queries: any[] = [];
     if (content.panels && Array.isArray(content.panels)) {
         content.panels.forEach((panel: any) => {
-            if (panel.queries && Array.isArray(panel.queries)) {
-                panel.queries.forEach((query: any) => {
+            if (isV1Dashboard) {
+                // v1 Dashboard: queryString is directly on panel
+                if (panel.queryString) {
                     queries.push({
-                        panelName: panel.title || 'Untitled Panel',
-                        panelKey: panel.key,
-                        queryKey: query.queryKey,
-                        queryType: query.queryType,
-                        queryString: query.queryString,
-                        parseMode: query.parseMode,
-                        timeSource: query.timeSource
+                        panelName: panel.name || panel.title || 'Untitled Panel',
+                        panelKey: panel.id,
+                        queryKey: 'A',
+                        queryType: 'Logs',
+                        queryString: panel.queryString,
+                        parseMode: panel.autoParsingInfo?.mode || 'Auto',
+                        timeSource: 'Message'
                     });
-                });
+                }
+            } else {
+                // v2 Dashboard: queries array
+                if (panel.queries && Array.isArray(panel.queries)) {
+                    panel.queries.forEach((query: any) => {
+                        queries.push({
+                            panelName: panel.title || 'Untitled Panel',
+                            panelKey: panel.key,
+                            queryKey: query.queryKey,
+                            queryType: query.queryType,
+                            queryString: query.queryString,
+                            parseMode: query.parseMode,
+                            timeSource: query.timeSource
+                        });
+                    });
+                }
             }
         });
     }
 
-    // Sort panels by title
+    // Sort panels by title/name
     if (content.panels && Array.isArray(content.panels)) {
         content.panels.sort((a: any, b: any) => {
-            const titleA = (a.title || '').toLowerCase();
-            const titleB = (b.title || '').toLowerCase();
+            const titleA = (a.title || a.name || '').toLowerCase();
+            const titleB = (b.title || b.name || '').toLowerCase();
             return titleA.localeCompare(titleB);
         });
     }
@@ -579,15 +598,24 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
                     </tr>
                 </thead>
                 <tbody>
-                    ${content.panels.map((p: any) => `
+                    ${content.panels.map((p: any) => {
+                        // Handle both v1 (name, viewerType) and v2 (title, panelType) formats
+                        const title = p.title || p.name || 'Untitled';
+                        const type = p.panelType || p.viewerType || 'Unknown';
+                        const key = p.key || p.id || '-';
+                        const queryCount = p.queries ? p.queries.length : (p.queryString ? 1 : 0);
+                        const description = p.description || '-';
+
+                        return `
                         <tr>
-                            <td>${escapeHtml(p.title)}</td>
-                            <td>${escapeHtml(p.panelType)}</td>
-                            <td class="monospace">${escapeHtml(p.key)}</td>
-                            <td>${p.queries ? p.queries.length : 0}</td>
-                            <td>${escapeHtml(p.description) || '-'}</td>
+                            <td>${escapeHtml(title)}</td>
+                            <td>${escapeHtml(type)}</td>
+                            <td class="monospace">${escapeHtml(key)}</td>
+                            <td>${queryCount}</td>
+                            <td>${escapeHtml(description)}</td>
                         </tr>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
         </div>
@@ -896,10 +924,12 @@ function getWebviewContent(content: any, contentName: string, contentId: string,
     const formattedId = formatContentId(contentId);
 
     // Check if this is a dashboard
-    // Note: In folder listings, dashboards have itemType: "Dashboard"
-    // In exported JSON, they have type: "DashboardV2SyncDefinition"
+    // Note: In folder listings, dashboards have itemType: "Dashboard" or "Report" (v1 legacy)
+    // In exported JSON, they have type: "DashboardV2SyncDefinition" or "DashboardSyncDefinition" (v1)
     const isDashboard = content.type === 'DashboardV2SyncDefinition' ||
+                       content.type === 'DashboardSyncDefinition' ||
                        content.itemType === 'Dashboard' ||
+                       content.itemType === 'Report' ||
                        content.itemType === 'DashboardV2SyncDefinition';
 
     // Check if this is a search

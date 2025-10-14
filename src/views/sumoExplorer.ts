@@ -3,6 +3,7 @@ import { ProfileManager, SumoLogicProfile } from '../profileManager';
 import * as path from 'path';
 import * as fs from 'fs';
 import { LibraryExplorerProvider, LibraryTreeItem } from './libraryExplorer';
+import { RecentQueriesManager } from '../recentQueriesManager';
 
 /**
  * Tree item types for the Sumo Logic Explorer
@@ -131,10 +132,12 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
 
     private profileManager: ProfileManager;
     private libraryExplorerProvider: LibraryExplorerProvider;
+    private recentQueriesManager: RecentQueriesManager;
 
     constructor(private context: vscode.ExtensionContext) {
         this.profileManager = new ProfileManager(context);
         this.libraryExplorerProvider = new LibraryExplorerProvider(context);
+        this.recentQueriesManager = new RecentQueriesManager(context);
 
         // Listen for configuration changes to refresh tree
         vscode.workspace.onDidChangeConfiguration(e => {
@@ -150,6 +153,13 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     refresh(): void {
         this._onDidChangeTreeData.fire();
         this.libraryExplorerProvider.refresh();
+    }
+
+    /**
+     * Get the recent queries manager
+     */
+    getRecentQueriesManager(): RecentQueriesManager {
+        return this.recentQueriesManager;
     }
 
     /**
@@ -327,48 +337,41 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
      */
     private async getRecentQueryItems(): Promise<SumoTreeItem[]> {
         const activeProfile = await this.profileManager.getActiveProfile();
-        if (!activeProfile) {
+        const recentQueries = activeProfile
+            ? this.recentQueriesManager.getQueriesByProfile(activeProfile.name, 10)
+            : this.recentQueriesManager.getQueries(10);
+
+        if (recentQueries.length === 0) {
             return [];
         }
 
-        try {
-            const profileDir = this.profileManager.getProfileDirectory(activeProfile.name);
+        return recentQueries.map(query => {
+            const label = query.name || query.fileName.replace('.sumo', '');
+            const lastOpened = new Date(query.lastOpened);
+            const tooltipLines = [
+                label,
+                `File: ${query.fileName}`,
+                `Opened: ${lastOpened.toLocaleString()}`
+            ];
 
-            // Check if directory exists
-            if (!fs.existsSync(profileDir)) {
-                return [];
+            if (query.profile) {
+                tooltipLines.push(`Profile: ${query.profile}`);
             }
 
-            // Get all .sumo files from profile directory
-            const files = fs.readdirSync(profileDir)
-                .filter(file => file.endsWith('.sumo'))
-                .map(file => {
-                    const filePath = path.join(profileDir, file);
-                    const stats = fs.statSync(filePath);
-                    return { file, filePath, mtime: stats.mtime };
-                })
-                .sort((a, b) => b.mtime.getTime() - a.mtime.getTime())
-                .slice(0, 10); // Show only 10 most recent
-
-            if (files.length === 0) {
-                return [];
+            if (query.queryPreview) {
+                tooltipLines.push(`Preview: ${query.queryPreview}`);
             }
 
-            return files.map(({ file, filePath, mtime }) => {
-                const label = file.replace('.sumo', '');
-                const tooltip = `${label}\nModified: ${mtime.toLocaleString()}`;
-                return new SumoTreeItem(
-                    label,
-                    TreeItemType.RecentQuery,
-                    vscode.TreeItemCollapsibleState.None,
-                    undefined,
-                    { filePath, tooltip }
-                );
-            });
-        } catch (error) {
-            console.error('Error loading recent queries:', error);
-            return [];
-        }
+            const tooltip = tooltipLines.join('\n');
+
+            return new SumoTreeItem(
+                label,
+                TreeItemType.RecentQuery,
+                vscode.TreeItemCollapsibleState.None,
+                undefined,
+                { filePath: query.filePath, tooltip }
+            );
+        });
     }
 
     /**

@@ -28,6 +28,7 @@ import {
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
+import { ProfileManager } from './profileManager';
 import { MetadataCompletionProvider } from './metadataCompletions';
 import { SumoExplorerProvider } from './views/sumoExplorer';
 import { SumoCodeLensProvider } from './providers/codeLensProvider';
@@ -206,6 +207,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Initialize Database Webview Provider
     const databaseWebviewProvider = new DatabaseWebviewProvider(context.extensionUri, context);
+
+    // Register event handler for opening .sumo files
+    const recentQueriesManager = sumoExplorerProvider.getRecentQueriesManager();
+    const profileManager = new ProfileManager(context);
+
+    vscode.workspace.onDidOpenTextDocument(async (document) => {
+        if (document.languageId === 'sumo' || document.fileName.endsWith('.sumo')) {
+            const activeProfile = await profileManager.getActiveProfile();
+            recentQueriesManager.addQuery(document.fileName, activeProfile?.name);
+            // Refresh tree view to show updated recent queries
+            sumoExplorerProvider.refresh();
+        }
+    }, null, context.subscriptions);
 
     // Register commands
     const createProfileCmd = vscode.commands.registerCommand('sumologic.createProfile', async () => {

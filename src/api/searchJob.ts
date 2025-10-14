@@ -9,6 +9,7 @@ export interface SearchJobRequest {
     to: string;
     timeZone?: string;
     byReceiptTime?: boolean;
+    autoParsingMode?: 'AutoParse' | 'Manual';
 }
 
 /**
@@ -79,13 +80,18 @@ export class SearchJobClient extends SumoLogicClient {
      * Create a new search job
      */
     async createSearchJob(request: SearchJobRequest): Promise<ApiResponse<SearchJobResponse>> {
-        const payload = {
+        const payload: any = {
             query: request.query,
             from: request.from,
             to: request.to,
             timeZone: request.timeZone || 'UTC',
             byReceiptTime: request.byReceiptTime || false
         };
+
+        // Add autoParsingMode if specified (default is Manual if not provided)
+        if (request.autoParsingMode) {
+            payload.autoParsingMode = request.autoParsingMode;
+        }
 
         return this.makeRequest<SearchJobResponse>(
             SearchJobClient.SEARCH_JOB_API,

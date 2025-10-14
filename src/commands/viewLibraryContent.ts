@@ -61,6 +61,19 @@ export async function viewLibraryContentCommand(
         }
     );
 
+    // Handle messages from webview
+    panel.webview.onDidReceiveMessage(async (message) => {
+        if (message.type === 'extractSearch') {
+            await vscode.commands.executeCommand(
+                'sumologic.extractSearchToFile',
+                profileName,
+                contentId,
+                contentName,
+                content
+            );
+        }
+    });
+
     panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath);
 }
 
@@ -110,6 +123,352 @@ async function fetchAndCacheContent(
     fs.writeFileSync(filePath, JSON.stringify(response.data, null, 2), 'utf-8');
 
     return { success: true, data: response.data };
+}
+
+/**
+ * Generate specialized webview content for searches
+ */
+function getSearchWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string): string {
+    // Top-level string properties to display at the top
+    const topLevelProps = ['name', 'description', 'type'];
+
+    // Escape HTML function
+    const escapeHtml = (str: string) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
+    // Generate top-level properties HTML
+    const topPropsHtml = topLevelProps
+        .filter(prop => content[prop])
+        .map(prop => `
+            <div class="property-row">
+                <span class="property-label">${prop}:</span>
+                <span class="property-value">${escapeHtml(content[prop])}</span>
+            </div>
+        `).join('');
+
+    // Generate search section HTML
+    const searchHtml = content.search ? `
+        <h2>Search Query</h2>
+        <div class="search-section">
+            <div class="search-property">
+                <div class="search-property-label">By Receipt Time:</div>
+                <div class="search-property-value">${content.search.byReceiptTime ? 'Yes' : 'No'}</div>
+            </div>
+            ${content.search.parsingMode ? `
+                <div class="search-property">
+                    <div class="search-property-label">Parsing Mode:</div>
+                    <div class="search-property-value">${escapeHtml(content.search.parsingMode)}</div>
+                </div>
+            ` : ''}
+            ${content.search.defaultTimeRange ? `
+                <div class="search-property">
+                    <div class="search-property-label">Default Time Range:</div>
+                    <div class="search-property-value">${escapeHtml(content.search.defaultTimeRange)}</div>
+                </div>
+            ` : ''}
+            ${content.search.viewName ? `
+                <div class="search-property">
+                    <div class="search-property-label">View Name:</div>
+                    <div class="search-property-value">${escapeHtml(content.search.viewName)}</div>
+                </div>
+            ` : ''}
+            <div class="query-text">
+                <div class="search-property-label">
+                    Query Text:
+                    <button class="extract-button" onclick="extractSearch()">Open in .sumo File</button>
+                </div>
+                <pre>${escapeHtml(content.search.queryText || '')}</pre>
+            </div>
+        </div>
+    ` : '';
+
+    // Other properties to show at the bottom
+    const excludeProps = [...topLevelProps, 'search'];
+    const otherPropsHtml = Object.entries(content)
+        .filter(([key]) => !excludeProps.includes(key))
+        .map(([key, value]) => `
+            <div class="property-card">
+                <div class="property-card-name">${escapeHtml(key)}</div>
+                <div class="property-card-type">${typeof value}</div>
+                <pre class="property-card-value">${escapeHtml(JSON.stringify(value, null, 2))}</pre>
+            </div>
+        `).join('');
+
+    // Format full JSON for raw view
+    const jsonFormatted = JSON.stringify(content, null, 2);
+    const jsonEscaped = escapeHtml(jsonFormatted);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(contentName)}</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: var(--vscode-editor-foreground);
+            border-bottom: 2px solid var(--vscode-panel-border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: var(--vscode-editor-foreground);
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            padding-bottom: 5px;
+        }
+
+        .header-info {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .top-properties {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .property-row {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .property-label {
+            font-weight: bold;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .property-value {
+            color: var(--vscode-foreground);
+        }
+
+        .search-section {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .search-property {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .search-property-label {
+            font-weight: bold;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .search-property-value {
+            color: var(--vscode-foreground);
+        }
+
+        .query-text {
+            margin-top: 15px;
+        }
+
+        .query-text .search-property-label {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .extract-button {
+            padding: 6px 12px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: var(--vscode-font-family);
+        }
+
+        .extract-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .extract-button:active {
+            background-color: var(--vscode-button-hoverBackground);
+            opacity: 0.8;
+        }
+
+        .query-text pre {
+            margin: 0;
+            padding: 12px;
+            background-color: var(--vscode-textCodeBlock-background);
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            margin-bottom: 15px;
+            margin-top: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: var(--vscode-foreground);
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+
+        .tab.active {
+            border-bottom-color: var(--vscode-focusBorder);
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .property-card {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .property-card-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: var(--vscode-symbolIcon-variableForeground);
+        }
+
+        .property-card-type {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+
+        .property-card-value {
+            margin: 0;
+            padding: 8px;
+            background-color: var(--vscode-textCodeBlock-background);
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        pre {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        code {
+            font-family: var(--vscode-editor-font-family);
+            color: var(--vscode-textPreformat-foreground);
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 ${escapeHtml(contentName)}</h1>
+
+    <div class="header-info">
+        <strong>ID:</strong> ${formattedId}
+        ${libraryPath ? ` | <strong>Path:</strong> ${escapeHtml(libraryPath)}` : ''}
+        ${content.itemType ? ` | <strong>Type:</strong> ${escapeHtml(content.itemType)}` : ''}
+    </div>
+
+    <div class="top-properties">
+        ${topPropsHtml}
+    </div>
+
+    ${searchHtml}
+
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('other')">Other Properties</button>
+        <button class="tab" onclick="showTab('raw')">Raw JSON</button>
+    </div>
+
+    <div id="other" class="tab-content active">
+        ${otherPropsHtml}
+    </div>
+
+    <div id="raw" class="tab-content">
+        <pre><code>${jsonEscaped}</code></pre>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function extractSearch() {
+            vscode.postMessage({
+                type: 'extractSearch'
+            });
+        }
+    </script>
+</body>
+</html>`;
 }
 
 /**
@@ -543,10 +902,21 @@ function getWebviewContent(content: any, contentName: string, contentId: string,
                        content.itemType === 'Dashboard' ||
                        content.itemType === 'DashboardV2SyncDefinition';
 
-    console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isDashboard: ${isDashboard}`);
+    // Check if this is a search
+    // Note: In folder listings, searches have itemType: "Search"
+    // In exported JSON, they have type: "SavedSearchWithScheduleSyncDefinition"
+    const isSearch = content.type === 'SavedSearchWithScheduleSyncDefinition' ||
+                    content.itemType === 'Search' ||
+                    content.itemType === 'SavedSearchWithScheduleSyncDefinition';
+
+    console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isDashboard: ${isDashboard}, isSearch: ${isSearch}`);
 
     if (isDashboard) {
         return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath);
+    }
+
+    if (isSearch) {
+        return getSearchWebviewContent(content, contentName, contentId, formattedId, libraryPath);
     }
 
     // Format the JSON for display

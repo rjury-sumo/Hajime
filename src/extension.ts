@@ -386,6 +386,11 @@ export function activate(context: vscode.ExtensionContext) {
         return fetchRecursiveFolderCommand(context, treeItem);
     });
 
+    const extractSearchToFileCmd = vscode.commands.registerCommand('sumologic.extractSearchToFile', (profileName: string, contentId: string, contentName: string, searchContent: any) => {
+        const { extractSearchToFileCommand } = require('./commands/extractSearchToFile');
+        return extractSearchToFileCommand(context, profileName, contentId, contentName, searchContent);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -432,7 +437,8 @@ export function activate(context: vscode.ExtensionContext) {
         openLibraryNodeJsonCmd,
         exportLibraryNodeToFileCmd,
         openDatabaseViewerCmd,
-        fetchRecursiveFolderCmd
+        fetchRecursiveFolderCmd,
+        extractSearchToFileCmd
     );
 
     // Export context for tests

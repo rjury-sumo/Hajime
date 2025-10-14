@@ -13,6 +13,8 @@ import { OutputWriter } from '../outputWriter';
  * // @timezone UTC
  * // @mode messages
  * // @output webview
+ * // @byReceiptTime true
+ * // @autoParsingMode AutoParse
  */
 function parseQueryMetadata(queryText: string): {
     name?: string;
@@ -21,6 +23,8 @@ function parseQueryMetadata(queryText: string): {
     timeZone?: string;
     mode?: 'records' | 'messages';
     output?: 'table' | 'json' | 'csv' | 'webview';
+    byReceiptTime?: boolean;
+    autoParsingMode?: 'AutoParse' | 'Manual';
 } {
     const metadata: {
         name?: string;
@@ -29,6 +33,8 @@ function parseQueryMetadata(queryText: string): {
         timeZone?: string;
         mode?: 'records' | 'messages';
         output?: 'table' | 'json' | 'csv' | 'webview';
+        byReceiptTime?: boolean;
+        autoParsingMode?: 'AutoParse' | 'Manual';
     } = {};
 
     const lines = queryText.split('\n');
@@ -76,6 +82,20 @@ function parseQueryMetadata(queryText: string): {
             metadata.output = outputMatch[1].toLowerCase() as 'table' | 'json' | 'csv' | 'webview';
             continue;
         }
+
+        // Match @byReceiptTime directive
+        const byReceiptTimeMatch = trimmed.match(/^\/\/\s*@byReceiptTime\s+(true|false)$/i);
+        if (byReceiptTimeMatch) {
+            metadata.byReceiptTime = byReceiptTimeMatch[1].toLowerCase() === 'true';
+            continue;
+        }
+
+        // Match @autoParsingMode directive
+        const autoParsingModeMatch = trimmed.match(/^\/\/\s*@autoParsingMode\s+(AutoParse|Manual)$/i);
+        if (autoParsingModeMatch) {
+            metadata.autoParsingMode = autoParsingModeMatch[1] as 'AutoParse' | 'Manual';
+            continue;
+        }
     }
 
     return metadata;
@@ -88,7 +108,7 @@ function cleanQuery(queryText: string): string {
     const lines = queryText.split('\n');
     const cleanedLines = lines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output)\s+/i);
+        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|byReceiptTime|autoParsingMode)\s+/i);
     });
     return cleanedLines.join('\n').trim();
 }
@@ -1109,7 +1129,9 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
         query: cleanedQuery,
         from: fromTime,
         to: toTime,
-        timeZone: metadata.timeZone || 'UTC'
+        timeZone: metadata.timeZone || 'UTC',
+        byReceiptTime: metadata.byReceiptTime,
+        autoParsingMode: metadata.autoParsingMode
     };
 
     // Execute search with progress

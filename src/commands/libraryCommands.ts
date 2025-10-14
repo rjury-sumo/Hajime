@@ -476,3 +476,180 @@ function generateMarkdown(content: any, treeItem: LibraryTreeItem): string {
 
     return lines.join('\n');
 }
+
+/**
+ * Recursively fetch and save all folder children
+ */
+export async function fetchRecursiveFolderCommand(
+    context: vscode.ExtensionContext,
+    treeItem: LibraryTreeItem
+): Promise<void> {
+    // Ensure this is a Folder type
+    if (treeItem.itemType !== 'Folder') {
+        vscode.window.showWarningMessage('This command only works with Folder items');
+        return;
+    }
+
+    const proceed = await vscode.window.showWarningMessage(
+        `This will recursively fetch all folders and items under "${treeItem.label}". This may take some time. Continue?`,
+        'Yes', 'No'
+    );
+
+    if (proceed !== 'Yes') {
+        return;
+    }
+
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Recursively fetching ${treeItem.label}...`,
+        cancellable: false
+    }, async (progress) => {
+        const profileManager = new ProfileManager(context);
+        const profiles = await profileManager.getProfiles();
+        const profile = profiles.find(p => p.name === treeItem.profile);
+
+        if (!profile) {
+            vscode.window.showErrorMessage(`Profile not found: ${treeItem.profile}`);
+            return;
+        }
+
+        const credentials = await profileManager.getProfileCredentials(treeItem.profile);
+        if (!credentials) {
+            vscode.window.showErrorMessage(`No credentials for profile: ${treeItem.profile}`);
+            return;
+        }
+
+        const client = new ContentClient({
+            accessId: credentials.accessId,
+            accessKey: credentials.accessKey,
+            endpoint: profileManager.getProfileEndpoint(profile)
+        });
+
+        const profileDir = profileManager.getProfileDirectory(treeItem.profile);
+        const db = createLibraryCacheDB(profileDir, treeItem.profile);
+
+        try {
+            const stats = { folders: 0, items: 0, errors: 0 };
+            await recursiveFetchFolder(
+                client,
+                db,
+                profileManager,
+                treeItem.profile,
+                treeItem.contentId,
+                progress,
+                stats
+            );
+
+            db.close();
+
+            vscode.window.showInformationMessage(
+                `Completed: ${stats.folders} folders, ${stats.items} items fetched. ${stats.errors} errors.`
+            );
+
+            // Refresh tree
+            vscode.commands.executeCommand('sumologic.refreshExplorer');
+        } catch (error) {
+            db.close();
+            vscode.window.showErrorMessage(`Failed to fetch folder hierarchy: ${String(error)}`);
+        }
+    });
+}
+
+/**
+ * Recursively fetch a folder and all its descendants
+ */
+async function recursiveFetchFolder(
+    client: ContentClient,
+    db: LibraryCacheDB,
+    profileManager: ProfileManager,
+    profileName: string,
+    folderId: string,
+    progress: vscode.Progress<{ message?: string; increment?: number }>,
+    stats: { folders: number; items: number; errors: number }
+): Promise<void> {
+    try {
+        // Fetch this folder
+        const response = await client.getFolder(folderId);
+        if (response.error || !response.data) {
+            stats.errors++;
+            return;
+        }
+
+        const folder = response.data;
+        const now = new Date().toISOString();
+
+        progress.report({ message: `Fetching: ${folder.name}` });
+
+        // Cache the folder
+        db.upsertContentItem({
+            id: folder.id,
+            profile: profileName,
+            name: folder.name,
+            itemType: folder.itemType,
+            parentId: folder.parentId,
+            description: folder.description,
+            createdAt: folder.createdAt,
+            createdBy: folder.createdBy,
+            modifiedAt: folder.modifiedAt,
+            modifiedBy: folder.modifiedBy,
+            hasChildren: folder.children && folder.children.length > 0,
+            childrenFetched: true,
+            permissions: folder.permissions,
+            lastFetched: now
+        });
+
+        stats.folders++;
+
+        // Cache all children
+        if (folder.children && Array.isArray(folder.children)) {
+            for (const child of folder.children) {
+                db.upsertContentItem({
+                    id: child.id,
+                    profile: profileName,
+                    name: child.name,
+                    itemType: child.itemType,
+                    parentId: folder.id,
+                    description: child.description,
+                    createdAt: child.createdAt,
+                    createdBy: child.createdBy,
+                    modifiedAt: child.modifiedAt,
+                    modifiedBy: child.modifiedBy,
+                    hasChildren: child.itemType === 'Folder' || Boolean(child.children && child.children.length > 0),
+                    childrenFetched: false,
+                    permissions: child.permissions,
+                    lastFetched: now
+                });
+
+                stats.items++;
+            }
+        }
+
+        // Save JSON
+        const contentDir = profileManager.getProfileLibraryContentDirectory(profileName);
+        if (!fs.existsSync(contentDir)) {
+            fs.mkdirSync(contentDir, { recursive: true });
+        }
+        const filePath = path.join(contentDir, `${folder.id}.json`);
+        fs.writeFileSync(filePath, JSON.stringify(folder, null, 2), 'utf-8');
+
+        // Recursively fetch child folders
+        if (folder.children && Array.isArray(folder.children)) {
+            for (const child of folder.children) {
+                if (child.itemType === 'Folder') {
+                    await recursiveFetchFolder(
+                        client,
+                        db,
+                        profileManager,
+                        profileName,
+                        child.id,
+                        progress,
+                        stats
+                    );
+                }
+            }
+        }
+    } catch (error) {
+        stats.errors++;
+        console.error(`Error fetching folder ${folderId}:`, error);
+    }
+}

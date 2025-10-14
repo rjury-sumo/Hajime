@@ -253,6 +253,11 @@
                 "command": "sumologic.openDatabaseViewer",
                 "title": "Sumo Logic: Open Database Viewer",
                 "icon": "$(database)"
+            },
+            {
+                "command": "sumologic.fetchRecursiveFolder",
+                "title": "Fetch All Subfolders Recursively",
+                "icon": "$(cloud-download)"
             }
         ],
         "menus": {
@@ -348,6 +353,11 @@
                     "command": "sumologic.exportLibraryNodeToFile",
                     "when": "view == sumoExplorer && viewItem =~ /^library_/",
                     "group": "export@1"
+                },
+                {
+                    "command": "sumologic.fetchRecursiveFolder",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_.*_Folder$/",
+                    "group": "fetch@1"
                 }
             ],
             "editor/context": [

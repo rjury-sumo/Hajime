@@ -22,7 +22,8 @@ import {
     refreshLibraryNodeCommand,
     viewLibraryNodeDetailsCommand,
     openLibraryNodeJsonCommand,
-    exportLibraryNodeToFileCommand
+    exportLibraryNodeToFileCommand,
+    fetchRecursiveFolderCommand
 } from './commands/libraryCommands';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
@@ -381,6 +382,10 @@ export function activate(context: vscode.ExtensionContext) {
         await databaseWebviewProvider.show(profileName);
     });
 
+    const fetchRecursiveFolderCmd = vscode.commands.registerCommand('sumologic.fetchRecursiveFolder', (treeItem: any) => {
+        return fetchRecursiveFolderCommand(context, treeItem);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -426,7 +431,8 @@ export function activate(context: vscode.ExtensionContext) {
         viewLibraryNodeDetailsCmd,
         openLibraryNodeJsonCmd,
         exportLibraryNodeToFileCmd,
-        openDatabaseViewerCmd
+        openDatabaseViewerCmd,
+        fetchRecursiveFolderCmd
     );
 
     // Export context for tests

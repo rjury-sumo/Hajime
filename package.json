@@ -285,6 +285,16 @@
                     "group": "profile@3"
                 },
                 {
+                    "command": "sumologic.refreshExplorer",
+                    "when": "view == sumoExplorer && viewItem == storageSection",
+                    "group": "inline"
+                },
+                {
+                    "command": "sumologic.refreshExplorer",
+                    "when": "view == sumoExplorer && viewItem == storageFolder",
+                    "group": "inline"
+                },
+                {
                     "command": "sumologic.revealStorageInExplorer",
                     "when": "view == sumoExplorer && viewItem == storageFolder",
                     "group": "navigation@1"

@@ -184,8 +184,6 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 return this.getRecentQueryItems();
             case TreeItemType.CollectorsSection:
                 return this.getCollectorItems();
-            case TreeItemType.ContentSection:
-                return this.getContentItems();
             case TreeItemType.StorageSection:
                 return this.getStorageItems();
             case TreeItemType.LibrarySection:
@@ -256,13 +254,6 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Collectors',
             TreeItemType.CollectorsSection,
-            vscode.TreeItemCollapsibleState.Collapsed
-        ));
-
-        // Content section
-        items.push(new SumoTreeItem(
-            'Content',
-            TreeItemType.ContentSection,
             vscode.TreeItemCollapsibleState.Collapsed
         ));
 
@@ -381,63 +372,29 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     }
 
     /**
-     * Get collector items (placeholder for now)
+     * Get collector items - show profile nodes with fetch collectors command
      */
     private async getCollectorItems(): Promise<SumoTreeItem[]> {
-        // TODO: Implement when we have collector listing functionality
-        // For now, show quick actions to fetch collectors
-        return [
-            new SumoTreeItem(
-                'Fetch Collectors...',
-                TreeItemType.QuickAction,
-                vscode.TreeItemCollapsibleState.None,
-                undefined,
-                { command: 'sumologic.fetchCollectors', icon: 'cloud-download' }
-            )
-        ];
-    }
+        const profiles = await this.profileManager.getProfiles();
+        const activeProfileName = await this.profileManager.getActiveProfileName();
 
-    /**
-     * Get content items
-     */
-    private async getContentItems(): Promise<SumoTreeItem[]> {
-        return [
-            new SumoTreeItem(
-                'Get Personal Folder...',
+        return profiles.map(profile => {
+            const isActive = profile.name === activeProfileName;
+            const label = isActive ? `${profile.name} (Active)` : profile.name;
+            const item = new SumoTreeItem(
+                label,
                 TreeItemType.QuickAction,
                 vscode.TreeItemCollapsibleState.None,
-                undefined,
-                { command: 'sumologic.getPersonalFolder', icon: 'folder-opened' }
-            ),
-            new SumoTreeItem(
-                'Export Content by ID...',
-                TreeItemType.QuickAction,
-                vscode.TreeItemCollapsibleState.None,
-                undefined,
-                { command: 'sumologic.exportContent', icon: 'export' }
-            ),
-            new SumoTreeItem(
-                'Export Admin Recommended',
-                TreeItemType.QuickAction,
-                vscode.TreeItemCollapsibleState.None,
-                undefined,
-                { command: 'sumologic.exportAdminRecommended', icon: 'export' }
-            ),
-            new SumoTreeItem(
-                'Export Global Folder',
-                TreeItemType.QuickAction,
-                vscode.TreeItemCollapsibleState.None,
-                undefined,
-                { command: 'sumologic.exportGlobalFolder', icon: 'globe' }
-            ),
-            new SumoTreeItem(
-                'Export Installed Apps',
-                TreeItemType.QuickAction,
-                vscode.TreeItemCollapsibleState.None,
-                undefined,
-                { command: 'sumologic.exportInstalledApps', icon: 'extensions' }
-            )
-        ];
+                profile,
+                {
+                    command: 'sumologic.fetchCollectors',
+                    icon: 'database',
+                    profileName: profile.name
+                }
+            );
+            item.tooltip = `Fetch collectors for ${profile.name}`;
+            return item;
+        });
     }
 
     /**

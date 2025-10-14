@@ -9,6 +9,7 @@ export interface SumoLogicProfile {
     name: string;
     region: string;
     endpoint?: string; // Custom endpoint if specified
+    instanceName?: string; // Instance name for web UI URLs (e.g., service.us2.sumologic.com)
 }
 
 /**
@@ -88,27 +89,56 @@ export class ProfileManager {
     }
 
     /**
+     * Get the user's home directory
+     */
+    private getUserHomeDirectory(): string {
+        const homeDir = process.env.HOME || process.env.USERPROFILE;
+        if (!homeDir) {
+            throw new Error('Could not determine user home directory');
+        }
+        return homeDir;
+    }
+
+    /**
      * Get the file storage path for profiles
+     * Priority:
+     * 1. If fileStoragePath setting is configured, use it (with variable substitution)
+     * 2. Otherwise, default to ~/.sumologic (user home directory)
      */
     private getFileStoragePath(): string {
         const config = vscode.workspace.getConfiguration('sumologic');
-        let storagePath = config.get<string>('fileStoragePath') || '${workspaceFolder}/output';
+        let storagePath = config.get<string>('fileStoragePath') || '';
 
-        // Get workspace root
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-            throw new Error('No workspace folder open');
+        // If empty or not set, use default home directory location
+        if (!storagePath || storagePath.trim() === '') {
+            return path.join(this.getUserHomeDirectory(), '.sumologic');
         }
 
-        // Replace ${workspaceFolder} variable with actual workspace path
-        storagePath = storagePath.replace(/\$\{workspaceFolder\}/g, workspaceFolder.uri.fsPath);
+        // Replace ${userHome} variable with actual home path
+        const homeDir = this.getUserHomeDirectory();
+        storagePath = storagePath.replace(/\$\{userHome\}/g, homeDir);
 
-        // If it's an absolute path, use it as-is, otherwise make it relative to workspace
+        // Replace ${workspaceFolder} variable with actual workspace path (if workspace is open)
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+            storagePath = storagePath.replace(/\$\{workspaceFolder\}/g, workspaceFolder.uri.fsPath);
+        } else if (storagePath.includes('${workspaceFolder}')) {
+            // If no workspace is open but path contains ${workspaceFolder}, fall back to home directory
+            return path.join(homeDir, '.sumologic');
+        }
+
+        // If it's an absolute path, use it as-is
         if (path.isAbsolute(storagePath)) {
             return storagePath;
-        } else {
+        }
+
+        // If it's a relative path and workspace is open, make it relative to workspace
+        if (workspaceFolder) {
             return path.join(workspaceFolder.uri.fsPath, storagePath);
         }
+
+        // Otherwise, make it relative to home directory
+        return path.join(homeDir, storagePath);
     }
 
     /**
@@ -126,6 +156,21 @@ export class ProfileManager {
     }
 
     /**
+     * Get the library directory path for a specific profile
+     */
+    getProfileLibraryDirectory(profileName: string): string {
+        return path.join(this.getProfileDirectory(profileName), 'library');
+    }
+
+    /**
+     * Get the library content directory path for a specific profile
+     * This is where JSON content files are stored
+     */
+    getProfileLibraryContentDirectory(profileName: string): string {
+        return path.join(this.getProfileLibraryDirectory(profileName), 'content');
+    }
+
+    /**
      * Create directory for a profile
      */
     private async createProfileDirectory(profileName: string): Promise<void> {
@@ -140,6 +185,18 @@ export class ProfileManager {
         const metadataDir = this.getProfileMetadataDirectory(profileName);
         if (!fs.existsSync(metadataDir)) {
             fs.mkdirSync(metadataDir, { recursive: true });
+        }
+
+        // Create library subdirectory
+        const libraryDir = this.getProfileLibraryDirectory(profileName);
+        if (!fs.existsSync(libraryDir)) {
+            fs.mkdirSync(libraryDir, { recursive: true });
+        }
+
+        // Create library/content subdirectory for JSON files
+        const libraryContentDir = this.getProfileLibraryContentDirectory(profileName);
+        if (!fs.existsSync(libraryContentDir)) {
+            fs.mkdirSync(libraryContentDir, { recursive: true });
         }
     }
 
@@ -243,6 +300,36 @@ export class ProfileManager {
             return profile.endpoint;
         }
         return profile.region;
+    }
+
+    /**
+     * Get instance name for web UI URLs
+     * Priority: 1) Profile property, 2) Global VS Code setting, 3) Default based on endpoint
+     * Defaults to service.<endpoint>.sumologic.com except for us1/prod where it's service.sumologic.com
+     */
+    getInstanceName(profile: SumoLogicProfile): string {
+        // First check profile-specific instance name
+        if (profile.instanceName && profile.instanceName.trim()) {
+            return profile.instanceName.trim();
+        }
+
+        // Then check VS Code global settings for custom instance name
+        const config = vscode.workspace.getConfiguration('sumologic');
+        const customInstanceName = config.get<string>('instanceName');
+        if (customInstanceName && customInstanceName.trim()) {
+            return customInstanceName.trim();
+        }
+
+        // Get the endpoint/region
+        const endpoint = this.getProfileEndpoint(profile);
+
+        // For us1 or prod, use service.sumologic.com (original instance)
+        if (endpoint === 'us1' || endpoint === 'prod') {
+            return 'service.sumologic.com';
+        }
+
+        // For other endpoints, use service.<endpoint>.sumologic.com
+        return `service.${endpoint}.sumologic.com`;
     }
 
     /**

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand } from './commands/authenticate';
+import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand, editProfileCommand } from './commands/authenticate';
 import { runQueryCommand } from './commands/runQuery';
 import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
@@ -12,6 +12,9 @@ import { runQueryWebviewCommand } from './commands/runQueryWebview';
 import { cleanupOldFilesCommand } from './commands/cleanupOldFiles';
 import { cacheKeyMetadataCommand } from './commands/cacheKeyMetadata';
 import { newSumoFileCommand } from './commands/newSumoFile';
+import { openSearchInWebCommand } from './commands/openSearchInWeb';
+import { revealStorageInExplorerCommand, deleteStorageItemCommand } from './commands/storageExplorer';
+import { viewLibraryContentCommand } from './commands/viewLibraryContent';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -213,6 +216,14 @@ export function activate(context: vscode.ExtensionContext) {
         sumoExplorerProvider.refresh();
     });
 
+    const editProfileCmd = vscode.commands.registerCommand('sumologic.editProfile', async (treeItem?: any) => {
+        // Extract profile name from tree item if available
+        const profileName = treeItem?.profile?.name || treeItem;
+        await editProfileCommand(context, profileName);
+        await statusBar.refresh();
+        sumoExplorerProvider.refresh();
+    });
+
     const testConnectionCmd = vscode.commands.registerCommand('sumologic.testConnection', () => {
         return testConnectionCommand(context);
     });
@@ -309,6 +320,22 @@ export function activate(context: vscode.ExtensionContext) {
         sumoExplorerProvider.refresh();
     });
 
+    const openSearchInWebCmd = vscode.commands.registerCommand('sumologic.openSearchInWeb', () => {
+        return openSearchInWebCommand(context);
+    });
+
+    const revealStorageCmd = vscode.commands.registerCommand('sumologic.revealStorageInExplorer', (treeItem?: any) => {
+        return revealStorageInExplorerCommand(treeItem);
+    });
+
+    const deleteStorageCmd = vscode.commands.registerCommand('sumologic.deleteStorageItem', (treeItem?: any) => {
+        return deleteStorageItemCommand(context, treeItem);
+    });
+
+    const viewLibraryContentCmd = vscode.commands.registerCommand('sumologic.viewLibraryContent', (profileName: string, contentId: string, contentName: string) => {
+        return viewLibraryContentCommand(context, profileName, contentId, contentName);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -318,6 +345,7 @@ export function activate(context: vscode.ExtensionContext) {
         switchProfileCmd,
         listProfilesCmd,
         deleteProfileCmd,
+        editProfileCmd,
         testConnectionCmd,
         runQueryCmd,
         fetchCustomFieldsCmd,
@@ -341,7 +369,11 @@ export function activate(context: vscode.ExtensionContext) {
         cleanupOldFilesCmd,
         cacheKeyMetadataCmd,
         newSumoFileCmd,
-        refreshExplorerCmd
+        refreshExplorerCmd,
+        openSearchInWebCmd,
+        revealStorageCmd,
+        deleteStorageCmd,
+        viewLibraryContentCmd
     );
 
     // Export context for tests

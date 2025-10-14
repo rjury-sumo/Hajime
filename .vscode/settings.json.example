@@ -1,0 +1,11 @@
+{
+    // Recommended settings for Hajime development
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "editor.formatOnSave": false,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/node_modules": false,
+        "out": true
+    }
+}

@@ -644,6 +644,57 @@ export class ContentClient extends SumoLogicClient {
     }
 
     /**
+     * Get Personal folder - top level only (optimized for library tree root)
+     * Returns just the folder metadata without children details
+     */
+    async getPersonalFolderTopLevel(): Promise<ApiResponse<PersonalFolderResponse>> {
+        return this.getPersonalFolder();
+    }
+
+    /**
+     * Export content by ID and wait for completion
+     * Wrapper for exportContent to match naming convention
+     */
+    async exportContentById(contentId: string, isAdminMode?: boolean, maxWaitSeconds?: number): Promise<ApiResponse<ExportResultResponse>> {
+        return this.exportContent(contentId, isAdminMode, maxWaitSeconds);
+    }
+
+    /**
+     * Batch get folders with rate limiting
+     * Fetches multiple folders with automatic delay to respect API rate limits (4 requests/second)
+     * @param folderIds Array of folder IDs to fetch
+     * @param delayMs Delay between requests in milliseconds (default 250ms = ~4 requests/second)
+     */
+    async batchGetFolders(folderIds: string[], delayMs: number = 250): Promise<Map<string, PersonalFolderResponse>> {
+        const results = new Map<string, PersonalFolderResponse>();
+
+        for (let i = 0; i < folderIds.length; i++) {
+            const folderId = folderIds[i];
+
+            // Add delay between requests (except for first one)
+            if (i > 0) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+
+            const response = await this.getFolder(folderId);
+
+            if (!response.error && response.data) {
+                results.set(folderId, response.data);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Rate-limited delay utility for sequential API calls
+     * Use this before making API calls to respect Sumo Logic's rate limit of 4 requests/second
+     */
+    static async rateLimitDelay(delayMs: number = 250): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    /**
      * Format children as a table
      */
     static formatChildrenAsTable(children: ContentItem[]): string {

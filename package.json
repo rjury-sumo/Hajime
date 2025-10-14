@@ -17,7 +17,7 @@
         "search"
     ],
     "engines": {
-        "vscode": "^1.74.0"
+        "vscode": "^1.100.0"
     },
     "categories": [
         "Programming Languages",
@@ -60,8 +60,8 @@
                 },
                 "sumologic.fileStoragePath": {
                     "type": "string",
-                    "default": "${workspaceFolder}/output",
-                    "description": "Directory path for storing profile-specific files. Supports ${workspaceFolder} variable. Can be absolute or relative to workspace root."
+                    "default": "",
+                    "description": "Directory path for storing profile-specific files. If empty (recommended), defaults to ~/.sumologic. Supports ${userHome} and ${workspaceFolder} variables. Can be absolute or relative path."
                 },
                 "sumologic.webviewPageSize": {
                     "type": "number",
@@ -69,6 +69,10 @@
                     "minimum": 10,
                     "maximum": 10000,
                     "description": "Number of rows to display per page in webview query results"
+                },
+                "sumologic.instanceName": {
+                    "type": "string",
+                    "description": "Custom instance name for web UI URLs (e.g., rick.au.sumologic.com). If not set, defaults to service.<endpoint>.sumologic.com or service.sumologic.com for us1/prod"
                 }
             }
         },
@@ -88,6 +92,11 @@
             {
                 "command": "sumologic.deleteProfile",
                 "title": "Sumo Logic: Delete Profile"
+            },
+            {
+                "command": "sumologic.editProfile",
+                "title": "Sumo Logic: Edit Profile",
+                "icon": "$(edit)"
             },
             {
                 "command": "sumologic.runQuery",
@@ -189,6 +198,21 @@
                 "command": "sumologic.refreshExplorer",
                 "title": "Sumo Logic: Refresh Explorer",
                 "icon": "$(refresh)"
+            },
+            {
+                "command": "sumologic.openSearchInWeb",
+                "title": "Sumo Logic: Open Search in Web UI",
+                "icon": "$(globe)"
+            },
+            {
+                "command": "sumologic.revealStorageInExplorer",
+                "title": "Reveal in File Explorer",
+                "icon": "$(folder-opened)"
+            },
+            {
+                "command": "sumologic.deleteStorageItem",
+                "title": "Delete",
+                "icon": "$(trash)"
             }
         ],
         "menus": {
@@ -211,14 +235,34 @@
                     "group": "inline"
                 },
                 {
-                    "command": "sumologic.deleteProfile",
+                    "command": "sumologic.editProfile",
                     "when": "view == sumoExplorer && viewItem == profile",
-                    "group": "profile"
+                    "group": "profile@1"
                 },
                 {
                     "command": "sumologic.testConnection",
                     "when": "view == sumoExplorer && viewItem == profile",
-                    "group": "profile"
+                    "group": "profile@2"
+                },
+                {
+                    "command": "sumologic.deleteProfile",
+                    "when": "view == sumoExplorer && viewItem == profile",
+                    "group": "profile@3"
+                },
+                {
+                    "command": "sumologic.revealStorageInExplorer",
+                    "when": "view == sumoExplorer && viewItem == storageFolder",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.revealStorageInExplorer",
+                    "when": "view == sumoExplorer && viewItem == storageFile",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.deleteStorageItem",
+                    "when": "view == sumoExplorer && viewItem == storageFile",
+                    "group": "delete@1"
                 }
             ],
             "editor/context": [
@@ -236,6 +280,11 @@
                     "command": "sumologic.runQueryAndChart",
                     "when": "resourceLangId == sumo",
                     "group": "sumo@3"
+                },
+                {
+                    "command": "sumologic.openSearchInWeb",
+                    "when": "resourceLangId == sumo",
+                    "group": "sumo@4"
                 }
             ],
             "explorer/context": [
@@ -263,6 +312,11 @@
                 },
                 {
                     "command": "sumologic.runQueryAndChart",
+                    "when": "resourceLangId == sumo",
+                    "group": "navigation"
+                },
+                {
+                    "command": "sumologic.openSearchInWeb",
                     "when": "resourceLangId == sumo",
                     "group": "navigation"
                 },
@@ -335,24 +389,29 @@
         "compile": "tsc -p ./",
         "lint": "eslint \"src/**/*.ts\"",
         "watch": "tsc -watch -p ./",
-        "pretest": "npm run compile",
+        "pretest": "npm run compile && npm run rebuild",
         "test": "node ./out/test/runTest.js",
         "test:unit": "npm test",
         "test:integration": "SUMO_ACCESS_ID=$SUMO_ACCESS_ID SUMO_ACCESS_KEY=$SUMO_ACCESS_KEY npm test",
-        "test:all": "npm run test:unit && npm run test:integration"
+        "test:all": "npm run test:unit && npm run test:integration",
+        "rebuild": "electron-rebuild -f -w better-sqlite3",
+        "postinstall": "npm run rebuild"
     },
     "devDependencies": {
+        "@electron/rebuild": "^4.0.1",
+        "@eslint/js": "^9.13.0",
+        "@types/better-sqlite3": "^7.6.13",
         "@types/mocha": "^10.0.10",
-        "@types/node": "^18",
-        "@types/vscode": "^1.73.0",
-        "@typescript-eslint/eslint-plugin": "^7.14.0",
-        "@typescript-eslint/parser": "^7.14.0",
+        "@types/node": "^22",
+        "@types/vscode": "^1.100.0",
         "@vscode/test-electron": "^2.5.2",
-        "eslint": "^8.26.0",
+        "eslint": "^9.13.0",
         "mocha": "^11.7.4",
-        "typescript": "^5.5.2"
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.26.0"
     },
     "dependencies": {
+        "better-sqlite3": "^12.4.1",
         "echarts": "^6.0.0"
     }
 }

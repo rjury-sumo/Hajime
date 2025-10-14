@@ -408,9 +408,23 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 For extension development:
 
 1. Clone the repository
-2. Run `npm install` to install dependencies
+2. Run `npm install` to install dependencies (includes automatic native module rebuild for Electron)
 3. Press `F5` to open a new VS Code window with the extension loaded
 4. Create or open a `.sumo` file to test
+
+### Native Module Dependencies
+
+This extension uses `better-sqlite3`, a native Node.js module that must be compiled for Electron's specific Node.js version (not regular Node.js).
+
+**The `postinstall` script automatically handles this**, but if you encounter `NODE_MODULE_VERSION mismatch` errors when loading the extension, manually rebuild with:
+```bash
+npm run rebuild
+```
+
+**Why this is needed:**
+- VSCode 1.105.0 uses Electron 37 with NODE_MODULE_VERSION **136**
+- Regular Node.js v24 uses NODE_MODULE_VERSION **137**
+- Native modules like `better-sqlite3` must match Electron's version to work in VSCode extensions
 
 For more information:
 - [VS Code Extension API](https://code.visualstudio.com/api/get-started/your-first-extension)

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ProfileManager, SumoLogicProfile } from '../profileManager';
 import * as path from 'path';
 import * as fs from 'fs';
+import { LibraryExplorerProvider, LibraryTreeItem } from './libraryExplorer';
 
 /**
  * Tree item types for the Sumo Logic Explorer
@@ -13,10 +14,14 @@ export enum TreeItemType {
     CollectorsSection = 'collectorsSection',
     ContentSection = 'contentSection',
     QuickActionsSection = 'quickActionsSection',
+    StorageSection = 'storageSection',
+    LibrarySection = 'librarySection',
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
     Collector = 'collector',
-    Content = 'content'
+    Content = 'content',
+    StorageFolder = 'storageFolder',
+    StorageFile = 'storageFile'
 }
 
 /**
@@ -90,6 +95,29 @@ export class SumoTreeItem extends vscode.TreeItem {
                 this.iconPath = new vscode.ThemeIcon('folder');
                 this.tooltip = `Content: ${this.label}`;
                 break;
+            case TreeItemType.StorageSection:
+                this.iconPath = new vscode.ThemeIcon('file-directory');
+                this.tooltip = 'Profile Storage Directory';
+                break;
+            case TreeItemType.LibrarySection:
+                this.iconPath = new vscode.ThemeIcon('library');
+                this.tooltip = 'Content Library Explorer';
+                break;
+            case TreeItemType.StorageFolder:
+                this.iconPath = new vscode.ThemeIcon('folder');
+                this.tooltip = this.data?.path || this.label;
+                this.resourceUri = this.data?.path ? vscode.Uri.file(this.data.path) : undefined;
+                break;
+            case TreeItemType.StorageFile:
+                this.iconPath = vscode.ThemeIcon.File;
+                this.tooltip = this.data?.path || this.label;
+                this.resourceUri = this.data?.path ? vscode.Uri.file(this.data.path) : undefined;
+                this.command = {
+                    command: 'vscode.open',
+                    title: 'Open File',
+                    arguments: [vscode.Uri.file(this.data?.path)]
+                };
+                break;
         }
     }
 }
@@ -97,14 +125,16 @@ export class SumoTreeItem extends vscode.TreeItem {
 /**
  * Tree data provider for Sumo Logic Explorer view
  */
-export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<SumoTreeItem | undefined | null | void> = new vscode.EventEmitter<SumoTreeItem | undefined | null | void>();
-    readonly onDidChangeTreeData: vscode.Event<SumoTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeItem | LibraryTreeItem> {
+    private _onDidChangeTreeData: vscode.EventEmitter<SumoTreeItem | LibraryTreeItem | undefined | null | void> = new vscode.EventEmitter<SumoTreeItem | LibraryTreeItem | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<SumoTreeItem | LibraryTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
     private profileManager: ProfileManager;
+    private libraryExplorerProvider: LibraryExplorerProvider;
 
     constructor(private context: vscode.ExtensionContext) {
         this.profileManager = new ProfileManager(context);
+        this.libraryExplorerProvider = new LibraryExplorerProvider(context);
 
         // Listen for configuration changes to refresh tree
         vscode.workspace.onDidChangeConfiguration(e => {
@@ -119,25 +149,33 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
      */
     refresh(): void {
         this._onDidChangeTreeData.fire();
+        this.libraryExplorerProvider.refresh();
     }
 
     /**
      * Get tree item for display
      */
-    getTreeItem(element: SumoTreeItem): vscode.TreeItem {
+    getTreeItem(element: SumoTreeItem | LibraryTreeItem): vscode.TreeItem {
         return element;
     }
 
     /**
      * Get children for tree item
      */
-    async getChildren(element?: SumoTreeItem): Promise<SumoTreeItem[]> {
+    async getChildren(element?: SumoTreeItem | LibraryTreeItem): Promise<(SumoTreeItem | LibraryTreeItem)[]> {
+        // If element is a LibraryTreeItem, delegate to LibraryExplorerProvider
+        if (element && element instanceof LibraryTreeItem) {
+            return this.libraryExplorerProvider.getChildren(element);
+        }
+
         if (!element) {
             // Root level - show main sections
             return this.getRootItems();
         }
 
-        switch (element.type) {
+        // Handle SumoTreeItem types
+        const sumoElement = element as SumoTreeItem;
+        switch (sumoElement.type) {
             case TreeItemType.ProfilesSection:
                 return this.getProfileItems();
             case TreeItemType.QuickActionsSection:
@@ -148,6 +186,12 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 return this.getCollectorItems();
             case TreeItemType.ContentSection:
                 return this.getContentItems();
+            case TreeItemType.StorageSection:
+                return this.getStorageItems();
+            case TreeItemType.LibrarySection:
+                return this.libraryExplorerProvider.getChildren();
+            case TreeItemType.StorageFolder:
+                return this.getStorageFolderContents(sumoElement.data?.path);
             default:
                 return [];
         }
@@ -219,6 +263,20 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Content',
             TreeItemType.ContentSection,
+            vscode.TreeItemCollapsibleState.Collapsed
+        ));
+
+        // Library section (new hierarchical explorer)
+        items.push(new SumoTreeItem(
+            'Library',
+            TreeItemType.LibrarySection,
+            vscode.TreeItemCollapsibleState.Collapsed
+        ));
+
+        // Storage section
+        items.push(new SumoTreeItem(
+            'Storage Explorer',
+            TreeItemType.StorageSection,
             vscode.TreeItemCollapsibleState.Collapsed
         ));
 
@@ -380,5 +438,114 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 { command: 'sumologic.exportInstalledApps', icon: 'extensions' }
             )
         ];
+    }
+
+    /**
+     * Get storage items - shows active profile's storage directory and root storage path
+     */
+    private async getStorageItems(): Promise<SumoTreeItem[]> {
+        const items: SumoTreeItem[] = [];
+
+        // Get active profile
+        const activeProfile = await this.profileManager.getActiveProfile();
+
+        if (activeProfile) {
+            const profileDir = this.profileManager.getProfileDirectory(activeProfile.name);
+
+            // Add active profile storage folder
+            items.push(new SumoTreeItem(
+                activeProfile.name,
+                TreeItemType.StorageFolder,
+                vscode.TreeItemCollapsibleState.Collapsed,
+                activeProfile,
+                { path: profileDir, isProfileRoot: true }
+            ));
+        }
+
+        // Add all profiles storage folder (shows all profiles)
+        const allProfiles = await this.profileManager.getProfiles();
+        if (allProfiles.length > 1) {
+            for (const profile of allProfiles) {
+                if (!activeProfile || profile.name !== activeProfile.name) {
+                    const profileDir = this.profileManager.getProfileDirectory(profile.name);
+                    items.push(new SumoTreeItem(
+                        profile.name,
+                        TreeItemType.StorageFolder,
+                        vscode.TreeItemCollapsibleState.Collapsed,
+                        profile,
+                        { path: profileDir, isProfileRoot: true }
+                    ));
+                }
+            }
+        }
+
+        return items;
+    }
+
+    /**
+     * Get contents of a storage folder
+     */
+    private async getStorageFolderContents(folderPath: string): Promise<SumoTreeItem[]> {
+        if (!folderPath || !fs.existsSync(folderPath)) {
+            return [];
+        }
+
+        try {
+            const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+            const items: SumoTreeItem[] = [];
+
+            // Sort: folders first, then files, alphabetically within each group
+            const folders = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
+            const files = entries.filter(e => e.isFile()).sort((a, b) => a.name.localeCompare(b.name));
+
+            // Add folders
+            for (const folder of folders) {
+                const fullPath = path.join(folderPath, folder.name);
+                const stats = fs.statSync(fullPath);
+                const itemCount = fs.readdirSync(fullPath).length;
+
+                items.push(new SumoTreeItem(
+                    folder.name,
+                    TreeItemType.StorageFolder,
+                    vscode.TreeItemCollapsibleState.Collapsed,
+                    undefined,
+                    {
+                        path: fullPath,
+                        stats,
+                        itemCount,
+                        tooltip: `${folder.name}\n${itemCount} items\nModified: ${stats.mtime.toLocaleString()}`
+                    }
+                ));
+            }
+
+            // Add files
+            for (const file of files) {
+                // Skip hidden files and system files
+                if (file.name.startsWith('.')) {
+                    continue;
+                }
+
+                const fullPath = path.join(folderPath, file.name);
+                const stats = fs.statSync(fullPath);
+                const sizeKB = (stats.size / 1024).toFixed(1);
+
+                items.push(new SumoTreeItem(
+                    file.name,
+                    TreeItemType.StorageFile,
+                    vscode.TreeItemCollapsibleState.None,
+                    undefined,
+                    {
+                        path: fullPath,
+                        stats,
+                        tooltip: `${file.name}\nSize: ${sizeKB} KB\nModified: ${stats.mtime.toLocaleString()}`
+                    }
+                ));
+            }
+
+            return items;
+        } catch (error) {
+            console.error('Error reading storage folder:', error);
+            return [];
+        }
     }
 }

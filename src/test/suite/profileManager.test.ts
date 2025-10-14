@@ -75,6 +75,32 @@ suite('ProfileManager Test Suite', () => {
         assert.ok(profileDir.includes(testProfileName), 'Path should include profile name');
     });
 
+    test('should use home directory by default', () => {
+        const profileDir = profileManager.getProfileDirectory(testProfileName);
+        const homeDir = process.env.HOME || process.env.USERPROFILE;
+
+        assert.ok(homeDir, 'Home directory should be defined');
+        assert.ok(profileDir.includes('.sumologic'), 'Should use .sumologic directory');
+        assert.ok(profileDir.includes(testProfileName), 'Should include profile name');
+    });
+
+    test('should get library directory path', () => {
+        const libraryDir = profileManager.getProfileLibraryDirectory(testProfileName);
+
+        assert.ok(libraryDir, 'Library directory path should exist');
+        assert.ok(libraryDir.includes(testProfileName), 'Path should include profile name');
+        assert.ok(libraryDir.includes('library'), 'Path should include library subdirectory');
+    });
+
+    test('should get library content directory path', () => {
+        const contentDir = profileManager.getProfileLibraryContentDirectory(testProfileName);
+
+        assert.ok(contentDir, 'Content directory path should exist');
+        assert.ok(contentDir.includes(testProfileName), 'Path should include profile name');
+        assert.ok(contentDir.includes('library'), 'Path should include library subdirectory');
+        assert.ok(contentDir.includes('content'), 'Path should include content subdirectory');
+    });
+
     test('should get profile endpoint', () => {
         const endpoint = profileManager.getProfileEndpoint(testProfile);
 

@@ -173,6 +173,31 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
         return; // User cancelled
     }
 
+    // Prompt for custom instance name (optional)
+    const defaultInstanceName = region.value === 'us1' || region.value === 'prod'
+        ? 'service.sumologic.com'
+        : `service.${region.value}.sumologic.com`;
+
+    const instanceName = await vscode.window.showInputBox({
+        prompt: 'Enter custom instance name for web UI (optional, leave empty for default)',
+        placeHolder: defaultInstanceName,
+        value: existingProfile?.instanceName || '',
+        ignoreFocusOut: true,
+        validateInput: (value) => {
+            if (value && value.trim()) {
+                // Basic validation for domain format
+                if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value.trim())) {
+                    return 'Instance name should be a valid domain (e.g., service.us2.sumologic.com or rick.au.sumologic.com)';
+                }
+            }
+            return null;
+        }
+    });
+
+    if (instanceName === undefined) {
+        return; // User cancelled
+    }
+
     // Create or update profile
     try {
         if (existingProfile) {
@@ -180,7 +205,8 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
                 profileName,
                 {
                     region: region.value === 'custom' ? 'us1' : region.value,
-                    endpoint: endpoint
+                    endpoint: endpoint,
+                    instanceName: instanceName.trim() || undefined
                 },
                 accessId,
                 accessKey
@@ -191,7 +217,8 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
                 {
                     name: profileName,
                     region: region.value === 'custom' ? 'us1' : region.value,
-                    endpoint: endpoint
+                    endpoint: endpoint,
+                    instanceName: instanceName.trim() || undefined
                 },
                 accessId,
                 accessKey
@@ -200,6 +227,189 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
         }
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to save profile: ${error}`);
+    }
+}
+
+/**
+ * Command to edit profile settings
+ */
+export async function editProfileCommand(context: vscode.ExtensionContext, profileName?: string): Promise<void> {
+    const profileManager = new ProfileManager(context);
+    const profiles = await profileManager.getProfiles();
+
+    // If no profile name provided, prompt to select one
+    if (!profileName) {
+        if (profiles.length === 0) {
+            vscode.window.showInformationMessage('No profiles configured. Please create a profile first.');
+            return;
+        }
+
+        const items = profiles.map(p => ({
+            label: p.name,
+            description: p.endpoint || p.region
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a profile to edit',
+            ignoreFocusOut: true
+        });
+
+        if (!selected) {
+            return;
+        }
+        profileName = selected.label;
+    }
+
+    // Get the profile
+    const profile = profiles.find(p => p.name === profileName);
+    if (!profile) {
+        vscode.window.showErrorMessage(`Profile '${profileName}' not found`);
+        return;
+    }
+
+    // Get existing credentials
+    const credentials = await profileManager.getProfileCredentials(profileName);
+
+    // Show edit options
+    const editOption = await vscode.window.showQuickPick([
+        { label: 'Edit Instance Name', value: 'instanceName', description: `Current: ${profile.instanceName || '(default)'}` },
+        { label: 'Edit Region/Endpoint', value: 'region', description: `Current: ${profile.endpoint || profile.region}` },
+        { label: 'Edit Credentials', value: 'credentials', description: 'Update Access ID and Key' },
+        { label: 'Edit All Settings', value: 'all', description: 'Update all profile settings' }
+    ], {
+        placeHolder: `Edit settings for profile: ${profileName}`,
+        ignoreFocusOut: true
+    });
+
+    if (!editOption) {
+        return;
+    }
+
+    let newInstanceName = profile.instanceName;
+    let newRegion = profile.region;
+    let newEndpoint = profile.endpoint;
+    let newAccessId = credentials?.accessId;
+    let newAccessKey = credentials?.accessKey;
+
+    // Edit instance name
+    if (editOption.value === 'instanceName' || editOption.value === 'all') {
+        const defaultInstanceName = profile.region === 'us1' || profile.region === 'prod'
+            ? 'service.sumologic.com'
+            : `service.${profile.region}.sumologic.com`;
+
+        const instanceName = await vscode.window.showInputBox({
+            prompt: 'Enter custom instance name for web UI (leave empty to use default)',
+            placeHolder: defaultInstanceName,
+            value: profile.instanceName || '',
+            ignoreFocusOut: true,
+            validateInput: (value) => {
+                if (value && value.trim()) {
+                    if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value.trim())) {
+                        return 'Instance name should be a valid domain (e.g., rick.au.sumologic.com)';
+                    }
+                }
+                return null;
+            }
+        });
+
+        if (instanceName === undefined) {
+            return; // User cancelled
+        }
+        newInstanceName = instanceName.trim() || undefined;
+    }
+
+    // Edit region/endpoint
+    if (editOption.value === 'region' || editOption.value === 'all') {
+        const region = await vscode.window.showQuickPick(
+            [
+                { label: 'US1 (api.sumologic.com)', value: 'us1', description: 'United States' },
+                { label: 'US2 (api.us2.sumologic.com)', value: 'us2', description: 'United States' },
+                { label: 'EU (api.eu.sumologic.com)', value: 'eu', description: 'Europe' },
+                { label: 'AU (api.au.sumologic.com)', value: 'au', description: 'Australia' },
+                { label: 'DE (api.de.sumologic.com)', value: 'de', description: 'Germany' },
+                { label: 'JP (api.jp.sumologic.com)', value: 'jp', description: 'Japan' },
+                { label: 'CA (api.ca.sumologic.com)', value: 'ca', description: 'Canada' },
+                { label: 'IN (api.in.sumologic.com)', value: 'in', description: 'India' },
+                { label: 'Custom Endpoint', value: 'custom', description: 'Specify custom API endpoint' }
+            ],
+            {
+                placeHolder: 'Select your Sumo Logic deployment region',
+                ignoreFocusOut: true
+            }
+        );
+
+        if (!region) {
+            return; // User cancelled
+        }
+
+        if (region.value === 'custom') {
+            const customEndpoint = await vscode.window.showInputBox({
+                prompt: 'Enter custom API endpoint URL',
+                placeHolder: 'https://api.custom.sumologic.com',
+                value: profile.endpoint || '',
+                ignoreFocusOut: true,
+                validateInput: (value) => {
+                    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                        return 'Endpoint must start with http:// or https://';
+                    }
+                    return null;
+                }
+            });
+
+            if (!customEndpoint) {
+                return; // User cancelled
+            }
+            newEndpoint = customEndpoint;
+            newRegion = 'us1'; // Fallback region for custom endpoint
+        } else {
+            newRegion = region.value;
+            newEndpoint = undefined;
+        }
+    }
+
+    // Edit credentials
+    if (editOption.value === 'credentials' || editOption.value === 'all') {
+        const accessId = await vscode.window.showInputBox({
+            prompt: 'Enter your Sumo Logic Access ID',
+            placeHolder: 'suABC123...',
+            value: credentials?.accessId || '',
+            ignoreFocusOut: true,
+            password: false
+        });
+
+        if (!accessId) {
+            return; // User cancelled
+        }
+        newAccessId = accessId;
+
+        const accessKey = await vscode.window.showInputBox({
+            prompt: 'Enter your Sumo Logic Access Key',
+            placeHolder: 'Your access key',
+            ignoreFocusOut: true,
+            password: true
+        });
+
+        if (!accessKey) {
+            return; // User cancelled
+        }
+        newAccessKey = accessKey;
+    }
+
+    // Update profile
+    try {
+        await profileManager.updateProfile(
+            profileName,
+            {
+                region: newRegion,
+                endpoint: newEndpoint,
+                instanceName: newInstanceName
+            },
+            newAccessId,
+            newAccessKey
+        );
+        vscode.window.showInformationMessage(`Profile '${profileName}' updated successfully`);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to update profile: ${error}`);
     }
 }
 

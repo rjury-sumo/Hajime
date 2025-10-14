@@ -661,3 +661,99 @@ npm run lint          # Run ESLint
 ## Contributing
 
 (Add contribution guidelines if applicable)
+
+### Session 9 (Enhanced Library Experience - Current)
+1. **Specialized Content Webviews**: Custom formatted displays for different content types
+   - **Dashboard Webview**: Comprehensive dashboard display
+     - Top-level properties (name, description, theme)
+     - Variables table with parameters
+     - Panels table showing title, type, key, query count
+     - Queries table extracting all queries with panel context
+     - Support for both v1 (Report/DashboardSyncDefinition) and v2 (Dashboard/DashboardV2SyncDefinition) formats
+     - Sorted panels and queries for easy navigation
+   - **Search Webview**: Dedicated search display
+     - Top-level properties
+     - Search query section with formatted query text
+     - Display of byReceiptTime, parsingMode, defaultTimeRange
+     - **"Open in .sumo File" button** to extract query for execution
+   - **Generic Webview**: Fallback for other content types with tabbed JSON view
+
+2. **Extract Search to .sumo File**: Convert saved searches to executable query files
+   - Creates .sumo files in `output/<profile>/searches/` directory
+   - Sanitized filenames: `{search_name}_{content_id}.sumo`
+   - Auto-generates Query Metadata Directives header:
+     - `@name` from search name
+     - `@from` / `@to` from defaultTimeRange
+     - `@timezone` defaults to UTC
+     - `@byReceiptTime` from search property
+     - `@autoParsingMode` mapped from parsingMode
+     - `@mode` auto-detected (records/messages)
+     - `@output` defaults to webview
+   - Opens file in editor immediately
+   - File automatically added to Recent Queries
+
+3. **Enhanced Query Execution with New Directives**:
+   - **@byReceiptTime directive**: Control receipt time mode (true/false)
+     - Added to SearchJobRequest interface
+     - Parsed from query comments
+     - Passed to search job API
+   - **@autoParsingMode directive**: Control auto-parsing (AutoParse/Manual)
+     - Added to SearchJobRequest interface  
+     - Parsed from query comments
+     - Passed to search job API
+   - Both directives cleaned from query before execution
+   - Default values applied if not specified
+
+4. **Recent Queries Manager**: Intelligent tracking system for .sumo files
+   - **Persistent Storage**: JSON file in global storage (`recentQueries.json`)
+   - **Automatic Tracking**: Tracks when .sumo files are opened
+   - **Rich Metadata**: Stores for each query:
+     - File path and filename
+     - Query name from `@name` directive
+     - Last opened timestamp
+     - Associated profile
+     - Query preview (first non-comment line)
+   - **Profile-Aware**: Filter queries by profile
+   - **Smart Display**: Shows name or filename in tree
+   - **Rich Tooltips**: Full details on hover
+   - **Persistence**: Survives VS Code restarts
+   - **Auto-Cleanup**: Removes entries for deleted files
+   - **Limits**: Keeps 20 most recent queries
+
+5. **v1 Dashboard Support**: Legacy Report compatibility
+   - Reports (`itemType: "Report"`, `type: "DashboardSyncDefinition"`) now render properly
+   - Unified handling of v1 and v2 dashboard formats:
+     - v1: panels have `name`, `viewerType`, `queryString` directly on panel
+     - v2: panels have `title`, `panelType`, `queries` array
+   - Automatic format detection
+   - Query extraction from both formats
+   - Panels table shows correct properties regardless of version
+
+**Architecture Components:**
+- `src/recentQueriesManager.ts` - Recent queries tracking and persistence
+- `src/commands/extractSearchToFile.ts` - Search to .sumo file conversion
+- `src/commands/viewLibraryContent.ts` - Specialized webviews (dashboard, search, generic)
+- `src/api/searchJob.ts` - Enhanced with byReceiptTime and autoParsingMode
+- `src/commands/runQuery.ts` - Updated to parse and use new directives
+- `src/views/sumoExplorer.ts` - Integrated RecentQueriesManager
+
+**Files Modified:**
+- `src/api/searchJob.ts` - Added autoParsingMode parameter
+- `src/commands/runQuery.ts` - Added directive parsing for new parameters
+- `src/commands/viewLibraryContent.ts` - Added specialized webviews, v1 dashboard support
+- `src/commands/extractSearchToFile.ts` - New file for search extraction
+- `src/recentQueriesManager.ts` - New file for recent queries tracking
+- `src/views/sumoExplorer.ts` - Integrated recent queries display
+- `src/profileManager.ts` - Added getProfileOutputDirectory method
+- `src/extension.ts` - Registered new command and file open event handler
+- `README.md` - Comprehensive update with all new features
+- `docs/PROJECT_SUMMARY.md` - This session documentation
+
+**User Benefits:**
+- Specialized views make dashboards and searches easier to understand
+- Extract searches from library and run them immediately
+- Track recently used queries across sessions and profiles
+- Enhanced query control with new directives
+- Seamless support for legacy dashboard formats
+- Complete workflow from library browsing to query execution
+

@@ -2,53 +2,6 @@
 
 A comprehensive Visual Studio Code extension that provides a complete IDE experience for working with Sumo Logic. Write, execute, and visualize queries, manage multiple deployment connections, and interact with Sumo Logic APIs - all from within VS Code.
 
-- [Sumo Logic Query Language Support](#sumo-logic-query-language-support)
-  - [Overview](#overview)
-    - [🎯 Tree View Sidebar for Easy Navigation](#-tree-view-sidebar-for-easy-navigation)
-    - [🎯 IDE Experience for Query Development](#-ide-experience-for-query-development)
-    - [🔌 Multi-Profile Connection Management](#-multi-profile-connection-management)
-    - [📊 Query Execution with Multiple Output Formats](#-query-execution-with-multiple-output-formats)
-    - [📈 Advanced Data Visualization](#-advanced-data-visualization)
-    - [📚 Library Explorer - Navigate Your Content Library](#-library-explorer---navigate-your-content-library)
-    - [🔧 API Integration \& Metadata Management](#-api-integration--metadata-management)
-  - [Quick Start](#quick-start)
-  - [Detailed Features](#detailed-features)
-    - [Language Support](#language-support)
-  - [Usage Guide](#usage-guide)
-    - [Writing Queries](#writing-queries)
-    - [Executing Queries](#executing-queries)
-      - [1. Standard Query Execution](#1-standard-query-execution)
-      - [2. Interactive Webview Table](#2-interactive-webview-table)
-      - [3. Auto-Charting](#3-auto-charting)
-    - [Managing Connections](#managing-connections)
-    - [Working with Saved Searches](#working-with-saved-searches)
-    - [Recent Queries](#recent-queries)
-    - [Fetching Metadata \& Configuration](#fetching-metadata--configuration)
-    - [Content Library Export](#content-library-export)
-    - [Library Database Viewer](#library-database-viewer)
-    - [Utility Commands](#utility-commands)
-  - [Example Workflows](#example-workflows)
-    - [Workflow 1: Writing and Executing a Query](#workflow-1-writing-and-executing-a-query)
-    - [Workflow 2: Extracting and Running a Saved Search](#workflow-2-extracting-and-running-a-saved-search)
-    - [Workflow 3: Bulk Content Download](#workflow-3-bulk-content-download)
-  - [Keyboard Shortcuts](#keyboard-shortcuts)
-  - [Configuration](#configuration)
-    - [Extension Settings](#extension-settings)
-    - [Query Metadata Directives](#query-metadata-directives)
-  - [Requirements](#requirements)
-  - [Known Issues](#known-issues)
-  - [Frequently Asked Questions](#frequently-asked-questions)
-  - [Release Notes](#release-notes)
-    - [Latest Updates](#latest-updates)
-      - [Current Session: Enhanced Library Experience](#current-session-enhanced-library-experience)
-      - [Phase 3: Results \& Visualization](#phase-3-results--visualization)
-      - [Phase 2: Developer Experience](#phase-2-developer-experience)
-      - [Phase 1: Core UI](#phase-1-core-ui)
-  - [Development](#development)
-    - [Native Module Dependencies](#native-module-dependencies)
-  - [Contributing](#contributing)
-  - [License](#license)
-
 ## Overview
 
 **Hajime** transforms VS Code into a powerful development environment for Sumo Logic, offering:
@@ -58,20 +11,15 @@ Dedicated sidebar in the activity bar provides one-click access to:
 - **Active Profile** - See current connection at a glance
 - **Quick Actions** - Common commands (New Query, Test Connection, Fetch Metadata)
 - **Profiles** - Switch between deployments with a single click
-- **Recent Queries** - Recently opened .sumo files with intelligent tracking across profiles
+- **Recent Queries** - Last 10 .sumo files for quick access
 - **Library Explorer** - Full hierarchical navigation of your content library with caching and lazy loading
-  - Browse Personal, Global, Admin Recommended, and Installed Apps folders
-  - Recursive folder fetching for bulk content downloads
-  - Click items to view in specialized webviews (dashboards, searches, generic)
-  - Right-click context menu with 7+ actions
 - **Content Export** - Quick export of system folders (Global, Admin Recommended, Installed Apps)
 - **Collectors** - Quick access to collector management
 - **Storage Explorer** - Browse profile-specific cached files and directories
-- **Database Viewer** - SQLite browser for exploring library cache database
 
 ### 🎯 IDE Experience for Query Development
 Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
-- **Hundreds of Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list
+- **hundreds ofParser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list.
 - **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
 - **Context-Aware Suggestions** - metadata field values suggested as you type (e.g., `_sourceCategory=` shows your actual categories)
 - **Syntax Highlighting** with full support for operators, functions, comments, and regex patterns
@@ -97,12 +45,12 @@ Execute queries directly from VS Code with flexible output options:
   - **Column Visibility** - show/hide columns dynamically
   - **Global Search** - search across all columns simultaneously
 - **Auto-Charting** - automatic visualization with Apache ECharts (line, bar, pie, scatter charts)
-- **Query Metadata Directives** - control time range, timezone, output format, parsing mode via comments in your query
+- **Query Metadata Directives** - control time range, timezone, output format via comments in your query
 - **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries
 - **Context Menus** - Right-click in .sumo files or file explorer for quick actions
 
-![Query Buttons](docs/images/sumo%20buttons.png)
-![Query Webview Output](docs/images/query.webview.output.png)
+![alt text](<docs/images/sumo buttons.png>)
+![alt text](docs/images/query.webview.output.png)
 
 ### 📈 Advanced Data Visualization
 Visualize query results and data files with interactive charts:
@@ -112,37 +60,26 @@ Visualize query results and data files with interactive charts:
 - **CSV Charting** - visualize any CSV file with the built-in chart engine
 - **Apache ECharts Integration** - professional, interactive charts with zoom, pan, and export
 
-![Category Chart](docs/images/category.echart.png)
-![Timeseries Chart](docs/images/timeseries.transpose.echart.png)
+![category](docs/images/category.echart.png)
+![tiemseries](docs/images/timeseries.transpose.echart.png)
 
 ### 📚 Library Explorer - Navigate Your Content Library
 Full hierarchical tree view of your Sumo Logic content library with intelligent caching:
 - **Four Top-Level Sections** - Personal, Global, Admin Recommended, and Installed Apps
 - **Lazy Loading** - Folders load children only when expanded for fast performance
-- **Recursive Fetching** - Bulk download entire folder hierarchies
 - **SQLite Caching** - Local database caches content metadata for instant navigation
 - **Smart Fetching** - Automatically fetches content from API when not cached
-- **Specialized Webviews** - Click items to view formatted content:
-  - **Dashboard Webview** - Shows panels, queries, variables with tables (supports v1 Reports and v2 Dashboards)
-  - **Search Webview** - Displays query text, parsing mode, time range with "Open in .sumo File" button
-  - **Generic Webview** - Formatted JSON display for other content types
-- **Database Viewer** - Browse library cache database with:
-  - SQL query interface for exploring content
-  - Pre-built queries for common operations
-  - View content JSON directly from database
-  - Export query results
 - **Rich Context Menus** - Right-click any item for actions:
   - **View Details** - Quick Pick showing all properties (ID, type, dates, authors)
-  - **View Content** - Open in specialized webview with formatted display
   - **Open JSON** - View full content export in editor
-  - **Open in Web UI** - Launch directly to item in Sumo Logic
+  - **Open in Web UI** - Launch directly to item in Sumo Logic (folders only)
   - **Copy ID** - Copy hex content ID to clipboard
   - **Copy Path** - Copy full hierarchical path (e.g., `/Personal/Dashboards/MyDash`)
   - **Refresh** - Re-fetch from API to get latest changes
   - **Export to File** - Save as JSON, Markdown, or both
-  - **Fetch Recursively** - Download entire folder tree (folders only)
 - **Visual Icons** - Different icons for folders, dashboards, searches, lookups, etc.
 - **Multi-Profile Support** - Independent library trees for each profile
+- **Webview Display** - Click non-folder items to view in formatted webview with tabs
 
 ### 🔧 API Integration & Metadata Management
 Fetch and manage configuration from your Sumo Logic deployment:
@@ -175,7 +112,7 @@ Fetch and manage configuration from your Sumo Logic deployment:
 - **IntelliSense/Autocomplete**: Intelligent code completion for:
   - 100+ Sumo Logic operators and functions
   - Built-in metadata fields
-  - Hundreds of parser snippets from Sumo Logic apps (filterable by app name)
+  - hundreds of parser snippets from Sumo Logic apps (filterable by app name)
   - Dynamic fields from query results
   - Custom fields from API
   - Partition names for _index and _view
@@ -203,14 +140,11 @@ Fetch and manage configuration from your Sumo Logic deployment:
 
 3. **Add Query Metadata** (optional):
    ```sumo
-   // @name My Query Name
    // @from -7d
    // @to now
    // @timezone UTC
    // @mode records
    // @output table
-   // @byReceiptTime false
-   // @autoParsingMode Manual
 
    _sourceCategory=prod/application error
    | count by _sourceHost
@@ -279,42 +213,9 @@ Also works on CSV files: Right-click any `.csv` file → `Sumo Logic: Chart CSV 
 **Profile Features**:
 - 🔐 Credentials stored securely in VS Code's secret storage
 - 💾 Per-profile autocomplete data (fields, partitions, metadata values)
-- 📁 Organized output: `output/<profile>/queries/`, `collectors/`, `searches/`, etc.
+- 📁 Organized output: `output/<profile>/queries/`, `collectors/`, etc.
 - 🔄 Quick switching without re-entering credentials
 - 👁️ Visual indicator showing active profile in sidebar
-
-### Working with Saved Searches
-
-Library searches can be exported to .sumo files for editing and execution:
-
-1. **Browse to a Search** in the Library Explorer
-2. **Click to View** - Opens specialized search webview showing:
-   - Query text with syntax
-   - By receipt time setting
-   - Parsing mode
-   - Default time range
-3. **Click "Open in .sumo File"** button
-4. **File is Created** in `output/<profile>/searches/` with:
-   - Sanitized filename: `{search_name}_{content_id}.sumo`
-   - Query metadata directives from search properties
-   - Full query text ready to run
-5. **File Added to Recent Queries** - Appears in sidebar for quick access
-6. **Execute with Run Query** - Use all standard query execution features
-
-### Recent Queries
-
-The extension automatically tracks .sumo files you open:
-
-- **Automatic Tracking** - Any .sumo file you open is added to recent queries
-- **Profile-Aware** - Tracks which profile was active when file was opened
-- **Intelligent Display** - Shows query name (from `@name` directive) or filename
-- **Rich Tooltips** - Hover to see:
-  - Full file path
-  - Last opened timestamp
-  - Associated profile
-  - Query preview (first non-comment line)
-- **Persistent** - Recent queries saved across VS Code sessions
-- **Quick Access** - Click any recent query in sidebar to reopen it
 
 ### Fetching Metadata & Configuration
 
@@ -338,7 +239,12 @@ All fetched data enhances autocomplete and is persisted per profile.
 Export content items and special folders from the Sumo Logic Content Library as JSON with markdown summaries.
 
 **Access from Sidebar**:
-Open the Sumo Logic sidebar → expand the **Library** section or **Content** section to see export options.
+Open the Sumo Logic sidebar → expand the **Content** section to see:
+- Get Personal Folder...
+- Export Content by ID...
+- Export Admin Recommended
+- Export Global Folder
+- Export Installed Apps
 
 Or use command palette commands:
 
@@ -350,7 +256,6 @@ Or use command palette commands:
 | **Export Admin Recommended Folder** | Export the Admin Recommended system folder | JSON + Markdown summary (overwrites) |
 | **Export Global Folder** | Export the Global system folder | JSON + Markdown summary (overwrites) |
 | **Export Installed Apps Folder** | Export the Installed Apps system folder | JSON + Markdown summary (overwrites) |
-| **Fetch Folder Recursively** | Download entire folder hierarchy with all children | Bulk cached to database |
 
 **Export Features**:
 - 📦 **Two file formats**: Full JSON export + human-readable markdown summary
@@ -359,35 +264,12 @@ Or use command palette commands:
 - 🔄 **Async job polling**: Automatically waits for export jobs to complete
 - 🆔 **ID tracking**: All items include their Sumo Logic content ID for reference
 - 📁 **Organization**: Files saved to `output/<profile>/content/`
-- 🗂️ **Recursive fetching**: Download entire folder trees for offline access
 
 **File Naming**:
 - Regular content exports: Timestamped files (e.g., `export_content_12345_Dashboard_20250113_143025.json`)
 - System folder exports: Single overwriting file (e.g., `export_admin_recommended_Admin_Recommended.json`)
-- Search exports: Sanitized names in `searches/` folder
 
-### Library Database Viewer
-
-Explore the SQLite cache database that stores library metadata:
-
-1. **Open Database Viewer**:
-   - Right-click profile in sidebar → "Open Database Viewer"
-   - Or run `Sumo Logic: Open Database Viewer` from command palette
-
-2. **Features**:
-   - Browse cached content items with filtering and pagination
-   - Run custom SQL queries against the database
-   - Pre-built queries for common operations (dashboards, searches, folders, etc.)
-   - View item details and full JSON
-   - Export query results to CSV
-   - Refresh database to get latest cache
-
-3. **Use Cases**:
-   - Find all dashboards modified in last 7 days
-   - List searches by specific author
-   - Audit content permissions
-   - Analyze content structure
-   - Debug caching issues
+All fetched data enhances autocomplete and is persisted per profile.
 
 ### Utility Commands
 
@@ -397,7 +279,6 @@ Explore the SQLite cache database that stores library metadata:
 | **Cleanup Old Files** | Remove old query results (by age) to manage disk space |
 | **View Autocomplete Data** | Inspect what's cached for autocomplete in active profile |
 | **Clear Autocomplete Data** | Clear all autocomplete cache for active profile |
-| **Open Database Viewer** | Browse library cache database for active profile |
 
 ## Example Workflows
 
@@ -405,12 +286,9 @@ Explore the SQLite cache database that stores library metadata:
 
 ```sumo
 // Query metadata (optional)
-// @name Error Analysis
 // @from -24h
 // @to now
 // @output table
-// @byReceiptTime false
-// @autoParsingMode Manual
 
 // Search for errors in production
 _sourceCategory=prod/application error
@@ -424,27 +302,30 @@ _sourceCategory=prod/application error
 3. Fields like `error_type` automatically added to autocomplete
 4. Try 📋 button for interactive table or 📈 for charts
 
-### Workflow 2: Extracting and Running a Saved Search
+### Workflow 2: Exploring Time-Series Data
 
-1. Open Library Explorer in sidebar
-2. Navigate to `/Personal/Monitoring/Alert Queries`
-3. Click on a search to view in specialized webview
-4. Review query details, parsing mode, time range
-5. Click "Open in .sumo File" button
-6. File opens with all metadata directives pre-filled
-7. File appears in Recent Queries for easy access
-8. Execute with standard Run Query commands
-9. Modify query and save your customized version
+```sumo
+// @from -7d
+// @to now
 
-### Workflow 3: Bulk Content Download
+_sourceCategory=metrics
+| timeslice 1h
+| count by _timeslice, host
+| transpose row _timeslice column host
+```
 
-1. Right-click a folder in Library Explorer
-2. Select "Fetch Folder Recursively"
-3. Extension downloads entire folder tree
-4. Progress shown in status bar
-5. All content cached locally in SQLite database
-6. Browse downloaded content offline
-7. Use Database Viewer to query and analyze content
+1. Execute with `Run Query and Chart Results` command
+2. Get automatic line chart showing trends by host
+3. Interactive chart with zoom, pan, legend toggle
+4. Export chart as image if needed
+
+### Workflow 3: Managing Collectors
+
+1. Run `Fetch Collectors` to get overview with stats
+2. Note collector ID from the table
+3. Run `Get Collector by ID` to see full configuration (JSON)
+4. Run `Get Sources for Collector` to audit source setup
+5. JSON files saved to `output/<profile>/collectors/` for documentation
 
 ## Keyboard Shortcuts
 
@@ -476,14 +357,11 @@ The extension activates automatically when you open `.sumo` files.
 Control query execution with comment directives:
 
 ```sumo
-// @name My Query             // Query name for saved queries
-// @from -7d                   // Start time (relative: -1h, -7d or absolute: 2024-01-01T00:00:00)
-// @to now                     // End time (relative or absolute)
-// @timezone UTC               // Timezone for query execution
-// @mode records               // Result type: records (aggregated) or messages (raw logs)
-// @output table               // Output format: table, json, or csv
-// @byReceiptTime false        // Run by receipt time (true/false)
-// @autoParsingMode Manual     // Auto-parsing: AutoParse or Manual
+// @from -7d              // Start time (relative: -1h, -7d or absolute: 2024-01-01T00:00:00)
+// @to now                // End time (relative or absolute)
+// @timezone UTC          // Timezone for query execution
+// @mode records          // Result type: records (aggregated) or messages (raw logs)
+// @output table          // Output format: table, json, or csv
 ```
 
 ## Requirements
@@ -495,7 +373,6 @@ Control query execution with comment directives:
   - Custom fields: "Manage fields" capability
   - Partitions: "View Partitions" capability
   - Collectors: "Manage or View Collectors" capability
-  - Content Library: "View Content" capability
 
 ## Known Issues
 
@@ -509,8 +386,8 @@ A: Credentials are stored securely in VS Code's Secret Storage API, not in plain
 **Q: Can I use custom endpoints (not standard regions)?**
 A: Yes, when creating a profile, you can enter a custom endpoint URL instead of selecting a region.
 
-**Q: How do I see my recent queries?**
-A: The Recent Queries section in the sidebar shows all .sumo files you've opened recently, with profile tracking and query previews.
+**Q: How do I see my query history?**
+A: Query results are saved to `output/<profile>/queries/` with timestamps in filenames.
 
 **Q: Can I share profiles across workspaces?**
 A: Profiles are stored globally in VS Code, so they're available in all workspaces. However, autocomplete data and output files are workspace-specific.
@@ -518,42 +395,32 @@ A: Profiles are stored globally in VS Code, so they're available in all workspac
 **Q: What if I have more than 1000 collectors/sources?**
 A: The extension automatically handles pagination, fetching all items regardless of count.
 
-**Q: How do I view dashboards and searches in a formatted way?**
-A: Click on dashboard or search items in the Library Explorer to open specialized webviews with formatted displays.
-
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
-#### Current Session: Enhanced Library Experience
-- **Specialized Webviews**: Custom displays for dashboards (v1 & v2) and searches
-- **Recent Queries Manager**: Intelligent tracking of opened .sumo files with persistence
-- **Extract Search to File**: Convert saved searches to executable .sumo files
-- **Database Viewer**: SQLite browser for exploring library cache
-- **Enhanced Query Directives**: Added @byReceiptTime and @autoParsingMode
-- **Recursive Folder Fetch**: Bulk download entire content hierarchies
-- **v1 Dashboard Support**: Reports (legacy dashboards) now display properly
-
-#### Phase 3: Results & Visualization
+#### Phase 3: Results & Visualization (Current)
 - **Performance Metrics**: Execution time and job statistics displayed in webview results
 - **Enhanced Export**: Export to CSV or JSON with visible columns and filters applied
 - **Copy Functionality**: Copy visible data to clipboard in tab-separated format
 - **Improved Webview**: Enhanced interactive table with column management and global search
 
 #### Phase 2: Developer Experience
-- **Keyboard Shortcuts**: Power user shortcuts for all common operations
-- **Enhanced Status Bar**: Connection status indicator, last query time, clickable profile switcher
-- **Improved Tooltips**: Detailed status bar tooltips with profile info and region
+- **Keyboard Shortcuts**: Power user shortcuts for all common operations (`Cmd/Ctrl+Enter` to run query, etc.)
+- **Enhanced Status Bar**: Connection status indicator (✓/✗/?), last query time, clickable profile switcher
+- **Improved Tooltips**: Detailed status bar tooltips with profile info, region, and last query time
 
 #### Phase 1: Core UI
-- **Tree View Sidebar**: Dedicated activity bar with one-click access
-- **Library Explorer**: Full hierarchical navigation with SQLite caching
-- **CodeLens Provider**: Inline action buttons above queries
-- **Context Menus**: Right-click profiles, files, and library items
-- **Advanced Charting**: Apache ECharts integration
-- **Metadata Autocomplete**: Context-aware field value suggestions
+- **Tree View Sidebar**: Dedicated activity bar with one-click access to profiles, queries, and actions
+- **CodeLens Provider**: Inline action buttons (▶ Run | 📊 Webview | 📈 Chart) above queries
+- **Context Menus**: Right-click profiles, .sumo files, and CSV files for quick actions
+- **Content Explorer**: Quick access to export Global Folder, Admin Recommended, and Installed Apps
+- **Collector Management**: Full API integration for collectors and sources
+- **Advanced Charting**: Apache ECharts integration with auto-chart selection
+- **Interactive Webview**: Sortable, filterable tables for query results
+- **Metadata Autocomplete**: Context-aware suggestions for field values
 - **4500+ Parsers**: Comprehensive parser library from Sumo Logic apps
 
 ## Development
@@ -567,16 +434,17 @@ For extension development:
 
 ### Native Module Dependencies
 
-This extension uses `better-sqlite3`, a native Node.js module that must be compiled for Electron's specific Node.js version.
+This extension uses `better-sqlite3`, a native Node.js module that must be compiled for Electron's specific Node.js version (not regular Node.js).
 
-**The `postinstall` script automatically handles this**, but if you encounter `NODE_MODULE_VERSION mismatch` errors, manually rebuild with:
+**The `postinstall` script automatically handles this**, but if you encounter `NODE_MODULE_VERSION mismatch` errors when loading the extension, manually rebuild with:
 ```bash
 npm run rebuild
 ```
 
 **Why this is needed:**
-- VSCode uses Electron with a specific NODE_MODULE_VERSION
-- Native modules must match Electron's version to work in VSCode extensions
+- VSCode 1.105.0 uses Electron 37 with NODE_MODULE_VERSION **136**
+- Regular Node.js v24 uses NODE_MODULE_VERSION **137**
+- Native modules like `better-sqlite3` must match Electron's version to work in VSCode extensions
 
 For more information:
 - [VS Code Extension API](https://code.visualstudio.com/api/get-started/your-first-extension)

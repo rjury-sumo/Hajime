@@ -14,6 +14,7 @@ export enum LibraryItemType {
     TopLevelNode = 'topLevelNode',         // Personal, Global, Admin, Apps
     Folder = 'folder',                     // Expandable folder
     Content = 'content',                   // Dashboard, Search, etc.
+    DatabaseViewer = 'databaseViewer',     // Database viewer node
 }
 
 /**
@@ -146,6 +147,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
             case LibraryItemType.Folder:
                 return this.getFolderChildren(element);
             case LibraryItemType.Content:
+            case LibraryItemType.DatabaseViewer:
                 // Non-folder items have no children
                 return [];
             default:
@@ -177,10 +179,29 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
     }
 
     /**
-     * Get top-level nodes (Personal, Global, Admin Recommended, Installed Apps)
+     * Get top-level nodes (Personal, Global, Admin Recommended, Installed Apps, Database Viewer)
      */
     private async getTopLevelNodes(profileName: string): Promise<LibraryTreeItem[]> {
         const items: LibraryTreeItem[] = [];
+
+        // Add Database Viewer node first
+        const dbViewerItem = new LibraryTreeItem(
+            profileName,
+            'database_viewer',
+            'DatabaseViewer',
+            'Database Viewer',
+            vscode.TreeItemCollapsibleState.None,
+            false,
+            true,
+            LibraryItemType.DatabaseViewer
+        );
+        dbViewerItem.command = {
+            command: 'sumologic.openDatabaseViewer',
+            title: 'Open Database Viewer',
+            arguments: [profileName]
+        };
+        dbViewerItem.iconPath = new vscode.ThemeIcon('database');
+        items.push(dbViewerItem);
 
         // Check cache first
         const db = await this.getCacheDatabase(profileName);
@@ -188,7 +209,9 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
 
         if (cachedTopLevel.length > 0) {
             // Return cached nodes - mark as top level
-            return this.contentItemsToTreeItems(profileName, cachedTopLevel, true);
+            const contentItems = this.contentItemsToTreeItems(profileName, cachedTopLevel, true);
+            items.push(...contentItems);
+            return items;
         }
 
         // No cache - create placeholder nodes that will fetch on expansion

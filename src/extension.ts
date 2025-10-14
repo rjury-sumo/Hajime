@@ -30,6 +30,7 @@ import { ParserCompletionProvider } from './parserCompletions';
 import { MetadataCompletionProvider } from './metadataCompletions';
 import { SumoExplorerProvider } from './views/sumoExplorer';
 import { SumoCodeLensProvider } from './providers/codeLensProvider';
+import { DatabaseWebviewProvider } from './views/databaseWebviewProvider';
 
 // Global completion providers
 let dynamicCompletionProvider: DynamicCompletionProvider;
@@ -202,6 +203,9 @@ export function activate(context: vscode.ExtensionContext) {
     const codeLensProvider = new SumoCodeLensProvider();
     const codeLensDisposable = vscode.languages.registerCodeLensProvider('sumo', codeLensProvider);
 
+    // Initialize Database Webview Provider
+    const databaseWebviewProvider = new DatabaseWebviewProvider(context.extensionUri, context);
+
     // Register commands
     const createProfileCmd = vscode.commands.registerCommand('sumologic.createProfile', async () => {
         await authenticateCommand(context);
@@ -373,6 +377,10 @@ export function activate(context: vscode.ExtensionContext) {
         return exportLibraryNodeToFileCommand(context, treeItem);
     });
 
+    const openDatabaseViewerCmd = vscode.commands.registerCommand('sumologic.openDatabaseViewer', async (profileName?: string) => {
+        await databaseWebviewProvider.show(profileName);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -417,7 +425,8 @@ export function activate(context: vscode.ExtensionContext) {
         refreshLibraryNodeCmd,
         viewLibraryNodeDetailsCmd,
         openLibraryNodeJsonCmd,
-        exportLibraryNodeToFileCmd
+        exportLibraryNodeToFileCmd,
+        openDatabaseViewerCmd
     );
 
     // Export context for tests

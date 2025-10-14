@@ -248,6 +248,11 @@
                 "command": "sumologic.exportLibraryNodeToFile",
                 "title": "Export Library Content to File",
                 "icon": "$(export)"
+            },
+            {
+                "command": "sumologic.openDatabaseViewer",
+                "title": "Sumo Logic: Open Database Viewer",
+                "icon": "$(database)"
             }
         ],
         "menus": {

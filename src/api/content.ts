@@ -120,6 +120,18 @@ export class ContentClient extends SumoLogicClient {
     }
 
     /**
+     * Get content item by path
+     * Endpoint: GET /api/v2/content/path
+     * Docs: https://api.sumologic.com/docs/#operation/getItemByPath
+     */
+    async getItemByPath(contentPath: string): Promise<ApiResponse<ContentItem>> {
+        return this.makeRequest<ContentItem>(
+            `/api/v2/content/path?path=${encodeURIComponent(contentPath)}`,
+            'GET'
+        );
+    }
+
+    /**
      * Begin async export of content
      * Endpoint: POST /api/v2/content/{id}/export
      * Docs: https://api.sumologic.com/docs/#operation/beginAsyncExport

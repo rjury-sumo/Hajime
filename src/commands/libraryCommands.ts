@@ -236,70 +236,10 @@ export async function viewLibraryNodeDetailsCommand(
     context: vscode.ExtensionContext,
     treeItem: LibraryTreeItem
 ): Promise<void> {
-    const profileManager = new ProfileManager(context);
-    const profileDir = profileManager.getProfileDirectory(treeItem.profile);
-    const db = createLibraryCacheDB(profileDir, treeItem.profile);
-
-    try {
-        const item = db.getContentItem(treeItem.contentId);
-        if (!item) {
-            vscode.window.showWarningMessage('Content details not available in cache');
-            return;
-        }
-
-        const formattedId = formatContentId(item.id);
-        const path = await buildContentPath(db, item.id);
-
-        // Build details array
-        const details: string[] = [
-            `Name: ${item.name}`,
-            `Type: ${item.itemType}`,
-            `ID: ${formattedId}`,
-            `Path: ${path}`,
-            `Profile: ${item.profile}`
-        ];
-
-        if (item.description) {
-            details.push(`Description: ${item.description}`);
-        }
-
-        if (item.createdAt) {
-            details.push(`Created: ${new Date(item.createdAt).toLocaleString()}`);
-        }
-
-        if (item.createdBy) {
-            details.push(`Created By: ${item.createdBy}`);
-        }
-
-        if (item.modifiedAt) {
-            details.push(`Modified: ${new Date(item.modifiedAt).toLocaleString()}`);
-        }
-
-        if (item.modifiedBy) {
-            details.push(`Modified By: ${item.modifiedBy}`);
-        }
-
-        if (item.hasChildren) {
-            const children = db.getChildren(item.id);
-            details.push(`Children: ${children.length} items`);
-        }
-
-        details.push(`Last Fetched: ${new Date(item.lastFetched).toLocaleString()}`);
-
-        // Show in Quick Pick
-        const selected = await vscode.window.showQuickPick(details, {
-            title: `📚 ${item.name}`,
-            placeHolder: 'Content details (press ESC to close)'
-        });
-
-        // If user selected a line, copy it to clipboard
-        if (selected) {
-            await vscode.env.clipboard.writeText(selected);
-            vscode.window.showInformationMessage(`Copied: ${selected}`);
-        }
-    } finally {
-        db.close();
-    }
+    // Use the new webview provider to show library node details
+    const { LibraryNodeDetailsWebviewProvider } = await import('../views/libraryNodeDetailsWebview');
+    const provider = new LibraryNodeDetailsWebviewProvider(vscode.Uri.file(context.extensionPath), context);
+    await provider.show(treeItem.profile, treeItem.contentId, treeItem.label);
 }
 
 /**

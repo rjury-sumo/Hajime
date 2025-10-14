@@ -17,6 +17,8 @@ export enum TreeItemType {
     QuickActionsSection = 'quickActionsSection',
     StorageSection = 'storageSection',
     LibrarySection = 'librarySection',
+    UsersSection = 'usersSection',
+    RolesSection = 'rolesSection',
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
     Collector = 'collector',
@@ -103,6 +105,24 @@ export class SumoTreeItem extends vscode.TreeItem {
             case TreeItemType.LibrarySection:
                 this.iconPath = new vscode.ThemeIcon('library');
                 this.tooltip = 'Content Library Explorer';
+                break;
+            case TreeItemType.UsersSection:
+                this.iconPath = new vscode.ThemeIcon('account');
+                this.tooltip = 'Users';
+                this.command = {
+                    command: 'sumologic.viewUsers',
+                    title: 'View Users',
+                    arguments: [this.data?.profileName]
+                };
+                break;
+            case TreeItemType.RolesSection:
+                this.iconPath = new vscode.ThemeIcon('shield');
+                this.tooltip = 'Roles';
+                this.command = {
+                    command: 'sumologic.viewRoles',
+                    title: 'View Roles',
+                    arguments: [this.data?.profileName]
+                };
                 break;
             case TreeItemType.StorageFolder:
                 this.iconPath = new vscode.ThemeIcon('folder');
@@ -198,6 +218,8 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 return this.getStorageItems();
             case TreeItemType.LibrarySection:
                 return this.libraryExplorerProvider.getChildren();
+            case TreeItemType.Profile:
+                return this.getProfileSubItems(sumoElement.profile);
             case TreeItemType.StorageFolder:
                 return this.getStorageFolderContents(sumoElement.data?.path);
             default:
@@ -297,14 +319,47 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
             const item = new SumoTreeItem(
                 label,
                 TreeItemType.Profile,
-                vscode.TreeItemCollapsibleState.None,
+                vscode.TreeItemCollapsibleState.Collapsed,
                 profile
             );
             if (isActive) {
                 item.description = 'Active';
             }
+            // Remove the command so clicking doesn't switch profile, allows expansion
+            item.command = undefined;
             return item;
         });
+    }
+
+    /**
+     * Get sub-items for a profile (users, roles, etc.)
+     */
+    private getProfileSubItems(profile?: SumoLogicProfile): SumoTreeItem[] {
+        if (!profile) {
+            return [];
+        }
+
+        const items: SumoTreeItem[] = [];
+
+        // Users section
+        items.push(new SumoTreeItem(
+            'Users',
+            TreeItemType.UsersSection,
+            vscode.TreeItemCollapsibleState.None,
+            profile,
+            { profileName: profile.name }
+        ));
+
+        // Roles section
+        items.push(new SumoTreeItem(
+            'Roles',
+            TreeItemType.RolesSection,
+            vscode.TreeItemCollapsibleState.None,
+            profile,
+            { profileName: profile.name }
+        ));
+
+        return items;
     }
 
     /**

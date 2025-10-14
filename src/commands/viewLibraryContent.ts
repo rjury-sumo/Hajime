@@ -43,11 +43,52 @@ export async function viewLibraryContentCommand(
         content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
 
-    // Get library path from database
+    // Get library path from database and enrich with user emails
     const profileDir = profileManager.getProfileDirectory(profileName);
     const db = createLibraryCacheDB(profileDir, profileName);
     const pathItems = db.getContentPath(contentId);
     const libraryPath = pathItems.length > 0 ? '/' + pathItems.map(p => p.name).join('/') : '';
+
+    // Try to enrich createdBy and modifiedBy with user emails
+    let createdByEmail: string | undefined;
+    let modifiedByEmail: string | undefined;
+
+    try {
+        // Check if users_roles database exists
+        const usersRolesDbPath = path.join(profileDir, 'metadata', 'users_roles.db');
+
+        if (fs.existsSync(usersRolesDbPath)) {
+            // Attach the users_roles database
+            (db as any).db.prepare(`ATTACH DATABASE ? AS users_db`).run(usersRolesDbPath);
+
+            if (content.createdBy) {
+                const userStmt = (db as any).db.prepare(`
+                    SELECT email FROM users_db.users WHERE id = ? AND profile = ?
+                `);
+                const userRow = userStmt.get(content.createdBy, profileName);
+                if (userRow) {
+                    createdByEmail = userRow.email;
+                }
+            }
+
+            if (content.modifiedBy) {
+                const userStmt = (db as any).db.prepare(`
+                    SELECT email FROM users_db.users WHERE id = ? AND profile = ?
+                `);
+                const userRow = userStmt.get(content.modifiedBy, profileName);
+                if (userRow) {
+                    modifiedByEmail = userRow.email;
+                }
+            }
+
+            // Detach the database
+            (db as any).db.prepare(`DETACH DATABASE users_db`).run();
+        }
+    } catch (error) {
+        // Silently fail if users database doesn't exist or query fails
+        console.log('Could not enrich user data:', error);
+    }
+
     db.close();
 
     // Create and show webview
@@ -74,7 +115,7 @@ export async function viewLibraryContentCommand(
         }
     });
 
-    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath);
+    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath, createdByEmail, modifiedByEmail);
 }
 
 /**
@@ -128,7 +169,7 @@ async function fetchAndCacheContent(
 /**
  * Generate specialized webview content for searches
  */
-function getSearchWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string): string {
+function getSearchWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string): string {
     // Top-level string properties to display at the top
     const topLevelProps = ['name', 'description', 'type'];
 
@@ -419,6 +460,8 @@ function getSearchWebviewContent(content: any, contentName: string, contentId: s
         <strong>ID:</strong> ${formattedId}
         ${libraryPath ? ` | <strong>Path:</strong> ${escapeHtml(libraryPath)}` : ''}
         ${content.itemType ? ` | <strong>Type:</strong> ${escapeHtml(content.itemType)}` : ''}
+        ${content.createdBy ? ` | <strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
+        ${content.modifiedBy ? ` | <strong>Modified By:</strong> ${escapeHtml(modifiedByEmail || content.modifiedBy)}` : ''}
     </div>
 
     <div class="top-properties">
@@ -474,7 +517,7 @@ function getSearchWebviewContent(content: any, contentName: string, contentId: s
 /**
  * Generate specialized webview content for dashboards
  */
-function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string): string {
+function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string): string {
     // Top-level string properties to display at the top
     const topLevelProps = ['name', 'description', 'title', 'theme', 'type'];
 
@@ -874,6 +917,8 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
         <strong>ID:</strong> ${formattedId}
         ${libraryPath ? ` | <strong>Path:</strong> ${escapeHtml(libraryPath)}` : ''}
         ${content.itemType ? ` | <strong>Type:</strong> ${escapeHtml(content.itemType)}` : ''}
+        ${content.createdBy ? ` | <strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
+        ${content.modifiedBy ? ` | <strong>Modified By:</strong> ${escapeHtml(modifiedByEmail || content.modifiedBy)}` : ''}
     </div>
 
     <div class="top-properties">
@@ -920,7 +965,7 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
 </html>`;
 }
 
-function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string): string {
+function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string): string {
     const formattedId = formatContentId(contentId);
 
     // Check if this is a dashboard
@@ -942,11 +987,11 @@ function getWebviewContent(content: any, contentName: string, contentId: string,
     console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isDashboard: ${isDashboard}, isSearch: ${isSearch}`);
 
     if (isDashboard) {
-        return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath);
+        return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail);
     }
 
     if (isSearch) {
-        return getSearchWebviewContent(content, contentName, contentId, formattedId, libraryPath);
+        return getSearchWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail);
     }
 
     // Format the JSON for display
@@ -1127,9 +1172,19 @@ function getWebviewContent(content: any, contentName: string, contentId: string,
             <span class="value">${new Date(content.createdAt).toLocaleString()}</span>
         ` : ''}
 
+        ${content.createdBy ? `
+            <span class="label">Created By:</span>
+            <span class="value">${createdByEmail || content.createdBy}</span>
+        ` : ''}
+
         ${content.modifiedAt ? `
             <span class="label">Modified:</span>
             <span class="value">${new Date(content.modifiedAt).toLocaleString()}</span>
+        ` : ''}
+
+        ${content.modifiedBy ? `
+            <span class="label">Modified By:</span>
+            <span class="value">${modifiedByEmail || content.modifiedBy}</span>
         ` : ''}
     </div>
 

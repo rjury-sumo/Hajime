@@ -1,26 +1,24 @@
 import * as vscode from 'vscode';
-import { LibraryCacheDB, ContentItem } from '../database/libraryCache';
+import { createUsersRolesDB, Role } from '../database/usersRoles';
 import { ProfileManager } from '../profileManager';
-import { formatContentId } from '../utils/contentId';
 
 /**
- * Panel provider for viewing and managing SQLite library cache database
+ * Panel provider for viewing and managing Roles
  */
-export class DatabaseWebviewProvider {
+export class RolesWebviewProvider {
     private static currentPanel?: vscode.WebviewPanel;
     private static profileManager?: ProfileManager;
     private static currentProfileName?: string;
-    private static currentDb?: LibraryCacheDB;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly context: vscode.ExtensionContext
     ) {
-        DatabaseWebviewProvider.profileManager = new ProfileManager(context);
+        RolesWebviewProvider.profileManager = new ProfileManager(context);
     }
 
     /**
-     * Show the database viewer panel
+     * Show the roles viewer panel
      */
     public async show(profileName?: string) {
         const column = vscode.window.activeTextEditor
@@ -28,18 +26,18 @@ export class DatabaseWebviewProvider {
             : undefined;
 
         // If we already have a panel, show it
-        if (DatabaseWebviewProvider.currentPanel) {
-            DatabaseWebviewProvider.currentPanel.reveal(column);
+        if (RolesWebviewProvider.currentPanel) {
+            RolesWebviewProvider.currentPanel.reveal(column);
             if (profileName) {
-                await DatabaseWebviewProvider.loadProfileData(profileName);
+                await RolesWebviewProvider.loadProfileData(profileName);
             }
             return;
         }
 
         // Create new panel
         const panel = vscode.window.createWebviewPanel(
-            'databaseViewer',
-            'Library Cache Database',
+            'rolesViewer',
+            'Roles',
             column || vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -48,45 +46,36 @@ export class DatabaseWebviewProvider {
             }
         );
 
-        DatabaseWebviewProvider.currentPanel = panel;
+        RolesWebviewProvider.currentPanel = panel;
 
-        panel.webview.html = DatabaseWebviewProvider.getHtmlForWebview(panel.webview);
+        panel.webview.html = RolesWebviewProvider.getHtmlForWebview(panel.webview);
 
         // Handle messages from webview
         panel.webview.onDidReceiveMessage(async (data) => {
             switch (data.type) {
                 case 'loadProfile':
-                    await DatabaseWebviewProvider.loadProfileData(data.profileName);
+                    await RolesWebviewProvider.loadProfileData(data.profileName);
                     break;
                 case 'exportData':
-                    await DatabaseWebviewProvider.exportData(data.items);
-                    break;
-                case 'runContentCommand':
-                    await DatabaseWebviewProvider.runContentCommand(data.contentId, data.itemType, data.name);
-                    break;
-                case 'openInWeb':
-                    await DatabaseWebviewProvider.openInWeb(data.contentId);
+                    await RolesWebviewProvider.exportData(data.items);
                     break;
                 case 'refreshData':
-                    await DatabaseWebviewProvider.loadProfileData(DatabaseWebviewProvider.currentProfileName || '');
+                    await vscode.commands.executeCommand('sumologic.fetchRoles', RolesWebviewProvider.currentProfileName);
+                    setTimeout(() => RolesWebviewProvider.loadProfileData(RolesWebviewProvider.currentProfileName || ''), 1000);
                     break;
             }
         });
 
         // Clean up when panel is closed
         panel.onDidDispose(() => {
-            DatabaseWebviewProvider.currentPanel = undefined;
-            if (DatabaseWebviewProvider.currentDb) {
-                DatabaseWebviewProvider.currentDb.close();
-                DatabaseWebviewProvider.currentDb = undefined;
-            }
+            RolesWebviewProvider.currentPanel = undefined;
         });
 
         // Load profile data
         if (profileName) {
-            await DatabaseWebviewProvider.loadProfileData(profileName);
+            await RolesWebviewProvider.loadProfileData(profileName);
         } else {
-            await DatabaseWebviewProvider.loadActiveProfile();
+            await RolesWebviewProvider.loadActiveProfile();
         }
     }
 
@@ -94,12 +83,12 @@ export class DatabaseWebviewProvider {
      * Load data for active profile
      */
     private static async loadActiveProfile() {
-        if (!DatabaseWebviewProvider.profileManager) {
+        if (!RolesWebviewProvider.profileManager) {
             return;
         }
-        const activeProfile = await DatabaseWebviewProvider.profileManager.getActiveProfile();
+        const activeProfile = await RolesWebviewProvider.profileManager.getActiveProfile();
         if (activeProfile) {
-            await DatabaseWebviewProvider.loadProfileData(activeProfile.name);
+            await RolesWebviewProvider.loadProfileData(activeProfile.name);
         }
     }
 
@@ -107,134 +96,44 @@ export class DatabaseWebviewProvider {
      * Load profile data and send to webview
      */
     private static async loadProfileData(profileName: string) {
-        if (!profileName || !DatabaseWebviewProvider.profileManager) {
+        if (!profileName || !RolesWebviewProvider.profileManager) {
             return;
         }
 
         try {
-            DatabaseWebviewProvider.currentProfileName = profileName;
-            const profileDir = DatabaseWebviewProvider.profileManager.getProfileDirectory(profileName);
+            RolesWebviewProvider.currentProfileName = profileName;
+            const profileDir = RolesWebviewProvider.profileManager.getProfileDirectory(profileName);
 
-            // Close existing DB if any
-            if (DatabaseWebviewProvider.currentDb) {
-                DatabaseWebviewProvider.currentDb.close();
-            }
+            // Open database
+            const db = createUsersRolesDB(profileDir, profileName);
 
-            // Create new DB connection
-            const { createLibraryCacheDB } = await import('../database/libraryCache');
-            DatabaseWebviewProvider.currentDb = createLibraryCacheDB(profileDir, profileName);
+            // Get all roles from database
+            const roles = db.getAllRoles();
+            const stats = db.getStats();
 
-            // Get all items from database
-            const stats = DatabaseWebviewProvider.currentDb.getCacheStats();
-            const allItems = DatabaseWebviewProvider.getAllItems(DatabaseWebviewProvider.currentDb, profileDir, profileName);
+            db.close();
 
             // Send data to webview
-            if (DatabaseWebviewProvider.currentPanel) {
-                DatabaseWebviewProvider.currentPanel.webview.postMessage({
+            if (RolesWebviewProvider.currentPanel) {
+                RolesWebviewProvider.currentPanel.webview.postMessage({
                     type: 'data',
                     profileName,
-                    items: allItems.map(item => ({
-                        ...item,
-                        formattedId: formatContentId(item.id),
-                        permissions: item.permissions || []
-                    })),
+                    roles,
                     stats
                 });
             }
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to load database: ${error}`);
+            vscode.window.showErrorMessage(`Failed to load roles: ${error}`);
         }
-    }
-
-    /**
-     * Get all items from database with user email enrichment
-     */
-    private static getAllItems(db: LibraryCacheDB, profileDir: string, profileName: string): ContentItem[] {
-        const path = require('path');
-        const fs = require('fs');
-
-        // Check if users_roles database exists
-        const usersRolesDbPath = path.join(profileDir, 'metadata', 'users_roles.db');
-        const usersDbExists = fs.existsSync(usersRolesDbPath);
-
-        let query: string;
-        if (usersDbExists) {
-            // Attach the users_roles database to perform cross-database join
-            try {
-                (db as any).db.prepare(`ATTACH DATABASE ? AS users_db`).run(usersRolesDbPath);
-
-                query = `
-                    SELECT
-                        c.*,
-                        u.email as createdByEmail
-                    FROM content_items c
-                    LEFT JOIN users_db.users u ON c.createdBy = u.id AND c.profile = u.profile
-                    ORDER BY c.name ASC
-                `;
-
-                const stmt = (db as any).db.prepare(query);
-                const rows = stmt.all() as any[];
-
-                // Detach the database after query
-                (db as any).db.prepare(`DETACH DATABASE users_db`).run();
-
-                return rows.map(row => ({
-                    id: row.id,
-                    profile: row.profile,
-                    name: row.name,
-                    itemType: row.itemType,
-                    parentId: row.parentId,
-                    description: row.description,
-                    createdAt: row.createdAt,
-                    createdBy: row.createdBy,
-                    createdByEmail: row.createdByEmail, // Add enriched email
-                    modifiedAt: row.modifiedAt,
-                    modifiedBy: row.modifiedBy,
-                    hasChildren: Boolean(row.hasChildren),
-                    childrenFetched: Boolean(row.childrenFetched),
-                    permissions: row.permissions ? JSON.parse(row.permissions) : undefined,
-                    lastFetched: row.lastFetched
-                }));
-            } catch (error) {
-                console.error('Error joining with users database:', error);
-                // Fall through to non-joined query
-            }
-        }
-
-        // Fallback: no users database or join failed
-        query = `
-            SELECT * FROM content_items
-            ORDER BY name ASC
-        `;
-
-        const stmt = (db as any).db.prepare(query);
-        const rows = stmt.all() as any[];
-
-        return rows.map(row => ({
-            id: row.id,
-            profile: row.profile,
-            name: row.name,
-            itemType: row.itemType,
-            parentId: row.parentId,
-            description: row.description,
-            createdAt: row.createdAt,
-            createdBy: row.createdBy,
-            modifiedAt: row.modifiedAt,
-            modifiedBy: row.modifiedBy,
-            hasChildren: Boolean(row.hasChildren),
-            childrenFetched: Boolean(row.childrenFetched),
-            permissions: row.permissions ? JSON.parse(row.permissions) : undefined,
-            lastFetched: row.lastFetched
-        }));
     }
 
     /**
      * Export data to CSV
      */
     private static async exportData(items: any[]) {
-        const csv = DatabaseWebviewProvider.convertToCSV(items);
+        const csv = RolesWebviewProvider.convertToCSV(items);
         const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(`library_cache_${DatabaseWebviewProvider.currentProfileName}.csv`),
+            defaultUri: vscode.Uri.file(`roles_${RolesWebviewProvider.currentProfileName}.csv`),
             filters: {
                 'CSV Files': ['csv'],
                 'All Files': ['*']
@@ -243,7 +142,7 @@ export class DatabaseWebviewProvider {
 
         if (uri) {
             await vscode.workspace.fs.writeFile(uri, Buffer.from(csv, 'utf-8'));
-            vscode.window.showInformationMessage(`Exported ${items.length} items to ${uri.fsPath}`);
+            vscode.window.showInformationMessage(`Exported ${items.length} roles to ${uri.fsPath}`);
         }
     }
 
@@ -278,56 +177,11 @@ export class DatabaseWebviewProvider {
     }
 
     /**
-     * Run content command (view/open content item)
-     */
-    private static async runContentCommand(contentId: string, itemType: string, name: string) {
-        if (itemType === 'Folder') {
-            // Open folder in tree view
-            vscode.commands.executeCommand('sumologic.viewLibraryContent', DatabaseWebviewProvider.currentProfileName, contentId, name);
-        } else {
-            // Open content item
-            vscode.commands.executeCommand('sumologic.viewLibraryContent', DatabaseWebviewProvider.currentProfileName, contentId, name);
-        }
-    }
-
-    /**
-     * Open folder in Sumo Logic web UI
-     */
-    private static async openInWeb(contentId: string) {
-        if (!DatabaseWebviewProvider.profileManager) {
-            return;
-        }
-
-        const profiles = await DatabaseWebviewProvider.profileManager.getProfiles();
-        const profile = profiles.find(p => p.name === DatabaseWebviewProvider.currentProfileName);
-
-        if (!profile) {
-            vscode.window.showErrorMessage(`Profile not found: ${DatabaseWebviewProvider.currentProfileName}`);
-            return;
-        }
-
-        // Convert hex ID to decimal for web UI
-        const hexToDecimal = (hex: string): string => {
-            return BigInt('0x' + hex).toString(10);
-        };
-        const decimalId = hexToDecimal(contentId);
-
-        // Get instance name
-        const instanceName = await DatabaseWebviewProvider.profileManager.getInstanceName(profile);
-
-        // Construct library URL
-        const url = `https://${instanceName}/library/${decimalId}`;
-
-        // Open in browser
-        vscode.env.openExternal(vscode.Uri.parse(url));
-    }
-
-    /**
      * Refresh the webview with current profile data
      */
     public async refresh() {
-        if (DatabaseWebviewProvider.currentProfileName) {
-            await DatabaseWebviewProvider.loadProfileData(DatabaseWebviewProvider.currentProfileName);
+        if (RolesWebviewProvider.currentProfileName) {
+            await RolesWebviewProvider.loadProfileData(RolesWebviewProvider.currentProfileName);
         }
     }
 
@@ -340,7 +194,7 @@ export class DatabaseWebviewProvider {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Library Cache Database Viewer</title>
+    <title>Roles Viewer</title>
     <style>
         body {
             padding: 20px;
@@ -457,16 +311,6 @@ export class DatabaseWebviewProvider {
             border-radius: 4px;
         }
 
-        .action-link {
-            color: var(--vscode-textLink-foreground);
-            cursor: pointer;
-            text-decoration: underline;
-        }
-
-        .action-link:hover {
-            color: var(--vscode-textLink-activeForeground);
-        }
-
         .no-data {
             text-align: center;
             padding: 40px;
@@ -487,28 +331,35 @@ export class DatabaseWebviewProvider {
             font-size: 11px;
             background: var(--vscode-badge-background);
             color: var(--vscode-badge-foreground);
+            margin-right: 2px;
+            margin-bottom: 2px;
+        }
+
+        .capabilities-cell {
+            max-width: 400px;
+        }
+
+        .capability-count {
+            color: var(--vscode-descriptionForeground);
+            font-size: 11px;
+            margin-left: 5px;
         }
     </style>
 </head>
 <body>
     <div class="controls">
         <div class="control-row">
-            <input type="text" id="searchInput" placeholder="Search by name, ID, or description..." />
+            <input type="text" id="searchInput" placeholder="Search by ID, name, or description..." />
             <button onclick="clearSearch()">Clear</button>
             <button onclick="exportToCSV()">Export CSV</button>
             <button onclick="refreshData()">Refresh</button>
         </div>
         <div class="control-row">
-            <label>Filter by type:</label>
-            <select id="typeFilter" onchange="applyFilters()">
-                <option value="">All Types</option>
-            </select>
             <label>Items per page:</label>
             <select id="pageSizeSelect" onchange="changePageSize()">
                 <option value="50">50</option>
                 <option value="100" selected>100</option>
                 <option value="250">250</option>
-                <option value="500">500</option>
                 <option value="all">All</option>
             </select>
         </div>
@@ -520,17 +371,16 @@ export class DatabaseWebviewProvider {
         <table id="dataTable">
             <thead>
                 <tr>
+                    <th onclick="sortTable('id')">ID</th>
                     <th onclick="sortTable('name')">Name</th>
-                    <th onclick="sortTable('itemType')">Type</th>
-                    <th onclick="sortTable('formattedId')">ID</th>
-                    <th onclick="sortTable('modifiedAt')">Modified</th>
-                    <th onclick="sortTable('createdBy')">Created By</th>
-                    <th>Description</th>
-                    <th>Actions</th>
+                    <th onclick="sortTable('description')">Description</th>
+                    <th>Capabilities</th>
+                    <th onclick="sortTable('userCount')">Users</th>
+                    <th onclick="sortTable('createdAt')">Created</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
-                <tr><td colspan="7" class="no-data">Loading...</td></tr>
+                <tr><td colspan="6" class="no-data">Loading...</td></tr>
             </tbody>
         </table>
     </div>
@@ -549,19 +399,17 @@ export class DatabaseWebviewProvider {
         window.addEventListener('message', event => {
             const message = event.data;
             if (message.type === 'data') {
-                allData = message.items;
+                allData = message.roles.map(role => ({
+                    ...role,
+                    userCount: role.users ? role.users.length : 0
+                }));
                 updateStats(message.stats, message.profileName);
-                populateTypeFilter();
                 applyFilters();
             }
         });
 
         function updateStats(stats, profileName) {
             const statsDiv = document.getElementById('stats');
-            const typesList = Object.entries(stats.itemsByType || {})
-                .map(([type, count]) => \`\${type}: \${count}\`)
-                .join(', ');
-
             statsDiv.innerHTML = \`
                 <div class="stats-row">
                     <div class="stat-item">
@@ -569,49 +417,27 @@ export class DatabaseWebviewProvider {
                         <span>\${profileName}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Total Items:</span>
-                        <span>\${stats.totalItems}</span>
+                        <span class="stat-label">Total Roles:</span>
+                        <span>\${stats.totalRoles}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Showing:</span>
                         <span>\${filteredData.length}</span>
                     </div>
                 </div>
-                <div style="margin-top: 5px;">
-                    <span class="stat-label">Types:</span> \${typesList}
-                </div>
             \`;
-        }
-
-        function populateTypeFilter() {
-            const types = [...new Set(allData.map(item => item.itemType))].sort();
-            const select = document.getElementById('typeFilter');
-            const currentValue = select.value;
-
-            select.innerHTML = '<option value="">All Types</option>';
-            types.forEach(type => {
-                const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                select.appendChild(option);
-            });
-
-            select.value = currentValue;
         }
 
         function applyFilters() {
             const searchText = document.getElementById('searchInput').value.toLowerCase();
-            const typeFilter = document.getElementById('typeFilter').value;
 
-            filteredData = allData.filter(item => {
+            filteredData = allData.filter(role => {
                 const matchesSearch = !searchText ||
-                    item.name.toLowerCase().includes(searchText) ||
-                    item.formattedId.toLowerCase().includes(searchText) ||
-                    (item.description || '').toLowerCase().includes(searchText);
+                    role.id.toLowerCase().includes(searchText) ||
+                    role.name.toLowerCase().includes(searchText) ||
+                    (role.description || '').toLowerCase().includes(searchText);
 
-                const matchesType = !typeFilter || item.itemType === typeFilter;
-
-                return matchesSearch && matchesType;
+                return matchesSearch;
             });
 
             currentPage = 1;
@@ -634,6 +460,11 @@ export class DatabaseWebviewProvider {
                 let valA = a[currentSort.column] || '';
                 let valB = b[currentSort.column] || '';
 
+                // Handle numbers
+                if (typeof valA === 'number') {
+                    return currentSort.ascending ? valA - valB : valB - valA;
+                }
+
                 // Handle dates
                 if (currentSort.column.includes('At')) {
                     valA = new Date(valA).getTime() || 0;
@@ -651,10 +482,9 @@ export class DatabaseWebviewProvider {
 
         function renderTable() {
             const tbody = document.getElementById('tableBody');
-            const statsDiv = document.getElementById('stats');
 
             if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="no-data">No items found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="no-data">No roles found</td></tr>';
                 document.getElementById('pagination').innerHTML = '';
                 return;
             }
@@ -664,28 +494,31 @@ export class DatabaseWebviewProvider {
             const endIdx = pageSize === 'all' ? filteredData.length : startIdx + pageSize;
             const pageData = filteredData.slice(startIdx, endIdx);
 
-            tbody.innerHTML = pageData.map(item => {
-                const modifiedDate = item.modifiedAt ? new Date(item.modifiedAt).toLocaleDateString() : '-';
-                // Use email if available, otherwise fall back to user ID
-                const createdBy = item.createdByEmail || item.createdBy || '-';
-                const description = item.description || '';
+            tbody.innerHTML = pageData.map(role => {
+                const description = role.description || '-';
+                const createdAt = role.createdAt ? new Date(role.createdAt).toLocaleDateString() : '-';
 
-                // Add "Open" link for Folders to open in Sumo Logic web UI
-                const actions = item.itemType === 'Folder'
-                    ? \`<a class="action-link" onclick="runCommand('\${item.id}', '\${item.itemType}', '\${escapeHtml(item.name)}')">View</a> | <a class="action-link" onclick="openInWeb('\${item.id}')">Open</a>\`
-                    : \`<a class="action-link" onclick="runCommand('\${item.id}', '\${item.itemType}', '\${escapeHtml(item.name)}')">View</a>\`;
+                // Capabilities - show first few, then count
+                const capabilitiesToShow = 5;
+                let capabilitiesHtml = '';
+                if (role.capabilities && role.capabilities.length > 0) {
+                    const visibleCaps = role.capabilities.slice(0, capabilitiesToShow);
+                    capabilitiesHtml = visibleCaps.map(c => \`<span class="badge">\${escapeHtml(c)}</span>\`).join('');
+                    if (role.capabilities.length > capabilitiesToShow) {
+                        capabilitiesHtml += \`<span class="capability-count">+\${role.capabilities.length - capabilitiesToShow} more</span>\`;
+                    }
+                } else {
+                    capabilitiesHtml = '-';
+                }
 
                 return \`
                     <tr>
-                        <td>\${escapeHtml(item.name)}</td>
-                        <td><span class="badge">\${escapeHtml(item.itemType)}</span></td>
-                        <td><code>\${escapeHtml(item.formattedId)}</code></td>
-                        <td>\${modifiedDate}</td>
-                        <td class="truncate" title="\${escapeHtml(createdBy)}">\${escapeHtml(createdBy)}</td>
+                        <td class="truncate" title="\${escapeHtml(role.id)}"><code>\${escapeHtml(role.id)}</code></td>
+                        <td>\${escapeHtml(role.name)}</td>
                         <td class="truncate" title="\${escapeHtml(description)}">\${escapeHtml(description)}</td>
-                        <td>
-                            \${actions}
-                        </td>
+                        <td class="capabilities-cell">\${capabilitiesHtml}</td>
+                        <td>\${role.userCount}</td>
+                        <td>\${createdAt}</td>
                     </tr>
                 \`;
             }).join('');
@@ -694,6 +527,7 @@ export class DatabaseWebviewProvider {
             renderPagination();
 
             // Update stats
+            const statsDiv = document.getElementById('stats');
             const currentStats = statsDiv.querySelector('.stat-item:nth-child(3) span:last-child');
             if (currentStats) {
                 currentStats.textContent = filteredData.length;
@@ -744,7 +578,7 @@ export class DatabaseWebviewProvider {
                 th.classList.remove('sorted-asc', 'sorted-desc');
             });
 
-            const columnIndex = ['name', 'itemType', 'formattedId', 'modifiedAt', 'createdBy'].indexOf(currentSort.column);
+            const columnIndex = ['id', 'name', 'description', '', 'userCount', 'createdAt'].indexOf(currentSort.column);
             if (columnIndex !== -1) {
                 const th = document.querySelectorAll('th')[columnIndex];
                 th.classList.add(currentSort.ascending ? 'sorted-asc' : 'sorted-desc');
@@ -753,7 +587,6 @@ export class DatabaseWebviewProvider {
 
         function clearSearch() {
             document.getElementById('searchInput').value = '';
-            document.getElementById('typeFilter').value = '';
             applyFilters();
         }
 
@@ -767,22 +600,6 @@ export class DatabaseWebviewProvider {
         function refreshData() {
             vscode.postMessage({
                 type: 'refreshData'
-            });
-        }
-
-        function runCommand(contentId, itemType, name) {
-            vscode.postMessage({
-                type: 'runContentCommand',
-                contentId: contentId,
-                itemType: itemType,
-                name: name
-            });
-        }
-
-        function openInWeb(contentId) {
-            vscode.postMessage({
-                type: 'openInWeb',
-                contentId: contentId
             });
         }
 
@@ -803,8 +620,6 @@ export class DatabaseWebviewProvider {
      * Dispose of resources
      */
     public dispose() {
-        if (DatabaseWebviewProvider.currentDb) {
-            DatabaseWebviewProvider.currentDb.close();
-        }
+        // Nothing to dispose currently
     }
 }

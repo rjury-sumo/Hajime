@@ -33,6 +33,9 @@ import { MetadataCompletionProvider } from './metadataCompletions';
 import { SumoExplorerProvider } from './views/sumoExplorer';
 import { SumoCodeLensProvider } from './providers/codeLensProvider';
 import { DatabaseWebviewProvider } from './views/databaseWebviewProvider';
+import { UsersWebviewProvider } from './views/usersWebviewProvider';
+import { RolesWebviewProvider } from './views/rolesWebviewProvider';
+import { registerUsersRolesCommands } from './commands/usersRoles';
 
 // Global completion providers
 let dynamicCompletionProvider: DynamicCompletionProvider;
@@ -405,6 +408,21 @@ export function activate(context: vscode.ExtensionContext) {
         return extractSearchToFileCommand(context, profileName, contentId, contentName, searchContent);
     });
 
+    // Register users and roles commands
+    registerUsersRolesCommands(context);
+
+    // Create webview providers for users and roles
+    const usersWebviewProvider = new UsersWebviewProvider(context.extensionUri, context);
+    const rolesWebviewProvider = new RolesWebviewProvider(context.extensionUri, context);
+
+    const viewUsersCmd = vscode.commands.registerCommand('sumologic.viewUsers', async (profileName?: string) => {
+        return usersWebviewProvider.show(profileName);
+    });
+
+    const viewRolesCmd = vscode.commands.registerCommand('sumologic.viewRoles', async (profileName?: string) => {
+        return rolesWebviewProvider.show(profileName);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -452,7 +470,9 @@ export function activate(context: vscode.ExtensionContext) {
         exportLibraryNodeToFileCmd,
         openDatabaseViewerCmd,
         fetchRecursiveFolderCmd,
-        extractSearchToFileCmd
+        extractSearchToFileCmd,
+        viewUsersCmd,
+        viewRolesCmd
     );
 
     // Export context for tests

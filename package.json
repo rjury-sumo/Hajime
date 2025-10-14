@@ -213,6 +213,41 @@
                 "command": "sumologic.deleteStorageItem",
                 "title": "Delete",
                 "icon": "$(trash)"
+            },
+            {
+                "command": "sumologic.viewLibraryNodeDetails",
+                "title": "View Library Content Details",
+                "icon": "$(info)"
+            },
+            {
+                "command": "sumologic.openLibraryNodeJson",
+                "title": "Open Library Content JSON",
+                "icon": "$(json)"
+            },
+            {
+                "command": "sumologic.openLibraryNodeInWeb",
+                "title": "Open in Sumo Logic Web UI",
+                "icon": "$(globe)"
+            },
+            {
+                "command": "sumologic.copyLibraryNodeId",
+                "title": "Copy Content ID",
+                "icon": "$(clippy)"
+            },
+            {
+                "command": "sumologic.copyLibraryNodePath",
+                "title": "Copy Content Path",
+                "icon": "$(clippy)"
+            },
+            {
+                "command": "sumologic.refreshLibraryNode",
+                "title": "Refresh Library Node",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "sumologic.exportLibraryNodeToFile",
+                "title": "Export Library Content to File",
+                "icon": "$(export)"
             }
         ],
         "menus": {
@@ -263,6 +298,41 @@
                     "command": "sumologic.deleteStorageItem",
                     "when": "view == sumoExplorer && viewItem == storageFile",
                     "group": "delete@1"
+                },
+                {
+                    "command": "sumologic.viewLibraryNodeDetails",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_/",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.openLibraryNodeJson",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_/",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openLibraryNodeInWeb",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_.*_Folder$/",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "sumologic.copyLibraryNodeId",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_/",
+                    "group": "clipboard@1"
+                },
+                {
+                    "command": "sumologic.copyLibraryNodePath",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_/",
+                    "group": "clipboard@2"
+                },
+                {
+                    "command": "sumologic.refreshLibraryNode",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_/",
+                    "group": "refresh@1"
+                },
+                {
+                    "command": "sumologic.exportLibraryNodeToFile",
+                    "when": "view == sumoExplorer && viewItem =~ /^library_/",
+                    "group": "export@1"
                 }
             ],
             "editor/context": [

@@ -15,6 +15,15 @@ import { newSumoFileCommand } from './commands/newSumoFile';
 import { openSearchInWebCommand } from './commands/openSearchInWeb';
 import { revealStorageInExplorerCommand, deleteStorageItemCommand } from './commands/storageExplorer';
 import { viewLibraryContentCommand } from './commands/viewLibraryContent';
+import {
+    copyLibraryNodeIdCommand,
+    copyLibraryNodePathCommand,
+    openLibraryNodeInWebCommand,
+    refreshLibraryNodeCommand,
+    viewLibraryNodeDetailsCommand,
+    openLibraryNodeJsonCommand,
+    exportLibraryNodeToFileCommand
+} from './commands/libraryCommands';
 import { StatusBarManager } from './statusBar';
 import { DynamicCompletionProvider } from './dynamicCompletions';
 import { ParserCompletionProvider } from './parserCompletions';
@@ -336,6 +345,34 @@ export function activate(context: vscode.ExtensionContext) {
         return viewLibraryContentCommand(context, profileName, contentId, contentName);
     });
 
+    const copyLibraryNodeIdCmd = vscode.commands.registerCommand('sumologic.copyLibraryNodeId', (treeItem: any) => {
+        return copyLibraryNodeIdCommand(treeItem);
+    });
+
+    const copyLibraryNodePathCmd = vscode.commands.registerCommand('sumologic.copyLibraryNodePath', (treeItem: any) => {
+        return copyLibraryNodePathCommand(context, treeItem);
+    });
+
+    const openLibraryNodeInWebCmd = vscode.commands.registerCommand('sumologic.openLibraryNodeInWeb', (treeItem: any) => {
+        return openLibraryNodeInWebCommand(context, treeItem);
+    });
+
+    const refreshLibraryNodeCmd = vscode.commands.registerCommand('sumologic.refreshLibraryNode', (treeItem: any) => {
+        return refreshLibraryNodeCommand(context, treeItem);
+    });
+
+    const viewLibraryNodeDetailsCmd = vscode.commands.registerCommand('sumologic.viewLibraryNodeDetails', (treeItem: any) => {
+        return viewLibraryNodeDetailsCommand(context, treeItem);
+    });
+
+    const openLibraryNodeJsonCmd = vscode.commands.registerCommand('sumologic.openLibraryNodeJson', (treeItem: any) => {
+        return openLibraryNodeJsonCommand(context, treeItem);
+    });
+
+    const exportLibraryNodeToFileCmd = vscode.commands.registerCommand('sumologic.exportLibraryNodeToFile', (treeItem: any) => {
+        return exportLibraryNodeToFileCommand(context, treeItem);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -373,7 +410,14 @@ export function activate(context: vscode.ExtensionContext) {
         openSearchInWebCmd,
         revealStorageCmd,
         deleteStorageCmd,
-        viewLibraryContentCmd
+        viewLibraryContentCmd,
+        copyLibraryNodeIdCmd,
+        copyLibraryNodePathCmd,
+        openLibraryNodeInWebCmd,
+        refreshLibraryNodeCmd,
+        viewLibraryNodeDetailsCmd,
+        openLibraryNodeJsonCmd,
+        exportLibraryNodeToFileCmd
     );
 
     // Export context for tests

@@ -47,7 +47,17 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
 - **Visual Indicators**: Active profile shown in status bar
 - **Quick Switching**: Switch between profiles with command palette
 
-### 4. Content Library Integration
+### 4. Library Explorer (Tree View Navigation)
+- **Hierarchical Navigation**: Full tree view of content library in sidebar
+- **Four Top-Level Sections**: Personal, Global, Admin Recommended, Installed Apps per profile
+- **Lazy Loading**: Folders load children only when expanded for performance
+- **SQLite Caching**: Local database caches metadata for instant navigation
+- **Smart Fetching**: Auto-fetches from API when not cached
+- **Content Viewing**: Click items to view in rich webview with tabs
+- **Context Menu Actions**: 7 right-click commands (view details, open JSON, open in web, copy ID/path, refresh, export)
+- **Multi-Profile Support**: Independent library trees and caches per profile
+
+### 5. Content Library API Integration
 - **Personal Folder**: Fetch and view user's personal folder with properties and contents
 - **Folder by ID**: Retrieve any folder by ID with tabular content display
 - **Content by Path/ID**: Fetch individual content items by full path or content ID
@@ -63,7 +73,7 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
   - Description
   - Modified timestamp
 
-### 5. API Integration
+### 6. API Integration
 - **Search Job API**: Full integration with Sumo Logic Search Job API v2
   - Create search jobs
   - Poll for completion
@@ -84,13 +94,13 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
   - List sources for a collector with pagination
   - Statistics and health monitoring
 
-### 6. Data Visualization
+### 7. Data Visualization
 - **Webview Query Results**: Interactive paginated table with sorting and filtering
 - **Auto-Charting**: Automatic chart generation from query results (line, bar, pie, scatter)
 - **CSV Charting**: Visualize any CSV file with interactive ECharts
 - **Configurable Page Size**: User-configurable pagination in webview
 
-### 7. File Management
+### 8. File Management
 - **Output Organization**: Profile-specific output directories (`output/<profile>/<type>/`)
 - **Timestamped Files**: All outputs include timestamps for version tracking
 - **Automatic Cleanup**: Command to remove old output files by age
@@ -302,6 +312,14 @@ Output formatting includes:
 | `Sumo Logic: Export Admin Recommended Folder` | Export Admin Recommended system folder | - |
 | `Sumo Logic: Export Global Folder` | Export Global system folder | - |
 | `Sumo Logic: Export Installed Apps Folder` | Export Installed Apps system folder | - |
+| **Library Explorer (Context Menu)** | | |
+| `View Library Content Details` | Show Quick Pick with all properties | Right-click library item |
+| `Open Library Content JSON` | View full content export in editor | Right-click library item |
+| `Open in Sumo Logic Web UI` | Launch to library in browser | Right-click folder |
+| `Copy Content ID` | Copy hex ID to clipboard | Right-click library item |
+| `Copy Content Path` | Copy full path to clipboard | Right-click library item |
+| `Refresh Library Node` | Re-fetch from API | Right-click library item |
+| `Export Library Content to File` | Save as JSON/Markdown/Both | Right-click library item |
 | **Autocomplete & Cache** | | |
 | `Sumo Logic: View Autocomplete Data` | Show stored autocomplete items | - |
 | `Sumo Logic: Clear Autocomplete Data` | Clear autocomplete for profile | - |
@@ -516,9 +534,84 @@ npm run lint          # Run ESLint
     - Added `includeTimestamp` parameter to `writeOutput()` and `writeAndOpen()`
     - Allows system folder exports to overwrite previous versions
 
+### Session 8 (Library Explorer - Current)
+1. **Full Library Tree Navigation**: Hierarchical tree view integrated into sidebar
+   - Four top-level sections per profile: Personal, Global, Admin Recommended, Installed Apps
+   - Lazy loading: folders fetch children only when expanded
+   - Visual icons for different content types (folder, dashboard, search, lookup, etc.)
+   - Multi-profile support with independent trees
+
+2. **SQLite Caching System**: Local database for content metadata
+   - Database schema with content_items table
+   - Tracks: id, profile, name, itemType, parentId, description, dates, permissions
+   - Indexes for fast lookups: profile+parent, profile+type, lastFetched
+   - Marks childrenFetched status to avoid redundant API calls
+   - Located at `~/.sumologic/<profile>/library/library_cache.db`
+
+3. **JSON Content Cache**: Full API responses cached as files
+   - Location: `~/.sumologic/<profile>/library/content/<contentId>.json`
+   - Preserves complete content definitions
+   - Used for display and export operations
+
+4. **Content Viewing**: Rich webview display for content items
+   - Click non-folder items to view in formatted webview
+   - Auto-fetches from API if not cached
+   - Three tabs: Overview (formatted properties), Raw JSON, Children (if applicable)
+   - Shows metadata: ID (hex + decimal), type, created/modified dates, authors
+
+5. **Rich Context Menu Commands**: Seven right-click actions on library items
+   - **View Details**: Quick Pick showing all properties, click any line to copy
+   - **Open JSON**: View full content export in editor, auto-fetches if needed
+   - **Open in Web UI**: Launch to Sumo Logic library (folders only)
+   - **Copy ID**: Copy hex content ID to clipboard
+   - **Copy Path**: Copy full hierarchical path (e.g., `/Personal/Dashboards/MyDash`)
+   - **Refresh Node**: Re-fetch from API to get latest changes
+   - **Export to File**: Save as JSON, Markdown, or both formats
+
+6. **Smart ID Handling**: Hex/decimal conversion utilities
+   - Library uses hex IDs internally
+   - Web UI requires decimal IDs
+   - Automatic conversion for "Open in Web UI" command
+   - Formatted display shows both: `0000000001E6FB2B (32046891)`
+
+7. **Path Building**: Full path construction from database
+   - Recursively walks up parent tree
+   - Builds paths like `/Personal/AWS/CloudTrail/Dashboard1`
+   - Used for Copy Path and display
+
+8. **Export Functionality**: Multiple export formats from library
+   - JSON: Full API response with formatting
+   - Markdown: Formatted with metadata, children list, query text
+   - Both: Creates `.json` and `.md` files
+   - File picker for save location
+
+**Architecture Components:**
+- `src/utils/contentId.ts` - Hex/decimal conversion utilities
+- `src/database/libraryCache.ts` - SQLite database operations
+- `src/views/libraryExplorer.ts` - Tree provider with lazy loading
+- `src/commands/viewLibraryContent.ts` - Webview display command
+- `src/commands/libraryCommands.ts` - All context menu commands
+- Integration with existing `src/views/sumoExplorer.ts`
+
+**Files Modified:**
+- `package.json` - Added 8 new commands and context menu entries
+- `src/extension.ts` - Registered library commands
+- `src/profileManager.ts` - Added library directory creation
+- `README.md` - Added Library Explorer section
+
+**User Benefits:**
+- Fast navigation of large content libraries
+- No more manual path typing or ID lookups
+- Cached data for instant access
+- Rich metadata display
+- Quick actions via context menu
+- Multi-profile support with isolated caches
+
 ## Future Enhancement Ideas
 
-- Tree view for content library exploration
+- Library search/filter functionality
+- Drag & drop to move/copy content
+- Content permissions management
 - Query history tracking
 - Saved queries management
 - Real-time log streaming

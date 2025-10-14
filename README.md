@@ -12,8 +12,10 @@ Dedicated sidebar in the activity bar provides one-click access to:
 - **Quick Actions** - Common commands (New Query, Test Connection, Fetch Metadata)
 - **Profiles** - Switch between deployments with a single click
 - **Recent Queries** - Last 10 .sumo files for quick access
-- **Content Explorer** - Export system folders (Global, Admin Recommended, Installed Apps)
+- **Library Explorer** - Full hierarchical navigation of your content library with caching and lazy loading
+- **Content Export** - Quick export of system folders (Global, Admin Recommended, Installed Apps)
 - **Collectors** - Quick access to collector management
+- **Storage Explorer** - Browse profile-specific cached files and directories
 
 ### 🎯 IDE Experience for Query Development
 Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
@@ -61,12 +63,30 @@ Visualize query results and data files with interactive charts:
 ![category](docs/images/category.echart.png)
 ![tiemseries](docs/images/timeseries.transpose.echart.png)
 
+### 📚 Library Explorer - Navigate Your Content Library
+Full hierarchical tree view of your Sumo Logic content library with intelligent caching:
+- **Four Top-Level Sections** - Personal, Global, Admin Recommended, and Installed Apps
+- **Lazy Loading** - Folders load children only when expanded for fast performance
+- **SQLite Caching** - Local database caches content metadata for instant navigation
+- **Smart Fetching** - Automatically fetches content from API when not cached
+- **Rich Context Menus** - Right-click any item for actions:
+  - **View Details** - Quick Pick showing all properties (ID, type, dates, authors)
+  - **Open JSON** - View full content export in editor
+  - **Open in Web UI** - Launch directly to item in Sumo Logic (folders only)
+  - **Copy ID** - Copy hex content ID to clipboard
+  - **Copy Path** - Copy full hierarchical path (e.g., `/Personal/Dashboards/MyDash`)
+  - **Refresh** - Re-fetch from API to get latest changes
+  - **Export to File** - Save as JSON, Markdown, or both
+- **Visual Icons** - Different icons for folders, dashboards, searches, lookups, etc.
+- **Multi-Profile Support** - Independent library trees for each profile
+- **Webview Display** - Click non-folder items to view in formatted webview with tabs
+
 ### 🔧 API Integration & Metadata Management
 Fetch and manage configuration from your Sumo Logic deployment:
 - **Collectors & Sources** - list, inspect, and export collector/source configurations
 - **Custom Fields** - fetch field schemas for accurate autocomplete
 - **Partitions** - retrieve partition definitions for `_index` and `_view` usage
-- **Content Library** - browse folders and saved content
+- **Content Library API** - programmatic access to browse and export content
 - **Metadata Caching** - cache common field values for faster autocomplete
 
 ## Quick Start

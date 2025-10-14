@@ -64,10 +64,15 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - Recursive folder fetching for bulk content downloads
   - Click items to view in specialized webviews (dashboards, searches, generic)
   - Right-click context menu with 7+ actions
+- **Users & Roles Management** - View and search organization users and roles
+  - Expandable tree nodes under each profile
+  - Dedicated webviews with filtering, sorting, and pagination
+  - User email enrichment in library content metadata (Created By, Modified By)
+  - Searchable by ID, name, email, or description
 - **Content Export** - Quick export of system folders (Global, Admin Recommended, Installed Apps)
 - **Collectors** - Quick access to collector management
 - **Storage Explorer** - Browse profile-specific cached files and directories
-- **Database Viewer** - SQLite browser for exploring library cache database
+- **Database Viewer** - SQLite browser for exploring library cache database with user enrichment
 
 ### 🎯 IDE Experience for Query Development
 Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
@@ -132,7 +137,7 @@ Full hierarchical tree view of your Sumo Logic content library with intelligent 
   - View content JSON directly from database
   - Export query results
 - **Rich Context Menus** - Right-click any item for actions:
-  - **View Details** - Quick Pick showing all properties (ID, type, dates, authors)
+  - **View Details** - Professional webview showing all properties with enriched user emails
   - **View Content** - Open in specialized webview with formatted display
   - **Open JSON** - View full content export in editor
   - **Open in Web UI** - Launch directly to item in Sumo Logic
@@ -146,6 +151,8 @@ Full hierarchical tree view of your Sumo Logic content library with intelligent 
 
 ### 🔧 API Integration & Metadata Management
 Fetch and manage configuration from your Sumo Logic deployment:
+- **Users & Roles** - fetch and cache organization users and roles with dedicated webviews
+- **User Enrichment** - automatic mapping of user IDs to emails in library metadata
 - **Collectors & Sources** - list, inspect, and export collector/source configurations
 - **Custom Fields** - fetch field schemas for accurate autocomplete
 - **Partitions** - retrieve partition definitions for `_index` and `_view` usage
@@ -324,6 +331,8 @@ Enhance autocomplete and export configuration from your Sumo Logic deployment:
 |---------|--------------|-----------------|
 | **Fetch Custom Fields for Autocomplete** | Retrieves custom field definitions from your org | Adds to autocomplete + `output/<profile>/customfields/` |
 | **Fetch Partitions for Autocomplete** | Retrieves partition list and routing expressions | Adds to autocomplete + `output/<profile>/partitions/` |
+| **Fetch Users** | Retrieves all users in your organization | Cached in `<profile>/metadata/users_roles.db` |
+| **Fetch Roles** | Retrieves all roles and their capabilities | Cached in `<profile>/metadata/users_roles.db` |
 | **Fetch Collectors** | Lists all collectors with health stats (alive/dead, by type) | `output/<profile>/collectors/` (table format) |
 | **Get Collector by ID** | Gets detailed configuration for a specific collector | `output/<profile>/collectors/` (JSON) |
 | **Get Sources for Collector** | Lists all sources for a collector with health info | `output/<profile>/collectors/` (JSON) |
@@ -332,6 +341,37 @@ Enhance autocomplete and export configuration from your Sumo Logic deployment:
 | **Get Folder by ID** | Shows any folder's contents and properties | Opens in new tab |
 
 All fetched data enhances autocomplete and is persisted per profile.
+
+### Users & Roles Management
+
+View and manage users and roles in your Sumo Logic organization:
+
+1. **Fetch Users and Roles**:
+   - Run `Sumo Logic: Fetch Users` to cache all users
+   - Run `Sumo Logic: Fetch Roles` to cache all roles
+   - Or use `Sumo Logic: Fetch Users and Roles` to fetch both
+   - Data stored in SQLite database per profile
+
+2. **Browse Users**:
+   - Expand a profile in the sidebar → click "Users"
+   - Opens interactive webview with all users
+   - Filter by ID, name, email, or status
+   - Sort by any column
+   - See user roles, MFA status, and lock status
+   - Export to CSV
+
+3. **Browse Roles**:
+   - Expand a profile in the sidebar → click "Roles"
+   - Opens interactive webview with all roles
+   - Filter by ID, name, or description
+   - View capabilities and user count
+   - Sort by any column
+   - Export to CSV
+
+4. **User Enrichment**:
+   - Database Viewer shows user emails instead of IDs in "Created By" column
+   - Library Content Details shows enriched creator/modifier information
+   - All library views automatically enrich user IDs with emails when available
 
 ### Content Library Export
 
@@ -527,11 +567,24 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
-#### Current Session: Enhanced Library Experience
+#### Current Session: Users & Roles Management + Enhanced Library
+- **Users & Roles Management**:
+  - Fetch and cache users and roles via API
+  - Dedicated webviews with filtering, sorting, and pagination
+  - SQLite storage in per-profile metadata database
+  - User email enrichment in all library views (Created By, Modified By)
+  - Searchable by ID, name, email, role, or description
+  - Export to CSV functionality
+- **Enhanced Library Node Details**:
+  - New webview-based property display replacing Quick Pick
+  - Live API fetching via getPathById and getItemByPath
+  - User email enrichment for creators and modifiers
+  - Action buttons (Refresh, Copy ID, Copy Path, Open in Web, Export)
+  - Children table for folders
 - **Specialized Webviews**: Custom displays for dashboards (v1 & v2) and searches
 - **Recent Queries Manager**: Intelligent tracking of opened .sumo files with persistence
 - **Extract Search to File**: Convert saved searches to executable .sumo files
-- **Database Viewer**: SQLite browser for exploring library cache
+- **Database Viewer**: SQLite browser with user email enrichment
 - **Enhanced Query Directives**: Added @byReceiptTime and @autoParsingMode
 - **Recursive Folder Fetch**: Bulk download entire content hierarchies
 - **v1 Dashboard Support**: Reports (legacy dashboards) now display properly

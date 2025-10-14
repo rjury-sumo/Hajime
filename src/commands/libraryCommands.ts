@@ -338,11 +338,14 @@ export async function exportLibraryNodeToFileCommand(
         const content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 
         // Export based on format
+        const savedFiles: string[] = [];
+
         if (format === 'JSON' || format === 'Both') {
             const jsonPath = format === 'Both'
                 ? saveUri.fsPath.replace(/\.[^.]+$/, '.json')
                 : saveUri.fsPath;
             fs.writeFileSync(jsonPath, JSON.stringify(content, null, 2), 'utf-8');
+            savedFiles.push(jsonPath);
         }
 
         if (format === 'Markdown' || format === 'Both') {
@@ -351,9 +354,24 @@ export async function exportLibraryNodeToFileCommand(
                 : saveUri.fsPath;
             const markdown = generateMarkdown(content, treeItem);
             fs.writeFileSync(mdPath, markdown, 'utf-8');
+            savedFiles.push(mdPath);
         }
 
-        vscode.window.showInformationMessage(`Exported: ${treeItem.label}`);
+        // Show success message with option to open file
+        const message = savedFiles.length === 1
+            ? `Exported to: ${path.basename(savedFiles[0])}`
+            : `Exported ${savedFiles.length} files`;
+
+        const action = await vscode.window.showInformationMessage(message, 'Open File', 'Show in Folder');
+
+        if (action === 'Open File') {
+            const fileToOpen = savedFiles[0];
+            const doc = await vscode.workspace.openTextDocument(fileToOpen);
+            await vscode.window.showTextDocument(doc);
+        } else if (action === 'Show in Folder') {
+            const folderUri = vscode.Uri.file(path.dirname(savedFiles[0]));
+            await vscode.commands.executeCommand('revealFileInOS', folderUri);
+        }
     });
 }
 

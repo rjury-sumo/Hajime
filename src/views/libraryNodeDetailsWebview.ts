@@ -12,6 +12,9 @@ import { createUsersRolesDB } from '../database/usersRoles';
 export class LibraryNodeDetailsWebviewProvider {
     private static currentPanel?: vscode.WebviewPanel;
     private static profileManager?: ProfileManager;
+    private static currentProfileName?: string;
+    private static currentContentId?: string;
+    private static currentContentName?: string;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
@@ -27,6 +30,11 @@ export class LibraryNodeDetailsWebviewProvider {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
+
+        // Store current values
+        LibraryNodeDetailsWebviewProvider.currentProfileName = profileName;
+        LibraryNodeDetailsWebviewProvider.currentContentId = contentId;
+        LibraryNodeDetailsWebviewProvider.currentContentName = contentName;
 
         // Create or show panel
         if (LibraryNodeDetailsWebviewProvider.currentPanel) {
@@ -46,27 +54,52 @@ export class LibraryNodeDetailsWebviewProvider {
 
             panel.onDidDispose(() => {
                 LibraryNodeDetailsWebviewProvider.currentPanel = undefined;
+                LibraryNodeDetailsWebviewProvider.currentProfileName = undefined;
+                LibraryNodeDetailsWebviewProvider.currentContentId = undefined;
+                LibraryNodeDetailsWebviewProvider.currentContentName = undefined;
             });
 
             // Handle messages from webview
             panel.webview.onDidReceiveMessage(async (message) => {
+                const profile = LibraryNodeDetailsWebviewProvider.currentProfileName;
+                const nodeId = LibraryNodeDetailsWebviewProvider.currentContentId;
+                const nodeName = LibraryNodeDetailsWebviewProvider.currentContentName;
+
                 switch (message.type) {
                     case 'refresh':
-                        await this.loadContent(profileName, contentId, contentName);
+                        if (profile && nodeId && nodeName) {
+                            await this.loadContent(profile, nodeId, nodeName);
+                        }
                         break;
                     case 'copyId':
-                        await vscode.env.clipboard.writeText(contentId);
-                        vscode.window.showInformationMessage('Content ID copied to clipboard');
+                        if (nodeId) {
+                            await vscode.env.clipboard.writeText(nodeId);
+                            vscode.window.showInformationMessage('Content ID copied to clipboard');
+                        }
                         break;
                     case 'copyPath':
                         await vscode.env.clipboard.writeText(message.path);
                         vscode.window.showInformationMessage('Path copied to clipboard');
                         break;
                     case 'openInWeb':
-                        await vscode.commands.executeCommand('sumologic.openLibraryNodeInWeb', { nodeId: contentId });
+                        if (profile && nodeId && nodeName) {
+                            // Create a minimal LibraryTreeItem-like object
+                            await vscode.commands.executeCommand('sumologic.openLibraryNodeInWeb', {
+                                profile: profile,
+                                contentId: nodeId,
+                                label: nodeName
+                            });
+                        }
                         break;
                     case 'exportToFile':
-                        await vscode.commands.executeCommand('sumologic.exportLibraryNodeToFile', { nodeId: contentId, nodeName: contentName });
+                        if (profile && nodeId && nodeName) {
+                            // Create a minimal LibraryTreeItem-like object
+                            await vscode.commands.executeCommand('sumologic.exportLibraryNodeToFile', {
+                                profile: profile,
+                                contentId: nodeId,
+                                label: nodeName
+                            });
+                        }
                         break;
                 }
             });

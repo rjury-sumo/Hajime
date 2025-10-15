@@ -1,25 +1,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { ProfileManager } from '../profileManager';
 
-export async function newSumoFileCommand(): Promise<void> {
-    // Get workspace folder
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        // No workspace - create untitled file
-        const doc = await vscode.workspace.openTextDocument({
-            language: 'sumo',
-            content: ''
-        });
-        await vscode.window.showTextDocument(doc);
-        return;
-    }
-
-    // Ask user for filename
+export async function newSumoFileCommand(context?: vscode.ExtensionContext): Promise<void> {
+    // Ask user for filename first
     const fileName = await vscode.window.showInputBox({
         prompt: 'Enter filename for new Sumo query file',
-        placeHolder: 'query.sumo',
+        placeHolder: 'myquery.sumo',
         validateInput: (value: string) => {
             if (!value) {
                 return 'Filename cannot be empty';
@@ -35,42 +23,48 @@ export async function newSumoFileCommand(): Promise<void> {
         return; // User cancelled
     }
 
-    // Determine target directory
-    let targetDir: string;
+    // Get the active profile and save to profile's searches directory
+    if (context) {
+        const profileManager = new ProfileManager(context);
+        const activeProfile = await profileManager.getActiveProfile();
 
-    if (workspaceFolders.length === 1) {
-        targetDir = workspaceFolders[0].uri.fsPath;
-    } else {
-        // Multiple workspace folders - ask user to pick one
-        const folder = await vscode.window.showWorkspaceFolderPick({
-            placeHolder: 'Select workspace folder for new file'
-        });
+        if (activeProfile) {
+            // Create searches subdirectory in profile directory if it doesn't exist
+            const profileDir = profileManager.getProfileDirectory(activeProfile.name);
+            const searchesDir = path.join(profileDir, 'searches');
 
-        if (!folder) {
-            return; // User cancelled
-        }
+            if (!fs.existsSync(searchesDir)) {
+                fs.mkdirSync(searchesDir, { recursive: true });
+            }
 
-        targetDir = folder.uri.fsPath;
-    }
+            const filePath = path.join(searchesDir, fileName);
 
-    const filePath = path.join(targetDir, fileName);
+            // Check if file already exists
+            if (fs.existsSync(filePath)) {
+                const overwrite = await vscode.window.showWarningMessage(
+                    `File ${fileName} already exists. Overwrite?`,
+                    'Yes', 'No'
+                );
 
-    // Check if file already exists
-    if (fs.existsSync(filePath)) {
-        const overwrite = await vscode.window.showWarningMessage(
-            `File ${fileName} already exists. Overwrite?`,
-            'Yes', 'No'
-        );
+                if (overwrite !== 'Yes') {
+                    return;
+                }
+            }
 
-        if (overwrite !== 'Yes') {
+            // Create the file with empty content
+            fs.writeFileSync(filePath, '', 'utf8');
+
+            // Open the file
+            const doc = await vscode.workspace.openTextDocument(filePath);
+            await vscode.window.showTextDocument(doc);
             return;
         }
     }
 
-    // Create the file with empty content
-    fs.writeFileSync(filePath, '', 'utf8');
-
-    // Open the file
-    const doc = await vscode.workspace.openTextDocument(filePath);
+    // Fallback: No active profile - create untitled file
+    const doc = await vscode.workspace.openTextDocument({
+        language: 'sumo',
+        content: ''
+    });
     await vscode.window.showTextDocument(doc);
 }

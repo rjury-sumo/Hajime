@@ -344,7 +344,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     const newSumoFileCmd = vscode.commands.registerCommand('sumologic.newSumoFile', () => {
-        return newSumoFileCommand();
+        return newSumoFileCommand(context);
     });
 
     const refreshExplorerCmd = vscode.commands.registerCommand('sumologic.refreshExplorer', () => {

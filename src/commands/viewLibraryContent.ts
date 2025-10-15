@@ -91,6 +91,15 @@ export async function viewLibraryContentCommand(
 
     db.close();
 
+    // Track this as recently opened content
+    const contentType = content.type || content.itemType || 'Unknown';
+    const { RecentContentManager } = require('../recentContentManager');
+    const recentContentManager = new RecentContentManager(context);
+    recentContentManager.addContent(filePath, contentId, contentName, contentType, profileName);
+
+    // Refresh the explorer to show the new recent item
+    vscode.commands.executeCommand('sumologic.refreshExplorer');
+
     // Create and show webview
     const panel = vscode.window.createWebviewPanel(
         'sumoLibraryContent',
@@ -115,7 +124,7 @@ export async function viewLibraryContentCommand(
         }
     });
 
-    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath, createdByEmail, modifiedByEmail);
+    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath, createdByEmail, modifiedByEmail, filePath);
 }
 
 /**
@@ -169,7 +178,7 @@ async function fetchAndCacheContent(
 /**
  * Generate specialized webview content for searches
  */
-function getSearchWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string): string {
+function getSearchWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string): string {
     // Top-level string properties to display at the top
     const topLevelProps = ['name', 'description', 'type'];
 
@@ -460,7 +469,8 @@ function getSearchWebviewContent(content: any, contentName: string, contentId: s
         <strong>ID:</strong> ${formattedId}
         ${libraryPath ? ` | <strong>Path:</strong> ${escapeHtml(libraryPath)}` : ''}
         ${content.itemType ? ` | <strong>Type:</strong> ${escapeHtml(content.itemType)}` : ''}
-        ${content.createdBy ? ` | <strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
+        ${filePath ? `<br/><strong>File:</strong> ${escapeHtml(filePath)}` : ''}
+        ${content.createdBy ? `<br/><strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
         ${content.modifiedBy ? ` | <strong>Modified By:</strong> ${escapeHtml(modifiedByEmail || content.modifiedBy)}` : ''}
     </div>
 
@@ -517,7 +527,7 @@ function getSearchWebviewContent(content: any, contentName: string, contentId: s
 /**
  * Generate specialized webview content for dashboards
  */
-function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string): string {
+function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string): string {
     // Top-level string properties to display at the top
     const topLevelProps = ['name', 'description', 'title', 'theme', 'type'];
 
@@ -917,7 +927,8 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
         <strong>ID:</strong> ${formattedId}
         ${libraryPath ? ` | <strong>Path:</strong> ${escapeHtml(libraryPath)}` : ''}
         ${content.itemType ? ` | <strong>Type:</strong> ${escapeHtml(content.itemType)}` : ''}
-        ${content.createdBy ? ` | <strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
+        ${filePath ? `<br/><strong>File:</strong> ${escapeHtml(filePath)}` : ''}
+        ${content.createdBy ? `<br/><strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
         ${content.modifiedBy ? ` | <strong>Modified By:</strong> ${escapeHtml(modifiedByEmail || content.modifiedBy)}` : ''}
     </div>
 
@@ -965,7 +976,7 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
 </html>`;
 }
 
-function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string): string {
+export function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string): string {
     const formattedId = formatContentId(contentId);
 
     // Check if this is a dashboard
@@ -987,11 +998,11 @@ function getWebviewContent(content: any, contentName: string, contentId: string,
     console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isDashboard: ${isDashboard}, isSearch: ${isSearch}`);
 
     if (isDashboard) {
-        return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail);
+        return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail, filePath);
     }
 
     if (isSearch) {
-        return getSearchWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail);
+        return getSearchWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail, filePath);
     }
 
     // Format the JSON for display

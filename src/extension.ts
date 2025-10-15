@@ -423,6 +423,16 @@ export function activate(context: vscode.ExtensionContext) {
         return rolesWebviewProvider.show(profileName);
     });
 
+    const openExportedContentCmd = vscode.commands.registerCommand('sumologic.openExportedContent', async () => {
+        const { openExportedContentCommand } = require('./commands/openExportedContent');
+        return openExportedContentCommand(context);
+    });
+
+    const openExportedContentFromPathCmd = vscode.commands.registerCommand('sumologic.openExportedContentFromPath', async (filePath: string) => {
+        const { openExportedContentFromPathCommand } = require('./commands/openExportedContent');
+        return openExportedContentFromPathCommand(context, filePath);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -472,7 +482,9 @@ export function activate(context: vscode.ExtensionContext) {
         fetchRecursiveFolderCmd,
         extractSearchToFileCmd,
         viewUsersCmd,
-        viewRolesCmd
+        viewRolesCmd,
+        openExportedContentCmd,
+        openExportedContentFromPathCmd
     );
 
     // Export context for tests

@@ -258,6 +258,11 @@
                 "command": "sumologic.fetchRecursiveFolder",
                 "title": "Fetch All Subfolders Recursively",
                 "icon": "$(cloud-download)"
+            },
+            {
+                "command": "sumologic.openExportedContent",
+                "title": "Sumo Logic: Open Exported Content JSON",
+                "icon": "$(file-code)"
             }
         ],
         "menus": {
@@ -322,6 +327,11 @@
                 {
                     "command": "sumologic.revealStorageInExplorer",
                     "when": "view == sumoExplorer && viewItem == recentQuery",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.revealStorageInExplorer",
+                    "when": "view == sumoExplorer && viewItem == recentContent",
                     "group": "navigation@1"
                 },
                 {

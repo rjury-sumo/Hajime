@@ -3,6 +3,7 @@ import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searc
 import { createClient } from './authenticate';
 import { getDynamicCompletionProvider } from '../extension';
 import { formatRecordsAsHTML } from './runQuery';
+import { FieldAnalyzer } from '../services/fieldAnalyzer';
 
 /**
  * Parse query metadata from comments
@@ -321,6 +322,28 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
                         fs.writeFileSync(uri.fsPath, message.jsonData, 'utf-8');
                         vscode.window.showInformationMessage(`JSON exported to ${uri.fsPath}`);
                     }
+                } else if (message.command === 'showFieldValues') {
+                    // Show field values in a new panel
+                    const { generateFieldValuesHTML } = await import('./runQuery');
+                    const fieldName = message.fieldName;
+                    const distribution = FieldAnalyzer.getValueDistribution(fieldName, results, 1000);
+
+                    const valuesPanel = vscode.window.createWebviewPanel(
+                        'fieldValues',
+                        `Field Values: ${fieldName}`,
+                        vscode.ViewColumn.Beside,
+                        {
+                            enableScripts: true,
+                            retainContextWhenHidden: false
+                        }
+                    );
+
+                    valuesPanel.webview.html = generateFieldValuesHTML(fieldName, distribution, results.length);
+                } else if (message.command === 'chartField') {
+                    // Import and use chart handler from runQuery
+                    const { handleChartFieldExternal } = await import('./runQuery');
+                    const fieldAnalysis = FieldAnalyzer.analyze(results, mode as 'records' | 'messages');
+                    await handleChartFieldExternal(message.fieldName, results, fieldAnalysis);
                 }
             },
             undefined,

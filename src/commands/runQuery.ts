@@ -3,6 +3,8 @@ import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searc
 import { createClient } from './authenticate';
 import { getDynamicCompletionProvider } from '../extension';
 import { OutputWriter } from '../outputWriter';
+import { FieldAnalyzer, FieldMetadata } from '../services/fieldAnalyzer';
+import { ChartRegistry, ChartType, ChartConfig, initializeChartRegistry } from '../charts';
 
 /**
  * Parse query metadata from comments
@@ -223,6 +225,9 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         return '<p>No results found</p>';
     }
 
+    // Analyze fields
+    const fieldAnalysis = FieldAnalyzer.analyze(records, queryInfo.mode as 'records' | 'messages');
+
     // Get all unique keys from all records
     const allKeys = new Set<string>();
     records.forEach(record => {
@@ -234,6 +239,7 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
     // Serialize data for JavaScript
     const recordsJson = JSON.stringify(records.map(r => r.map));
     const keysJson = JSON.stringify(keys);
+    const fieldMetadataJson = JSON.stringify(fieldAnalysis.fields);
 
     // Build HTML table
     let html = `
@@ -485,6 +491,130 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         .column-menu-item input[type="checkbox"] {
             margin-right: 8px;
         }
+        /* Field Browser Styles */
+        .field-browser {
+            margin-bottom: 20px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 3px;
+            background-color: var(--vscode-editor-background);
+        }
+        .field-browser-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            cursor: pointer;
+            user-select: none;
+        }
+        .field-browser-header:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .field-browser-title {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .field-browser-toggle {
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+        .field-browser-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        .field-browser-content {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .field-browser-content.collapsed {
+            display: none;
+        }
+        .field-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .field-table th {
+            position: sticky;
+            top: 0;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--vscode-panel-border);
+            cursor: pointer;
+            user-select: none;
+        }
+        .field-table th:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .field-table td {
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .field-table tbody tr:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .field-name {
+            font-family: var(--vscode-editor-font-family);
+            font-weight: 500;
+        }
+        .field-type {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .field-type.string {
+            background-color: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+        }
+        .field-type.number {
+            background-color: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+        .field-type.timestamp {
+            background-color: rgba(255, 152, 0, 0.2);
+            color: #FF9800;
+        }
+        .field-type.boolean {
+            background-color: rgba(156, 39, 176, 0.2);
+            color: #9C27B0;
+        }
+        .field-type.mixed {
+            background-color: rgba(158, 158, 158, 0.2);
+            color: #9E9E9E;
+        }
+        .field-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .field-action-btn {
+            padding: 2px 8px;
+            font-size: 11px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .field-action-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .field-action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .time-field-indicator {
+            color: var(--vscode-charts-orange);
+            font-size: 10px;
+            margin-left: 4px;
+        }
     </style>
 </head>
 <body>
@@ -497,6 +627,51 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         ${queryInfo.jobStats ? `<div class="query-info"><strong>Job Stats:</strong> Records: ${queryInfo.jobStats.recordCount || 0}, Messages: ${queryInfo.jobStats.messageCount || 0}</div>` : ''}
         <div class="query-code">${escapeHtml(queryInfo.query)}</div>
     </div>
+
+    <!-- Field Browser -->
+    <div class="field-browser">
+        <div class="field-browser-header" onclick="toggleFieldBrowser()">
+            <div class="field-browser-title">
+                <span class="field-browser-toggle" id="fieldBrowserToggle">▼</span>
+                <span>Field Browser (${fieldAnalysis.fields.length} fields)</span>
+            </div>
+        </div>
+        <div class="field-browser-content" id="fieldBrowserContent">
+            <table class="field-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortFieldTable('name')">Field Name <span id="field-sort-name"></span></th>
+                        <th onclick="sortFieldTable('type')">Type <span id="field-sort-type"></span></th>
+                        <th onclick="sortFieldTable('nonNull')">Non-Null <span id="field-sort-nonNull"></span></th>
+                        <th onclick="sortFieldTable('distinct')">Distinct <span id="field-sort-distinct"></span></th>
+                        <th onclick="sortFieldTable('fill')">Fill % <span id="field-sort-fill"></span></th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="fieldTableBody">
+                    ${fieldAnalysis.fields.map((field, idx) => `
+                        <tr data-field-idx="${idx}">
+                            <td>
+                                <span class="field-name">${escapeHtml(field.name)}</span>
+                                ${field.isTimeField ? '<span class="time-field-indicator" title="Time Field">🕐</span>' : ''}
+                            </td>
+                            <td><span class="field-type ${field.dataType}">${field.dataType}</span></td>
+                            <td>${field.nonNullCount.toLocaleString()}</td>
+                            <td>${field.distinctCount.toLocaleString()}</td>
+                            <td>${field.fillPercentage.toFixed(1)}%</td>
+                            <td>
+                                <div class="field-actions">
+                                    <button class="field-action-btn" onclick="showFieldValues('${escapeHtml(field.name)}')">Show Values</button>
+                                    <button class="field-action-btn" onclick="chartField('${escapeHtml(field.name)}')">Chart Field</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="toolbar">
         <div class="toolbar-section">
             <input type="text" class="global-search" id="globalSearch" placeholder="Search all columns..." oninput="globalSearch()">
@@ -558,12 +733,17 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         const allData = ${recordsJson};
         const pageSize = ${queryInfo.pageSize};
         const columns = ${keysJson};
+        const fieldMetadata = ${fieldMetadataJson};
         let sortColumn = -1;
         let sortAscending = true;
         let currentPage = 1;
         let totalPages = 1;
         let filteredData = [];
         let hiddenColumns = new Set();
+
+        // Field browser state
+        let fieldSortColumn = 'name';
+        let fieldSortAscending = true;
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -981,11 +1161,1031 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             // Re-enable text selection
             document.body.style.userSelect = '';
         }
+
+        // ============================================
+        // Field Browser Functions
+        // ============================================
+
+        /**
+         * Toggle field browser collapsed/expanded
+         */
+        function toggleFieldBrowser() {
+            const content = document.getElementById('fieldBrowserContent');
+            const toggle = document.getElementById('fieldBrowserToggle');
+
+            content.classList.toggle('collapsed');
+            toggle.classList.toggle('collapsed');
+        }
+
+        /**
+         * Sort field table by column
+         */
+        function sortFieldTable(column) {
+            // Toggle sort direction if clicking same column
+            if (fieldSortColumn === column) {
+                fieldSortAscending = !fieldSortAscending;
+            } else {
+                fieldSortColumn = column;
+                fieldSortAscending = true;
+            }
+
+            // Clear all sort indicators
+            ['name', 'type', 'nonNull', 'distinct', 'fill'].forEach(col => {
+                const indicator = document.getElementById('field-sort-' + col);
+                if (indicator) {
+                    indicator.textContent = '';
+                }
+            });
+
+            // Set current sort indicator
+            const indicator = document.getElementById('field-sort-' + column);
+            if (indicator) {
+                indicator.textContent = fieldSortAscending ? '▲' : '▼';
+            }
+
+            // Sort field metadata
+            const sortedFields = [...fieldMetadata].sort((a, b) => {
+                let aValue, bValue;
+
+                switch (column) {
+                    case 'name':
+                        aValue = a.name.toLowerCase();
+                        bValue = b.name.toLowerCase();
+                        break;
+                    case 'type':
+                        aValue = a.dataType;
+                        bValue = b.dataType;
+                        break;
+                    case 'nonNull':
+                        aValue = a.nonNullCount;
+                        bValue = b.nonNullCount;
+                        break;
+                    case 'distinct':
+                        aValue = a.distinctCount;
+                        bValue = b.distinctCount;
+                        break;
+                    case 'fill':
+                        aValue = a.fillPercentage;
+                        bValue = b.fillPercentage;
+                        break;
+                    default:
+                        return 0;
+                }
+
+                let comparison = 0;
+                if (typeof aValue === 'string') {
+                    comparison = aValue.localeCompare(bValue);
+                } else {
+                    comparison = aValue - bValue;
+                }
+
+                return fieldSortAscending ? comparison : -comparison;
+            });
+
+            // Re-render field table body
+            const tbody = document.getElementById('fieldTableBody');
+            tbody.innerHTML = sortedFields.map((field, idx) => \`
+                <tr data-field-idx="\${idx}">
+                    <td>
+                        <span class="field-name">\${escapeHtml(field.name)}</span>
+                        \${field.isTimeField ? '<span class="time-field-indicator" title="Time Field">🕐</span>' : ''}
+                    </td>
+                    <td><span class="field-type \${field.dataType}">\${field.dataType}</span></td>
+                    <td>\${field.nonNullCount.toLocaleString()}</td>
+                    <td>\${field.distinctCount.toLocaleString()}</td>
+                    <td>\${field.fillPercentage.toFixed(1)}%</td>
+                    <td>
+                        <div class="field-actions">
+                            <button class="field-action-btn" onclick="showFieldValues('\${escapeHtml(field.name)}')">Show Values</button>
+                            <button class="field-action-btn" onclick="chartField('\${escapeHtml(field.name)}')">Chart Field</button>
+                        </div>
+                    </td>
+                </tr>
+            \`).join('');
+        }
+
+        /**
+         * Show field values distribution (placeholder - will send message to extension)
+         */
+        function showFieldValues(fieldName) {
+            vscode.postMessage({
+                command: 'showFieldValues',
+                fieldName: fieldName
+            });
+        }
+
+        /**
+         * Chart field (placeholder for Phase 2)
+         */
+        function chartField(fieldName) {
+            vscode.postMessage({
+                command: 'chartField',
+                fieldName: fieldName
+            });
+        }
     </script>
 </body>
 </html>`;
 
     return html;
+}
+
+/**
+ * Generate HTML for field values distribution display
+ */
+export function generateFieldValuesHTML(
+    fieldName: string,
+    distribution: Array<{ value: any; count: number; percentage: number }>,
+    totalRecords: number
+): string {
+    const distributionJson = JSON.stringify(distribution);
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Values: ${escapeHtml(fieldName)}</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .field-name {
+            font-family: var(--vscode-editor-font-family);
+            color: var(--vscode-textLink-foreground);
+            font-size: 16px;
+        }
+        .stats {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 8px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border-radius: 3px;
+        }
+        .toolbar-button {
+            padding: 4px 12px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toolbar-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .search-box {
+            flex: 1;
+            padding: 4px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 12px;
+        }
+        .values-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .values-table th {
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--vscode-panel-border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .values-table td {
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .values-table tbody tr:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .value-cell {
+            font-family: var(--vscode-editor-font-family);
+            word-break: break-all;
+            max-width: 500px;
+        }
+        .count-cell {
+            text-align: right;
+            font-family: var(--vscode-editor-font-family);
+        }
+        .percentage-cell {
+            text-align: right;
+        }
+        .bar-container {
+            width: 100px;
+            height: 20px;
+            background-color: var(--vscode-input-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background-color: var(--vscode-charts-blue);
+            transition: width 0.3s ease;
+        }
+        .hidden {
+            display: none;
+        }
+        .no-results {
+            padding: 20px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Field Values Distribution</h1>
+        <div class="field-name">${escapeHtml(fieldName)}</div>
+        <div class="stats">
+            Total Records: ${totalRecords.toLocaleString()} |
+            Unique Values: ${distribution.length.toLocaleString()}
+        </div>
+    </div>
+
+    <!-- Mini chart visualization -->
+    <div style="margin-bottom: 20px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px;">Top ${Math.min(20, distribution.length)} Values</h3>
+        <div id="miniChart" style="width: 100%; height: 300px;"></div>
+    </div>
+
+    <div class="toolbar">
+        <input type="text" class="search-box" id="searchBox" placeholder="Filter values..." oninput="filterValues()">
+        <button class="toolbar-button" onclick="sortBy('count')">Sort by Count</button>
+        <button class="toolbar-button" onclick="sortBy('value')">Sort by Value</button>
+        <button class="toolbar-button" onclick="exportToCSV()">Export CSV</button>
+        <button class="toolbar-button" onclick="copyToClipboard()">Copy All</button>
+        <span style="margin-left: auto; font-size: 12px; color: var(--vscode-descriptionForeground);" id="displayCount">
+            Showing all ${distribution.length} values
+        </span>
+    </div>
+
+    <table class="values-table">
+        <thead>
+            <tr>
+                <th style="width: 50px;">#</th>
+                <th>Value</th>
+                <th style="width: 120px; text-align: right;">Count</th>
+                <th style="width: 100px; text-align: right;">Percentage</th>
+                <th style="width: 120px;">Distribution</th>
+            </tr>
+        </thead>
+        <tbody id="valuesTableBody">
+            ${distribution.map((item, idx) => `
+                <tr data-idx="${idx}">
+                    <td style="color: var(--vscode-descriptionForeground);">${idx + 1}</td>
+                    <td class="value-cell">${escapeHtml(String(item.value))}</td>
+                    <td class="count-cell">${item.count.toLocaleString()}</td>
+                    <td class="percentage-cell">${item.percentage.toFixed(2)}%</td>
+                    <td>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: ${item.percentage}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+
+    <div id="noResults" class="no-results hidden">
+        No values match your filter
+    </div>
+
+    <script>
+        let allDistribution = ${distributionJson};
+        let currentSort = 'count';
+
+        // Initialize mini chart
+        function initMiniChart() {
+            const chartDom = document.getElementById('miniChart');
+            if (!chartDom) return;
+
+            const chart = echarts.init(chartDom, 'dark');
+
+            // Get top 20 values for chart
+            const top20 = allDistribution.slice(0, 20);
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function(params) {
+                        const item = params[0];
+                        return item.name + '<br/>' +
+                               'Count: ' + item.value + '<br/>' +
+                               'Percentage: ' + allDistribution[item.dataIndex].percentage.toFixed(2) + '%';
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    top: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: top20.map(d => d.value),
+                    axisLabel: {
+                        interval: 0,
+                        rotate: 45,
+                        overflow: 'truncate',
+                        width: 80
+                    }
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [{
+                    type: 'bar',
+                    data: top20.map(d => d.count),
+                    itemStyle: {
+                        color: '#4CAF50'
+                    }
+                }]
+            };
+
+            chart.setOption(option);
+
+            // Resize on window resize
+            window.addEventListener('resize', () => {
+                chart.resize();
+            });
+        }
+
+        // Sort distribution
+        function sortBy(type) {
+            currentSort = type;
+
+            if (type === 'count') {
+                allDistribution.sort((a, b) => b.count - a.count);
+            } else if (type === 'value') {
+                allDistribution.sort((a, b) => String(a.value).localeCompare(String(b.value)));
+            }
+
+            renderTable();
+        }
+
+        // Render table
+        function renderTable() {
+            const tbody = document.getElementById('valuesTableBody');
+            tbody.innerHTML = allDistribution.map((item, idx) => \`
+                <tr data-idx="\${idx}">
+                    <td style="color: var(--vscode-descriptionForeground);">\${idx + 1}</td>
+                    <td class="value-cell">\${escapeHtmlJS(String(item.value))}</td>
+                    <td class="count-cell">\${item.count.toLocaleString()}</td>
+                    <td class="percentage-cell">\${item.percentage.toFixed(2)}%</td>
+                    <td>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: \${item.percentage}%"></div>
+                        </div>
+                    </td>
+                </tr>
+            \`).join('');
+        }
+
+        function escapeHtmlJS(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            initMiniChart();
+        });
+
+        function filterValues() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const rows = document.querySelectorAll('#valuesTableBody tr');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const valueCell = row.querySelector('.value-cell');
+                const value = valueCell.textContent.toLowerCase();
+
+                if (value.includes(searchTerm)) {
+                    row.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+
+            // Show/hide no results message
+            const noResults = document.getElementById('noResults');
+            if (visibleCount === 0) {
+                noResults.classList.remove('hidden');
+            } else {
+                noResults.classList.add('hidden');
+            }
+        }
+
+        function exportToCSV() {
+            let csv = 'Value,Count,Percentage\\n';
+
+            allDistribution.forEach(item => {
+                const value = String(item.value).replace(/"/g, '""');
+                const needsQuotes = value.includes(',') || value.includes('"') || value.includes('\\n');
+                const csvValue = needsQuotes ? '"' + value + '"' : value;
+                csv += csvValue + ',' + item.count + ',' + item.percentage.toFixed(2) + '%\\n';
+            });
+
+            // Create blob and download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'field_values_${escapeHtml(fieldName)}.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function copyToClipboard() {
+            let text = 'Value\\tCount\\tPercentage\\n';
+
+            allDistribution.forEach(item => {
+                text += String(item.value) + '\\t' + item.count + '\\t' + item.percentage.toFixed(2) + '%\\n';
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Copied ' + allDistribution.length + ' values to clipboard');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.cssText = \`
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background-color: var(--vscode-notifications-background);
+                color: var(--vscode-notifications-foreground);
+                border: 1px solid var(--vscode-notifications-border);
+                padding: 12px 16px;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                z-index: 10000;
+            \`;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>`;
+}
+
+/**
+ * Generate HTML for chart display
+ */
+export function generateChartHTML(
+    chartConfig: ChartConfig,
+    chartData: any[],
+    fieldMetadata: FieldMetadata[]
+): string {
+    // Initialize chart registry
+    const registry = initializeChartRegistry();
+    const chartType = registry.getChartType(chartConfig.chartTypeId);
+
+    if (!chartType) {
+        return '<html><body><h1>Error: Unknown chart type</h1></body></html>';
+    }
+
+    // Transform data to ECharts format
+    const echartsOption = chartType.transformer(chartData, chartConfig, fieldMetadata);
+    const optionJson = JSON.stringify(echartsOption);
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart: ${chartType.name}</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-foreground);
+            font-family: var(--vscode-font-family);
+        }
+        #chart {
+            width: 100%;
+            height: calc(100vh - 120px);
+            min-height: 400px;
+        }
+        .toolbar {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border-radius: 3px;
+            display: flex;
+            gap: 8px;
+        }
+        .toolbar button {
+            padding: 4px 12px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toolbar button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .chart-info {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-info">
+        <strong>${escapeHtml(chartType.name)}</strong> -
+        Fields: ${chartConfig.fields.map(f => escapeHtml(f)).join(', ')}
+    </div>
+    <div class="toolbar">
+        <button onclick="chart.dispatchAction({type: 'restore'})">Reset Zoom</button>
+        <button onclick="downloadChart()">Download PNG</button>
+    </div>
+    <div id="chart"></div>
+
+    <script>
+        const chartDom = document.getElementById('chart');
+        const chart = echarts.init(chartDom, 'dark');
+        const option = ${optionJson};
+
+        chart.setOption(option);
+
+        // Resize chart on window resize
+        window.addEventListener('resize', () => {
+            chart.resize();
+        });
+
+        function downloadChart() {
+            const url = chart.getDataURL({
+                type: 'png',
+                pixelRatio: 2,
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('--vscode-editor-background')
+            });
+            const link = document.createElement('a');
+            link.download = 'chart_${chartType.id}_${Date.now()}.png';
+            link.href = url;
+            link.click();
+        }
+    </script>
+</body>
+</html>`;
+}
+
+/**
+ * Handle chart field request
+ */
+export async function handleChartFieldExternal(
+    fieldName: string,
+    results: any[],
+    fieldAnalysis: { fields: FieldMetadata[]; totalRecords: number; mode: string }
+): Promise<void> {
+    return handleChartField(fieldName, results, fieldAnalysis);
+}
+
+/**
+ * Generate chart configuration dialog HTML
+ */
+function generateChartConfigDialogHTML(
+    fieldName: string,
+    chartType: ChartType,
+    fieldAnalysis: { fields: FieldMetadata[]; totalRecords: number; mode: string }
+): string {
+    const timeFields = fieldAnalysis.fields.filter(f => f.isTimeField);
+    const numericFields = fieldAnalysis.fields.filter(f => f.dataType === 'number' && !f.isTimeField);
+    const allFields = fieldAnalysis.fields;
+
+    // Build options HTML
+    const optionsHTML = chartType.configOptions.map(opt => {
+        if (opt.id === 'timeField' && timeFields.length > 0) {
+            return `
+                <div class="form-group">
+                    <label for="${opt.id}">${opt.label}</label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <select id="${opt.id}" name="${opt.id}">
+                        ${timeFields.map(tf => `
+                            <option value="${escapeHtml(tf.name)}" ${tf.name === timeFields[0].name ? 'selected' : ''}>
+                                ${escapeHtml(tf.name)} (${tf.dataType})
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        } else if (opt.id === 'seriesField' && opt.type === 'field-select') {
+            // For series field, show all string fields (or all fields if no string fields)
+            let candidateFields = allFields.filter(f => f.dataType === 'string' && !f.isTimeField);
+            if (candidateFields.length === 0) {
+                candidateFields = allFields.filter(f => !f.isTimeField);
+            }
+
+            // Pre-select the clicked field if it's in the list, otherwise first field
+            let preSelected = '';
+            if (candidateFields.some(f => f.name === fieldName)) {
+                preSelected = fieldName;
+            } else if (candidateFields.length > 0) {
+                preSelected = candidateFields[0].name;
+            }
+
+            return `
+                <div class="form-group">
+                    <label for="${opt.id}">${opt.label}${opt.required ? ' *' : ''}</label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <select id="${opt.id}" name="${opt.id}" ${opt.required ? 'required' : ''}>
+                        ${candidateFields.length === 0 ? '<option value="">No fields available</option>' : ''}
+                        ${candidateFields.map(f => `
+                            <option value="${escapeHtml(f.name)}" ${f.name === preSelected ? 'selected' : ''}>
+                                ${escapeHtml(f.name)} (${f.distinctCount} distinct)
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        } else if (opt.id === 'valueField' && opt.type === 'field-select') {
+            // For value field, show numeric fields AND numeric strings (Sumo Logic often returns aggregated numbers as strings)
+            const valueFields = allFields.filter(f =>
+                (f.dataType === 'number' || f.isNumericString) && !f.isTimeField
+            );
+
+            // Pre-select the clicked field if it's numeric or numeric string, otherwise leave as (None)
+            const preSelected = valueFields.some(f => f.name === fieldName) ? fieldName : '';
+
+            return `
+                <div class="form-group">
+                    <label for="${opt.id}">${opt.label}${opt.required ? ' *' : ''}</label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <select id="${opt.id}" name="${opt.id}" ${opt.required ? 'required' : ''}>
+                        <option value="" ${preSelected === '' ? 'selected' : ''}>(None - use count)</option>
+                        ${valueFields.map(f => `
+                            <option value="${escapeHtml(f.name)}" ${f.name === preSelected ? 'selected' : ''}>
+                                ${escapeHtml(f.name)} (${f.dataType}${f.isNumericString ? ', numeric' : ''})
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        } else if (opt.type === 'select') {
+            return `
+                <div class="form-group">
+                    <label for="${opt.id}">${opt.label}</label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <select id="${opt.id}" name="${opt.id}">
+                        ${opt.options?.map(option => `
+                            <option value="${option.value}" ${option.value === opt.defaultValue ? 'selected' : ''}>
+                                ${option.label}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        } else if (opt.type === 'checkbox') {
+            return `
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="${opt.id}" name="${opt.id}" ${opt.defaultValue ? 'checked' : ''}>
+                        ${opt.label}
+                    </label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                </div>
+            `;
+        } else if (opt.type === 'number') {
+            return `
+                <div class="form-group">
+                    <label for="${opt.id}">${opt.label}</label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <input type="number" id="${opt.id}" name="${opt.id}" value="${opt.defaultValue}" min="1">
+                </div>
+            `;
+        }
+        return '';
+    }).join('\n');
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configure Chart</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .field-info {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .description {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 4px;
+            margin-bottom: 6px;
+        }
+        select, input[type="number"] {
+            width: 100%;
+            padding: 6px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 13px;
+        }
+        select:focus, input:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 13px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .primary-button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+        .primary-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .secondary-button {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        .secondary-button:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Configure ${escapeHtml(chartType.name)}</h1>
+        <div class="field-info">
+            Field: <strong>${escapeHtml(fieldName)}</strong> |
+            Chart Type: ${escapeHtml(chartType.name)}
+        </div>
+    </div>
+
+    <form id="chartConfigForm">
+        ${optionsHTML}
+    </form>
+
+    <div class="button-group">
+        <button type="button" class="primary-button" onclick="createChart()">Create Chart</button>
+        <button type="button" class="secondary-button" onclick="cancel()">Cancel</button>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        function createChart() {
+            const form = document.getElementById('chartConfigForm');
+            const formData = new FormData(form);
+            const config = {};
+
+            // Collect all form values
+            for (const [key, value] of formData.entries()) {
+                const element = document.getElementById(key);
+                if (element.type === 'checkbox') {
+                    config[key] = element.checked;
+                } else if (element.type === 'number') {
+                    config[key] = parseInt(value, 10);
+                } else {
+                    config[key] = value;
+                }
+            }
+
+            // Send configuration back
+            vscode.postMessage({
+                command: 'createChart',
+                config: config
+            });
+        }
+
+        function cancel() {
+            vscode.postMessage({
+                command: 'cancel'
+            });
+        }
+
+        // Submit on Enter in input fields
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    createChart();
+                }
+            });
+        });
+    </script>
+</body>
+</html>`;
+}
+
+/**
+ * Handle chart field request (internal)
+ */
+async function handleChartField(
+    fieldName: string,
+    results: any[],
+    fieldAnalysis: { fields: FieldMetadata[]; totalRecords: number; mode: string }
+): Promise<void> {
+    // Initialize chart registry
+    const registry = initializeChartRegistry();
+
+    // Find the field metadata
+    const field = fieldAnalysis.fields.find(f => f.name === fieldName);
+    if (!field) {
+        vscode.window.showErrorMessage(`Field "${fieldName}" not found`);
+        return;
+    }
+
+    // Get compatible chart types for this field
+    const compatibleCharts = registry.getCompatibleChartTypesForField(field, fieldAnalysis.fields);
+
+    if (compatibleCharts.length === 0) {
+        vscode.window.showWarningMessage(`No compatible chart types found for field "${fieldName}" (${field.dataType})`);
+        return;
+    }
+
+    // Let user select chart type first (single quick pick)
+    const chartTypeChoice = await vscode.window.showQuickPick(
+        compatibleCharts.map(ct => ({
+            label: ct.name,
+            description: ct.description,
+            chartType: ct
+        })),
+        {
+            placeHolder: `Select chart type for field: ${fieldName}`,
+            ignoreFocusOut: true
+        }
+    );
+
+    if (!chartTypeChoice) {
+        return;
+    }
+
+    const chartType = chartTypeChoice.chartType;
+
+    // Create configuration dialog webview
+    const configPanel = vscode.window.createWebviewPanel(
+        'chartConfig',
+        `Configure ${chartType.name}`,
+        vscode.ViewColumn.Beside,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: false
+        }
+    );
+
+    configPanel.webview.html = generateChartConfigDialogHTML(fieldName, chartType, fieldAnalysis);
+
+    // Handle messages from config dialog
+    return new Promise<void>((resolve) => {
+        configPanel.webview.onDidReceiveMessage(async (message) => {
+            if (message.command === 'cancel') {
+                configPanel.dispose();
+                resolve();
+                return;
+            }
+
+            if (message.command === 'createChart') {
+                const userConfig = message.config;
+
+                // Build chart configuration
+                const config: ChartConfig = {
+                    chartTypeId: chartType.id,
+                    fields: [fieldName],
+                    options: {}
+                };
+
+                // Set all options from form
+                chartType.configOptions.forEach(opt => {
+                    if (userConfig[opt.id] !== undefined) {
+                        config.options[opt.id] = userConfig[opt.id];
+                    } else {
+                        config.options[opt.id] = opt.defaultValue;
+                    }
+                });
+
+                // Validate configuration
+                if (chartType.validate) {
+                    const validation = chartType.validate(config, fieldAnalysis.fields);
+                    if (!validation.valid) {
+                        vscode.window.showErrorMessage(validation.error || 'Invalid chart configuration');
+                        configPanel.dispose();
+                        resolve();
+                        return;
+                    }
+                }
+
+                // Close config dialog
+                configPanel.dispose();
+
+                // Create chart
+                const chartPanel = vscode.window.createWebviewPanel(
+                    'sumoChart',
+                    `Chart: ${fieldName}`,
+                    vscode.ViewColumn.Beside,
+                    {
+                        enableScripts: true,
+                        retainContextWhenHidden: true
+                    }
+                );
+
+                const chartData = results.map(r => r.map);
+                chartPanel.webview.html = generateChartHTML(config, chartData, fieldAnalysis.fields);
+
+                resolve();
+            }
+        });
+
+        // Handle panel disposal
+        configPanel.onDidDispose(() => {
+            resolve();
+        });
+    });
 }
 
 /**
@@ -1237,6 +2437,9 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             const pageSize = config.get<number>('webviewPageSize') || 200;
             const executionTime = Date.now() - startTime;
 
+            // Analyze fields for charting
+            const fieldAnalysis = FieldAnalyzer.analyze(results, mode);
+
             const htmlContent = formatRecordsAsHTML(results, {
                 query: cleanedQuery,
                 from: from,
@@ -1289,6 +2492,28 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
                             fs.writeFileSync(uri.fsPath, message.jsonData, 'utf-8');
                             vscode.window.showInformationMessage(`JSON exported to ${uri.fsPath}`);
                         }
+                    } else if (message.command === 'showFieldValues') {
+                        // Show field values in a modal
+                        const fieldName = message.fieldName;
+                        // Get more values for better distribution visibility
+                        const distribution = FieldAnalyzer.getValueDistribution(fieldName, results, 1000);
+
+                        // Create a new webview panel for field values
+                        const valuesPanel = vscode.window.createWebviewPanel(
+                            'fieldValues',
+                            `Field Values: ${fieldName}`,
+                            vscode.ViewColumn.Beside,
+                            {
+                                enableScripts: true,
+                                retainContextWhenHidden: false
+                            }
+                        );
+
+                        valuesPanel.webview.html = generateFieldValuesHTML(fieldName, distribution, results.length);
+                    } else if (message.command === 'chartField') {
+                        // Show chart configuration and create chart
+                        const fieldName = message.fieldName;
+                        await handleChartField(fieldName, results, fieldAnalysis);
                     }
                 },
                 undefined,

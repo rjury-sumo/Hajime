@@ -1,0 +1,30 @@
+I'm going to create a new type of entity in the sumo logic explorer tree which is a 'Scope'
+
+Users should be able to create edit or delete scopes and their properties.
+The actions taken in a scope would usually execute against a specific profile but I want the scopes to be able to be defined irrespective of profile so they would not have a profile note only leverage the active profile.
+Scope will be away for a user to define a set of logs and a symbolic instance that pertaining to a specific domain. Each scope would have a name property description and other properties that we will add later.
+
+Each scope will have a search scope attribute that is defined initially by the user. This would be part of a symbolic query that went executed could be used to retrieve or sample logs matching a specific scope in in other features we will build.
+
+A scope should also have a context attribute which allows the user to define the context and use cases for that log source. This will be invaluable if we decided to build AI type features.
+
+Each define scope should appear in the  Explorer under its name property and when you use a clicks on it it would display a web view showing the properties and enabling the user to edit them and execute actions specific to the scope in the active profile.
+
+The data for the scope should be persistent. You will need to implement a lightweight storage solution either using configuration files in YAML format or sqllite that is stored in a scope folder in Sumologic: File Storage Path setting location.  The solution for storage should be easily extensible because we have to add further properties and actions later.
+
+For the MVP initial phase we will implement one action only. This action will execute two sumo logic  queries via the search job API using the supplied scope and the current profile. The first search will add
+
+'| limit 1000 | facets' to the scope and execute in records mode for -3h against that scope. Facets retuns a json result set designed for profiling a log source. It returns the fields that exist in that query scope with statitics about the top values of each. 
+
+Here is an example output of a facets command for the query:
+_view=sumologic_search_usage_per_query  
+// added to get facets on log sample
+| limit 1000 | facets
+
+/Users/rjury/.sumologic/rick/queries/query_view=sumologic_search_usage_per_query_limit_10_records_-6h_to_now_20251016_150136.json
+
+We already have a runquery.ts command we can leverage in json mode to run the query. The reuslt flie you shoud then analyse and add a facets webview for that scope. That should be part of the scope webview as a new section - but you might have a better suggestion for how to render the data since a user might execute an action like this and then need to reload the webview with new information.
+
+The second query will execute the scope in messages most with | limit 1000 added to get a sample of up to 1000 log events.  We already have a webview for rendering messages results - so like facets we need to render this as part of the scope webview or link it somehow so it's easy to access after refresh or initial execution of the action. 
+
+Actions to run on a scope should be buttons in the webview homepage of that scope.

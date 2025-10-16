@@ -445,6 +445,42 @@ export function activate(context: vscode.ExtensionContext) {
         return openExportedContentFromPathCommand(context, filePath);
     });
 
+    // Register scope commands
+    const createScopeCmd = vscode.commands.registerCommand('sumologic.createScope', async () => {
+        const { createScope } = require('./commands/scopes');
+        return createScope(context);
+    });
+
+    const editScopeCmd = vscode.commands.registerCommand('sumologic.editScope', async (scopeId: string, profileName: string) => {
+        const { editScope } = require('./commands/scopes');
+        return editScope(context, scopeId, profileName);
+    });
+
+    const deleteScopeCmd = vscode.commands.registerCommand('sumologic.deleteScope', async (scopeId: string, profileName: string) => {
+        const { deleteScope } = require('./commands/scopes');
+        return deleteScope(context, scopeId, profileName);
+    });
+
+    const listScopesCmd = vscode.commands.registerCommand('sumologic.listScopes', async () => {
+        const { listScopes } = require('./commands/scopes');
+        return listScopes(context);
+    });
+
+    const viewScopeCmd = vscode.commands.registerCommand('sumologic.viewScope', async (scopeId: string, profileName: string) => {
+        const { ScopeWebviewProvider } = require('./views/scopeWebview');
+        return ScopeWebviewProvider.showScope(context, scopeId, profileName);
+    });
+
+    const profileScopeCmd = vscode.commands.registerCommand('sumologic.profileScope', async (scopeId: string, profileName: string) => {
+        const { profileScope } = require('./commands/scopeActions');
+        return profileScope(context, scopeId, profileName);
+    });
+
+    const sampleScopeLogsCmd = vscode.commands.registerCommand('sumologic.sampleScopeLogs', async (scopeId: string, profileName: string) => {
+        const { sampleScopeLogs } = require('./commands/scopeActions');
+        return sampleScopeLogs(context, scopeId, profileName);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -499,7 +535,14 @@ export function activate(context: vscode.ExtensionContext) {
         viewUsersCmd,
         viewRolesCmd,
         openExportedContentCmd,
-        openExportedContentFromPathCmd
+        openExportedContentFromPathCmd,
+        createScopeCmd,
+        editScopeCmd,
+        deleteScopeCmd,
+        listScopesCmd,
+        viewScopeCmd,
+        profileScopeCmd,
+        sampleScopeLogsCmd
     );
 
     // Export context for tests

@@ -278,6 +278,37 @@
                 "command": "sumologic.openExportedContent",
                 "title": "Sumo Logic: Open Exported Content JSON",
                 "icon": "$(file-code)"
+            },
+            {
+                "command": "sumologic.createScope",
+                "title": "Sumo Logic: Create Scope",
+                "icon": "$(add)"
+            },
+            {
+                "command": "sumologic.editScope",
+                "title": "Edit Scope",
+                "icon": "$(edit)"
+            },
+            {
+                "command": "sumologic.deleteScope",
+                "title": "Delete Scope",
+                "icon": "$(trash)"
+            },
+            {
+                "command": "sumologic.listScopes",
+                "title": "Sumo Logic: List Scopes"
+            },
+            {
+                "command": "sumologic.viewScope",
+                "title": "View Scope"
+            },
+            {
+                "command": "sumologic.profileScope",
+                "title": "Profile Scope (Facets)"
+            },
+            {
+                "command": "sumologic.sampleScopeLogs",
+                "title": "Sample Scope Logs"
             }
         ],
         "menus": {
@@ -453,6 +484,31 @@
                     "command": "sumologic.fetchRecursiveFolder",
                     "when": "view == sumoExplorer && viewItem =~ /^library_.*_Folder$/",
                     "group": "fetch@1"
+                },
+                {
+                    "command": "sumologic.createScope",
+                    "when": "view == sumoExplorer && viewItem == scopesSection",
+                    "group": "inline"
+                },
+                {
+                    "command": "sumologic.editScope",
+                    "when": "view == sumoExplorer && viewItem == scope",
+                    "group": "scope@1"
+                },
+                {
+                    "command": "sumologic.profileScope",
+                    "when": "view == sumoExplorer && viewItem == scope",
+                    "group": "scope@2"
+                },
+                {
+                    "command": "sumologic.sampleScopeLogs",
+                    "when": "view == sumoExplorer && viewItem == scope",
+                    "group": "scope@3"
+                },
+                {
+                    "command": "sumologic.deleteScope",
+                    "when": "view == sumoExplorer && viewItem == scope",
+                    "group": "scope@4"
                 }
             ],
             "editor/context": [

@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import { LibraryExplorerProvider, LibraryTreeItem } from './libraryExplorer';
 import { RecentQueriesManager } from '../recentQueriesManager';
 import { RecentContentManager } from '../recentContentManager';
+import { ScopesCacheDB, createScopesCacheDB } from '../database/scopesCache';
 
 /**
  * Tree item types for the Sumo Logic Explorer
@@ -21,6 +22,8 @@ export enum TreeItemType {
     LibrarySection = 'librarySection',
     UsersSection = 'usersSection',
     RolesSection = 'rolesSection',
+    ScopesSection = 'scopesSection',
+    Scope = 'scope',
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
     RecentContent = 'recentContent',
@@ -151,6 +154,19 @@ export class SumoTreeItem extends vscode.TreeItem {
                     arguments: [this.data?.profileName]
                 };
                 break;
+            case TreeItemType.ScopesSection:
+                this.iconPath = new vscode.ThemeIcon('target');
+                this.tooltip = 'Scopes';
+                break;
+            case TreeItemType.Scope:
+                this.iconPath = new vscode.ThemeIcon('scope');
+                this.tooltip = this.data?.description || this.label;
+                this.command = {
+                    command: 'sumologic.viewScope',
+                    title: 'View Scope',
+                    arguments: [this.data?.scopeId, this.data?.profileName]
+                };
+                break;
             case TreeItemType.StorageFolder:
                 this.iconPath = new vscode.ThemeIcon('folder');
                 this.tooltip = this.data?.path || this.label;
@@ -181,6 +197,7 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     private libraryExplorerProvider: LibraryExplorerProvider;
     private recentQueriesManager: RecentQueriesManager;
     private recentContentManager: RecentContentManager;
+    private scopesDatabases: Map<string, ScopesCacheDB> = new Map();
 
     constructor(private context: vscode.ExtensionContext) {
         this.profileManager = new ProfileManager(context);
@@ -256,6 +273,8 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 return this.getStorageItems();
             case TreeItemType.LibrarySection:
                 return this.libraryExplorerProvider.getChildren();
+            case TreeItemType.ScopesSection:
+                return this.getScopeItems();
             case TreeItemType.Profile:
                 return this.getProfileSubItems(sumoElement.profile);
             case TreeItemType.StorageFolder:
@@ -338,6 +357,13 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Library',
             TreeItemType.LibrarySection,
+            vscode.TreeItemCollapsibleState.Collapsed
+        ));
+
+        // Scopes section
+        items.push(new SumoTreeItem(
+            'Scopes',
+            TreeItemType.ScopesSection,
             vscode.TreeItemCollapsibleState.Collapsed
         ));
 
@@ -663,5 +689,59 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
             console.error('Error reading storage folder:', error);
             return [];
         }
+    }
+
+    /**
+     * Get scope items for active profile
+     */
+    private async getScopeItems(): Promise<SumoTreeItem[]> {
+        const activeProfile = await this.profileManager.getActiveProfile();
+        if (!activeProfile) {
+            return [];
+        }
+
+        const db = await this.getScopesDatabase(activeProfile.name);
+        const scopes = db.getAllScopes();
+
+        return scopes.map(scope => {
+            const item = new SumoTreeItem(
+                scope.name,
+                TreeItemType.Scope,
+                vscode.TreeItemCollapsibleState.None,
+                activeProfile,
+                {
+                    scopeId: scope.id,
+                    profileName: activeProfile.name,
+                    description: scope.description,
+                    searchScope: scope.searchScope
+                }
+            );
+            item.description = scope.searchScope;
+            return item;
+        });
+    }
+
+    /**
+     * Get or create scopes database for a profile
+     */
+    async getScopesDatabase(profileName: string): Promise<ScopesCacheDB> {
+        if (!this.scopesDatabases.has(profileName)) {
+            const profileDir = this.profileManager.getProfileDirectory(profileName);
+            const db = createScopesCacheDB(profileDir, profileName);
+            this.scopesDatabases.set(profileName, db);
+        }
+
+        return this.scopesDatabases.get(profileName)!;
+    }
+
+    /**
+     * Dispose of resources
+     */
+    dispose(): void {
+        // Close all scope databases
+        for (const db of this.scopesDatabases.values()) {
+            db.close();
+        }
+        this.scopesDatabases.clear();
     }
 }

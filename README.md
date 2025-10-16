@@ -224,6 +224,25 @@ Fetch and manage configuration from your Sumo Logic deployment:
    | count by _sourceHost
    ```
 
+4. **Use Query Parameters** (optional):
+   Add parameterized queries with `{{paramName}}` placeholders that can be set via metadata directives or prompted at runtime:
+   ```sumo
+   // @from -7d
+   // @to now
+   // @param type=copilot
+   // @param user_name=*
+
+   _sourceCategory=prod
+   | where query_type="{{type}}"
+   | where user_name="{{user_name}}"
+   | count by user_name
+   ```
+
+   When you run this query:
+   - Parameters with `@param` directives use those default values
+   - Parameters without directives prompt you for a value (default: `*`)
+   - All `{{paramName}}` placeholders are substituted before execution
+
 ### Executing Queries
 
 There are three ways to execute queries, each with different visualization options:
@@ -465,6 +484,29 @@ _sourceCategory=prod/application error
 3. Fields like `error_type` automatically added to autocomplete
 4. Try 📋 button for interactive table or 📈 for charts
 
+### Workflow 1b: Parameterized Query
+
+```sumo
+// @name User Activity by Type
+// @from -7d
+// @to now
+// @param type=copilot
+// @param user_name=*
+// @output webview
+
+_sourceCategory=prod
+| where query_type="{{type}}"
+| where user_name="{{user_name}}"
+| timeslice 1h
+| count by _timeslice, user_name
+| transpose row _timeslice column user_name
+```
+
+1. Parameters with `@param` directives use default values automatically
+2. Parameters without `@param` prompt for values when query runs
+3. Click ▶️ to execute - parameters are substituted before running
+4. Modify `@param` values and re-run to test different scenarios
+
 ### Workflow 2: Extracting and Running a Saved Search
 
 1. Open Library Explorer in sidebar
@@ -522,10 +564,30 @@ Control query execution with comment directives:
 // @to now                     // End time (relative or absolute)
 // @timezone UTC               // Timezone for query execution
 // @mode records               // Result type: records (aggregated) or messages (raw logs)
-// @output table               // Output format: table, json, or csv
+// @output table               // Output format: table, json, csv, or webview
 // @byReceiptTime false        // Run by receipt time (true/false)
 // @autoParsingMode Manual     // Auto-parsing: AutoParse or Manual
+// @param paramName=value      // Set default value for {{paramName}} placeholder
 ```
+
+**Parameter Substitution**:
+Use `{{paramName}}` placeholders in your query and control their values with `@param` directives:
+
+```sumo
+// @from -7d
+// @to now
+// @param type=copilot
+// @param user_name=*
+
+_sourceCategory=prod
+| where query_type="{{type}}"
+| where user_name="{{user_name}}"
+| count by user_name
+```
+
+- Parameters with `@param` directives use the specified default value
+- Parameters without `@param` directives prompt for a value at runtime (default: `*`)
+- All `{{paramName}}` placeholders are replaced before query execution
 
 ## Requirements
 

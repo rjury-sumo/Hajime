@@ -17,6 +17,8 @@ import { ChartRegistry, ChartType, ChartConfig, initializeChartRegistry } from '
  * // @output webview
  * // @byReceiptTime true
  * // @autoParsingMode AutoParse
+ * // @param query_type=copilot
+ * // @param user_name=*
  */
 function parseQueryMetadata(queryText: string): {
     name?: string;
@@ -27,6 +29,7 @@ function parseQueryMetadata(queryText: string): {
     output?: 'table' | 'json' | 'csv' | 'webview';
     byReceiptTime?: boolean;
     autoParsingMode?: 'AutoParse' | 'Manual';
+    params?: Map<string, string>;
 } {
     const metadata: {
         name?: string;
@@ -37,6 +40,7 @@ function parseQueryMetadata(queryText: string): {
         output?: 'table' | 'json' | 'csv' | 'webview';
         byReceiptTime?: boolean;
         autoParsingMode?: 'AutoParse' | 'Manual';
+        params?: Map<string, string>;
     } = {};
 
     const lines = queryText.split('\n');
@@ -98,6 +102,16 @@ function parseQueryMetadata(queryText: string): {
             metadata.autoParsingMode = autoParsingModeMatch[1] as 'AutoParse' | 'Manual';
             continue;
         }
+
+        // Match @param directive
+        const paramMatch = trimmed.match(/^\/\/\s*@param\s+(\w+)=(.+)$/i);
+        if (paramMatch) {
+            if (!metadata.params) {
+                metadata.params = new Map<string, string>();
+            }
+            metadata.params.set(paramMatch[1], paramMatch[2].trim());
+            continue;
+        }
     }
 
     return metadata;
@@ -110,9 +124,40 @@ function cleanQuery(queryText: string): string {
     const lines = queryText.split('\n');
     const cleanedLines = lines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|byReceiptTime|autoParsingMode)\s+/i);
+        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|byReceiptTime|autoParsingMode|param)\s+/i);
     });
     return cleanedLines.join('\n').trim();
+}
+
+/**
+ * Extract parameter placeholders from query text
+ * Looks for {{paramName}} patterns
+ */
+function extractQueryParams(queryText: string): Set<string> {
+    const params = new Set<string>();
+    const regex = /\{\{(\w+)\}\}/g;
+    let match;
+
+    while ((match = regex.exec(queryText)) !== null) {
+        params.add(match[1]);
+    }
+
+    return params;
+}
+
+/**
+ * Substitute parameter values in query text
+ * Replaces {{paramName}} with actual values
+ */
+function substituteParams(queryText: string, paramValues: Map<string, string>): string {
+    let result = queryText;
+
+    for (const [key, value] of paramValues) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+        result = result.replace(regex, value);
+    }
+
+    return result;
 }
 
 /**
@@ -2234,7 +2279,39 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
     // Parse metadata from comments
     const metadata = parseQueryMetadata(queryText);
-    const cleanedQuery = cleanQuery(queryText);
+    let cleanedQuery = cleanQuery(queryText);
+
+    // Extract and resolve query parameters
+    const queryParams = extractQueryParams(cleanedQuery);
+    const paramValues = new Map<string, string>();
+
+    if (queryParams.size > 0) {
+        // For each parameter, get value from metadata directive or prompt user
+        for (const paramName of queryParams) {
+            let paramValue: string | undefined;
+
+            // Check if there's a metadata directive for this param
+            if (metadata.params && metadata.params.has(paramName)) {
+                paramValue = metadata.params.get(paramName);
+            } else {
+                // Prompt user for value
+                paramValue = await vscode.window.showInputBox({
+                    prompt: `Enter value for parameter: {{${paramName}}}`,
+                    value: '*',
+                    ignoreFocusOut: true
+                });
+
+                if (paramValue === undefined) {
+                    return; // User cancelled
+                }
+            }
+
+            paramValues.set(paramName, paramValue!);
+        }
+
+        // Substitute parameters in query
+        cleanedQuery = substituteParams(cleanedQuery, paramValues);
+    }
 
     // Prompt for time range if not specified
     let from = metadata.from;

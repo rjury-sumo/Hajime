@@ -110,7 +110,125 @@ export class ScopeWebviewProvider {
             case 'refresh':
                 this.showScope(context, scopeId, profileName);
                 break;
+
+            case 'viewFacetsResults':
+                const profileManager = new ProfileManager(context);
+                const profileDir = profileManager.getProfileDirectory(profileName);
+                const db = createScopesCacheDB(profileDir, profileName);
+                try {
+                    const scope = db.getScopeById(scopeId);
+                    if (scope?.facetsResult) {
+                        // Save to temp file and open in webview
+                        const tempFile = await this.saveTempResultFile(profileDir, scopeId, 'facets', scope.facetsResult);
+                        await vscode.commands.executeCommand('sumologic.openQueryResultAsWebview', { data: { path: tempFile } });
+                    }
+                } finally {
+                    db.close();
+                }
+                break;
+
+            case 'viewSampleLogsResults':
+                const pm = new ProfileManager(context);
+                const pd = pm.getProfileDirectory(profileName);
+                const sdb = createScopesCacheDB(pd, profileName);
+                try {
+                    const sc = sdb.getScopeById(scopeId);
+                    if (sc?.sampleLogsResult) {
+                        const tempFile = await this.saveTempResultFile(pd, scopeId, 'sample', sc.sampleLogsResult);
+                        await vscode.commands.executeCommand('sumologic.openQueryResultAsWebview', { data: { path: tempFile } });
+                    }
+                } finally {
+                    sdb.close();
+                }
+                break;
+
+            case 'viewRawLogs':
+                const pm2 = new ProfileManager(context);
+                const pd2 = pm2.getProfileDirectory(profileName);
+                const sdb2 = createScopesCacheDB(pd2, profileName);
+                try {
+                    const sc2 = sdb2.getScopeById(scopeId);
+                    if (sc2?.sampleLogsResult) {
+                        const rawLogsFile = await this.saveRawLogsFile(pd2, scopeId, sc2.sampleLogsResult);
+                        const doc = await vscode.workspace.openTextDocument(rawLogsFile);
+                        await vscode.window.showTextDocument(doc);
+                    }
+                } finally {
+                    sdb2.close();
+                }
+                break;
         }
+    }
+
+    /**
+     * Save result data to temporary file for viewing
+     * Extracts the array from the response for the webview
+     */
+    private static async saveTempResultFile(
+        profileDir: string,
+        scopeId: string,
+        type: string,
+        resultJson: string
+    ): Promise<string> {
+        const fs = require('fs');
+        const path = require('path');
+
+        // Parse the stored result
+        const data = JSON.parse(resultJson);
+
+        // Extract the array - either records or messages
+        const arrayData = type === 'facets' ? data.records : data.messages;
+
+        const outputDir = path.join(profileDir, 'scopes');
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+        const fileName = `${scopeId}_${type}_latest.json`;
+        const filePath = path.join(outputDir, fileName);
+
+        // Save as array for the webview to consume
+        fs.writeFileSync(filePath, JSON.stringify(arrayData, null, 2), 'utf-8');
+        return filePath;
+    }
+
+    /**
+     * Save raw logs as text file
+     * Extracts _raw field from messages if available, otherwise formats as JSON
+     */
+    private static async saveRawLogsFile(
+        profileDir: string,
+        scopeId: string,
+        resultJson: string
+    ): Promise<string> {
+        const fs = require('fs');
+        const path = require('path');
+
+        // Parse the stored result
+        const data = JSON.parse(resultJson);
+        const messages = data.messages || [];
+
+        // Build raw log content
+        const lines: string[] = [];
+        for (const message of messages) {
+            if (message.map && message.map._raw) {
+                // Use _raw field if available
+                lines.push(message.map._raw);
+            } else {
+                // Otherwise use JSON representation of the message
+                lines.push(JSON.stringify(message));
+            }
+        }
+
+        const outputDir = path.join(profileDir, 'scopes');
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+        const fileName = `${scopeId}_raw_logs.txt`;
+        const filePath = path.join(outputDir, fileName);
+
+        // Save as text file
+        fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+        return filePath;
     }
 
     /**
@@ -121,8 +239,8 @@ export class ScopeWebviewProvider {
         webview: vscode.Webview,
         context: vscode.ExtensionContext
     ): string {
-        const facetsData = scope.facetsResult ? JSON.parse(scope.facetsResult) : null;
-        const sampleLogsData = scope.sampleLogsResult ? JSON.parse(scope.sampleLogsResult) : null;
+        const hasFacetsResult = scope.facetsResult && scope.facetsTimestamp;
+        const hasSampleLogsResult = scope.sampleLogsResult && scope.sampleLogsTimestamp;
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -291,8 +409,8 @@ export class ScopeWebviewProvider {
         <button onclick="sampleLogs()">📄 Sample Logs (Messages)</button>
     </div>
 
-    ${facetsData ? this.renderFacetsResults(facetsData, scope.facetsTimestamp) : ''}
-    ${sampleLogsData ? this.renderSampleLogsResults(sampleLogsData, scope.sampleLogsTimestamp) : ''}
+    ${hasFacetsResult ? this.renderFacetsResults(scope) : ''}
+    ${hasSampleLogsResult ? this.renderSampleLogsResults(scope) : ''}
 
     <script>
         const vscode = acquireVsCodeApi();
@@ -318,6 +436,18 @@ export class ScopeWebviewProvider {
         function refresh() {
             vscode.postMessage({ command: 'refresh' });
         }
+
+        function viewFacetsResults() {
+            vscode.postMessage({ command: 'viewFacetsResults' });
+        }
+
+        function viewSampleLogsResults() {
+            vscode.postMessage({ command: 'viewSampleLogsResults' });
+        }
+
+        function viewRawLogs() {
+            vscode.postMessage({ command: 'viewRawLogs' });
+        }
     </script>
 </body>
 </html>`;
@@ -326,63 +456,35 @@ export class ScopeWebviewProvider {
     /**
      * Render facets results section
      */
-    private static renderFacetsResults(facetsData: any, timestamp?: string): string {
-        if (!facetsData || !facetsData.fields || facetsData.fields.length === 0) {
-            return `
-            <div class="action-section">
-                <h3>Field Profile (Facets)</h3>
-                ${timestamp ? `<div class="timestamp">Last run: ${new Date(timestamp).toLocaleString()}</div>` : ''}
-                <div class="no-results">No facets data available</div>
-            </div>`;
-        }
-
-        const facetsHtml = facetsData.fields.map((field: any) => {
-            const topValues = field.topValues || [];
-            const valuesHtml = topValues.slice(0, 5).map((v: any) =>
-                `<div>${this.escapeHtml(v.value)} (${v.count})</div>`
-            ).join('');
-
-            return `
-            <div class="facet-row">
-                <div class="facet-name">${this.escapeHtml(field.name)}</div>
-                <div class="facet-values">
-                    Count: ${field.count || 0}<br>
-                    ${valuesHtml ? `Top values:<br>${valuesHtml}` : 'No values'}
-                </div>
-            </div>`;
-        }).join('');
+    private static renderFacetsResults(scope: Scope): string {
+        const data = JSON.parse(scope.facetsResult!);
+        const recordCount = data.records?.length || 0;
 
         return `
         <div class="action-section">
             <h3>Field Profile (Facets)</h3>
-            ${timestamp ? `<div class="timestamp">Last run: ${new Date(timestamp).toLocaleString()}</div>` : ''}
-            ${facetsHtml}
+            <div class="timestamp">Last run: ${new Date(scope.facetsTimestamp!).toLocaleString()}</div>
+            <p>Facets query returned ${recordCount} field profiles.</p>
+            <button onclick="viewFacetsResults()">📊 View Facets Results Table</button>
         </div>`;
     }
 
     /**
      * Render sample logs results section
      */
-    private static renderSampleLogsResults(sampleLogsData: any, timestamp?: string): string {
-        if (!sampleLogsData || !sampleLogsData.messages || sampleLogsData.messages.length === 0) {
-            return `
-            <div class="action-section">
-                <h3>Sample Logs</h3>
-                ${timestamp ? `<div class="timestamp">Last run: ${new Date(timestamp).toLocaleString()}</div>` : ''}
-                <div class="no-results">No sample logs available</div>
-            </div>`;
-        }
-
-        const logsHtml = sampleLogsData.messages.slice(0, 10).map((msg: any) => {
-            const rawMsg = msg.map._raw || JSON.stringify(msg.map);
-            return `<div class="log-entry">${this.escapeHtml(rawMsg)}</div>`;
-        }).join('');
+    private static renderSampleLogsResults(scope: Scope): string {
+        const data = JSON.parse(scope.sampleLogsResult!);
+        const messageCount = data.messages?.length || 0;
 
         return `
         <div class="action-section">
-            <h3>Sample Logs (showing first 10 of ${sampleLogsData.messages.length})</h3>
-            ${timestamp ? `<div class="timestamp">Last run: ${new Date(timestamp).toLocaleString()}</div>` : ''}
-            ${logsHtml}
+            <h3>Sample Logs</h3>
+            <div class="timestamp">Last run: ${new Date(scope.sampleLogsTimestamp!).toLocaleString()}</div>
+            <p>Sample query returned ${messageCount} log messages.</p>
+            <div class="button-group">
+                <button onclick="viewSampleLogsResults()">📄 View Sample Logs Table</button>
+                <button onclick="viewRawLogs()">📝 View Raw Logs</button>
+            </div>
         </div>`;
     }
 

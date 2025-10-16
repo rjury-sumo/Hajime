@@ -309,6 +309,10 @@
             {
                 "command": "sumologic.sampleScopeLogs",
                 "title": "Sample Scope Logs"
+            },
+            {
+                "command": "sumologic.cacheScopeMetadata",
+                "title": "Cache Scope Metadata"
             }
         ],
         "menus": {
@@ -509,6 +513,11 @@
                     "command": "sumologic.deleteScope",
                     "when": "view == sumoExplorer && viewItem == scope",
                     "group": "scope@4"
+                },
+                {
+                    "command": "sumologic.cacheScopeMetadata",
+                    "when": "view == sumoExplorer && viewItem == scope",
+                    "group": "scope@5"
                 }
             ],
             "editor/context": [
@@ -640,7 +649,7 @@
         "test:unit": "npm test",
         "test:integration": "SUMO_ACCESS_ID=$SUMO_ACCESS_ID SUMO_ACCESS_KEY=$SUMO_ACCESS_KEY npm test",
         "test:all": "npm run test:unit && npm run test:integration",
-        "rebuild": "electron-rebuild -f -w better-sqlite3",
+        "rebuild": "electron-rebuild -f -w better-sqlite3 -v 37.3.1",
         "postinstall": "npm run rebuild"
     },
     "devDependencies": {

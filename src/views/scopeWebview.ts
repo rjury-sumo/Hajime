@@ -117,9 +117,9 @@ export class ScopeWebviewProvider {
                 const db = createScopesCacheDB(profileDir, profileName);
                 try {
                     const scope = db.getScopeById(scopeId);
-                    if (scope?.facetsResult) {
-                        // Save to temp file and open in webview
-                        const tempFile = await this.saveTempResultFile(profileDir, scopeId, 'facets', scope.facetsResult);
+                    if (scope?.facetsResultPath) {
+                        // Extract array from stored file and save for webview
+                        const tempFile = await this.extractArrayFromResultFile(scope.facetsResultPath, 'records');
                         await vscode.commands.executeCommand('sumologic.openQueryResultAsWebview', { data: { path: tempFile } });
                     }
                 } finally {
@@ -133,8 +133,9 @@ export class ScopeWebviewProvider {
                 const sdb = createScopesCacheDB(pd, profileName);
                 try {
                     const sc = sdb.getScopeById(scopeId);
-                    if (sc?.sampleLogsResult) {
-                        const tempFile = await this.saveTempResultFile(pd, scopeId, 'sample', sc.sampleLogsResult);
+                    if (sc?.sampleLogsResultPath) {
+                        // Extract array from stored file and save for webview
+                        const tempFile = await this.extractArrayFromResultFile(sc.sampleLogsResultPath, 'messages');
                         await vscode.commands.executeCommand('sumologic.openQueryResultAsWebview', { data: { path: tempFile } });
                     }
                 } finally {
@@ -148,8 +149,8 @@ export class ScopeWebviewProvider {
                 const sdb2 = createScopesCacheDB(pd2, profileName);
                 try {
                     const sc2 = sdb2.getScopeById(scopeId);
-                    if (sc2?.sampleLogsResult) {
-                        const rawLogsFile = await this.saveRawLogsFile(pd2, scopeId, sc2.sampleLogsResult);
+                    if (sc2?.sampleLogsResultPath) {
+                        const rawLogsFile = await this.saveRawLogsFileFromPath(sc2.sampleLogsResultPath);
                         const doc = await vscode.workspace.openTextDocument(rawLogsFile);
                         await vscode.window.showTextDocument(doc);
                     }
@@ -171,54 +172,88 @@ export class ScopeWebviewProvider {
                     sdb3.close();
                 }
                 break;
+
+            case 'cacheMetadata':
+                await vscode.commands.executeCommand('sumologic.cacheScopeMetadata', scopeId, profileName);
+                // Refresh webview after action completion
+                setTimeout(() => {
+                    this.showScope(context, scopeId, profileName);
+                }, 1000);
+                break;
+
+            case 'viewMetadataResults':
+                const pm4 = new ProfileManager(context);
+                const pd4 = pm4.getProfileDirectory(profileName);
+                const sdb4 = createScopesCacheDB(pd4, profileName);
+                try {
+                    const sc4 = sdb4.getScopeById(scopeId);
+                    if (sc4?.metadataResultPath) {
+                        // Extract array from stored file and save for webview
+                        const tempFile = await this.extractArrayFromResultFile(sc4.metadataResultPath, 'records');
+                        await vscode.commands.executeCommand('sumologic.openQueryResultAsWebview', { data: { path: tempFile } });
+                    }
+                } finally {
+                    sdb4.close();
+                }
+                break;
+
+            case 'updateQueryFrom':
+                const pm5 = new ProfileManager(context);
+                const pd5 = pm5.getProfileDirectory(profileName);
+                const sdb5 = createScopesCacheDB(pd5, profileName);
+                try {
+                    const success = sdb5.updateScope(scopeId, { queryFrom: message.value });
+                    if (success) {
+                        vscode.window.showInformationMessage(`Updated query from to: ${message.value}`);
+                        // Refresh webview
+                        this.showScope(context, scopeId, profileName);
+                    }
+                } finally {
+                    sdb5.close();
+                }
+                break;
         }
     }
 
     /**
-     * Save result data to temporary file for viewing
-     * Extracts the array from the response for the webview
+     * Extract array from result file for viewing in webview
+     * Extracts the array from the response (records or messages)
      */
-    private static async saveTempResultFile(
-        profileDir: string,
-        scopeId: string,
-        type: string,
-        resultJson: string
+    private static async extractArrayFromResultFile(
+        resultFilePath: string,
+        arrayKey: 'records' | 'messages'
     ): Promise<string> {
         const fs = require('fs');
         const path = require('path');
 
-        // Parse the stored result
-        const data = JSON.parse(resultJson);
+        // Read and parse the stored result file
+        const data = JSON.parse(fs.readFileSync(resultFilePath, 'utf-8'));
 
-        // Extract the array - either records or messages
-        const arrayData = type === 'facets' ? data.records : data.messages;
+        // Extract the array
+        const arrayData = data[arrayKey] || [];
 
-        const outputDir = path.join(profileDir, 'scopes');
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
-        const fileName = `${scopeId}_${type}_latest.json`;
-        const filePath = path.join(outputDir, fileName);
+        // Create temp file for webview (same path but with _view suffix)
+        const dir = path.dirname(resultFilePath);
+        const basename = path.basename(resultFilePath, '.json');
+        const viewFilePath = path.join(dir, `${basename}_view.json`);
 
         // Save as array for the webview to consume
-        fs.writeFileSync(filePath, JSON.stringify(arrayData, null, 2), 'utf-8');
-        return filePath;
+        fs.writeFileSync(viewFilePath, JSON.stringify(arrayData, null, 2), 'utf-8');
+        return viewFilePath;
     }
 
     /**
-     * Save raw logs as text file
+     * Save raw logs as text file from result file path
      * Extracts _raw field from messages if available, otherwise formats as JSON
      */
-    private static async saveRawLogsFile(
-        profileDir: string,
-        scopeId: string,
-        resultJson: string
+    private static async saveRawLogsFileFromPath(
+        resultFilePath: string
     ): Promise<string> {
         const fs = require('fs');
         const path = require('path');
 
-        // Parse the stored result
-        const data = JSON.parse(resultJson);
+        // Read and parse the stored result file
+        const data = JSON.parse(fs.readFileSync(resultFilePath, 'utf-8'));
         const messages = data.messages || [];
 
         // Build raw log content
@@ -233,16 +268,14 @@ export class ScopeWebviewProvider {
             }
         }
 
-        const outputDir = path.join(profileDir, 'scopes');
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
-        const fileName = `${scopeId}_raw_logs.txt`;
-        const filePath = path.join(outputDir, fileName);
+        // Create raw logs file path
+        const dir = path.dirname(resultFilePath);
+        const basename = path.basename(resultFilePath, '.json');
+        const rawLogsPath = path.join(dir, `${basename}_raw.txt`);
 
         // Save as text file
-        fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
-        return filePath;
+        fs.writeFileSync(rawLogsPath, lines.join('\n'), 'utf-8');
+        return rawLogsPath;
     }
 
     /**
@@ -355,12 +388,13 @@ export class ScopeWebviewProvider {
      * Extract field names from scope results
      */
     private static extractFieldsFromScope(scope: Scope): string[] {
+        const fs = require('fs');
         const fields = new Set<string>();
 
         // Try to get fields from facets results first
-        if (scope.facetsResult) {
+        if (scope.facetsResultPath && fs.existsSync(scope.facetsResultPath)) {
             try {
-                const facetsData = JSON.parse(scope.facetsResult);
+                const facetsData = JSON.parse(fs.readFileSync(scope.facetsResultPath, 'utf-8'));
                 if (facetsData.records && facetsData.records.length > 0) {
                     // Each record in facets represents a field
                     for (const record of facetsData.records) {
@@ -375,9 +409,9 @@ export class ScopeWebviewProvider {
         }
 
         // If no fields from facets, try to get from sample logs
-        if (fields.size === 0 && scope.sampleLogsResult) {
+        if (fields.size === 0 && scope.sampleLogsResultPath && fs.existsSync(scope.sampleLogsResultPath)) {
             try {
-                const sampleData = JSON.parse(scope.sampleLogsResult);
+                const sampleData = JSON.parse(fs.readFileSync(scope.sampleLogsResultPath, 'utf-8'));
                 if (sampleData.messages && sampleData.messages.length > 0) {
                     // Get field names from first message
                     const firstMessage = sampleData.messages[0];
@@ -403,8 +437,9 @@ export class ScopeWebviewProvider {
         webview: vscode.Webview,
         context: vscode.ExtensionContext
     ): string {
-        const hasFacetsResult = scope.facetsResult && scope.facetsTimestamp;
-        const hasSampleLogsResult = scope.sampleLogsResult && scope.sampleLogsTimestamp;
+        const hasFacetsResult = scope.facetsResultPath && scope.facetsTimestamp;
+        const hasSampleLogsResult = scope.sampleLogsResultPath && scope.sampleLogsTimestamp;
+        const hasMetadataResult = scope.metadataResultPath && scope.metadataTimestamp;
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -547,35 +582,81 @@ export class ScopeWebviewProvider {
 
     <h2>Properties</h2>
     <div class="property-grid">
+        <div class="property-label">ID:</div>
+        <div class="property-value">${this.escapeHtml(scope.id)}</div>
+
+        <div class="property-label">Profile:</div>
+        <div class="property-value">${this.escapeHtml(scope.profile)}</div>
+
+        <div class="property-label">Name:</div>
+        <div class="property-value">${this.escapeHtml(scope.name)}</div>
+
         <div class="property-label">Search Scope:</div>
         <div class="property-value">${this.escapeHtml(scope.searchScope)}</div>
 
-        ${scope.description ? `
         <div class="property-label">Description:</div>
-        <div class="property-value">${this.escapeHtml(scope.description)}</div>
-        ` : ''}
+        <div class="property-value">${this.escapeHtml(scope.description || '')}</div>
 
-        ${scope.context ? `
         <div class="property-label">Context:</div>
-        <div class="property-value">${this.escapeHtml(scope.context)}</div>
-        ` : ''}
+        <div class="property-value">${this.escapeHtml(scope.context || '')}</div>
+
+        <div class="property-label">Query From:</div>
+        <div class="property-value">
+            <input type="text" id="queryFrom" value="${this.escapeHtml(scope.queryFrom || '-3h')}"
+                   style="width: 100%; background-color: var(--vscode-input-background);
+                          color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);
+                          padding: 4px 6px; border-radius: 2px; font-family: var(--vscode-editor-font-family);"
+                   onchange="updateQueryFrom(this.value)">
+        </div>
 
         <div class="property-label">Created:</div>
         <div class="property-value">${new Date(scope.createdAt).toLocaleString()}</div>
 
         <div class="property-label">Modified:</div>
         <div class="property-value">${new Date(scope.modifiedAt).toLocaleString()}</div>
+
+        ${scope.facetsResultPath ? `
+        <div class="property-label">Facets Result Path:</div>
+        <div class="property-value">${this.escapeHtml(scope.facetsResultPath)}</div>
+        ` : ''}
+
+        ${scope.facetsTimestamp ? `
+        <div class="property-label">Facets Last Run:</div>
+        <div class="property-value">${new Date(scope.facetsTimestamp).toLocaleString()}</div>
+        ` : ''}
+
+        ${scope.sampleLogsResultPath ? `
+        <div class="property-label">Sample Logs Result Path:</div>
+        <div class="property-value">${this.escapeHtml(scope.sampleLogsResultPath)}</div>
+        ` : ''}
+
+        ${scope.sampleLogsTimestamp ? `
+        <div class="property-label">Sample Logs Last Run:</div>
+        <div class="property-value">${new Date(scope.sampleLogsTimestamp).toLocaleString()}</div>
+        ` : ''}
+
+        ${scope.metadataResultPath ? `
+        <div class="property-label">Metadata Result Path:</div>
+        <div class="property-value">${this.escapeHtml(scope.metadataResultPath)}</div>
+        ` : ''}
+
+        ${scope.metadataTimestamp ? `
+        <div class="property-label">Metadata Last Cached:</div>
+        <div class="property-value">${new Date(scope.metadataTimestamp).toLocaleString()}</div>
+        ` : ''}
     </div>
 
     <h2>Actions</h2>
     <div class="button-group">
         <button onclick="profileScope()">🔍 Profile Scope (Facets)</button>
         <button onclick="sampleLogs()">📄 Sample Logs (Messages)</button>
+        <button onclick="cacheMetadata()">🔑 Cache Metadata</button>
         <button onclick="newQuery()">📝 New Query</button>
     </div>
 
     ${hasFacetsResult ? this.renderFacetsResults(scope) : ''}
     ${hasSampleLogsResult ? this.renderSampleLogsResults(scope) : ''}
+    ${hasMetadataResult ? this.renderMetadataResults(scope) : ''}
 
     <script>
         const vscode = acquireVsCodeApi();
@@ -617,6 +698,18 @@ export class ScopeWebviewProvider {
         function newQuery() {
             vscode.postMessage({ command: 'newQuery' });
         }
+
+        function cacheMetadata() {
+            vscode.postMessage({ command: 'cacheMetadata' });
+        }
+
+        function viewMetadataResults() {
+            vscode.postMessage({ command: 'viewMetadataResults' });
+        }
+
+        function updateQueryFrom(value) {
+            vscode.postMessage({ command: 'updateQueryFrom', value: value });
+        }
     </script>
 </body>
 </html>`;
@@ -626,8 +719,17 @@ export class ScopeWebviewProvider {
      * Render facets results section
      */
     private static renderFacetsResults(scope: Scope): string {
-        const data = JSON.parse(scope.facetsResult!);
-        const recordCount = data.records?.length || 0;
+        const fs = require('fs');
+        let recordCount = 0;
+
+        if (scope.facetsResultPath && fs.existsSync(scope.facetsResultPath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(scope.facetsResultPath, 'utf-8'));
+                recordCount = data.records?.length || 0;
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
 
         return `
         <div class="action-section">
@@ -642,8 +744,17 @@ export class ScopeWebviewProvider {
      * Render sample logs results section
      */
     private static renderSampleLogsResults(scope: Scope): string {
-        const data = JSON.parse(scope.sampleLogsResult!);
-        const messageCount = data.messages?.length || 0;
+        const fs = require('fs');
+        let messageCount = 0;
+
+        if (scope.sampleLogsResultPath && fs.existsSync(scope.sampleLogsResultPath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(scope.sampleLogsResultPath, 'utf-8'));
+                messageCount = data.messages?.length || 0;
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
 
         return `
         <div class="action-section">
@@ -654,6 +765,32 @@ export class ScopeWebviewProvider {
                 <button onclick="viewSampleLogsResults()">📄 View Sample Logs Table</button>
                 <button onclick="viewRawLogs()">📝 View Raw Logs</button>
             </div>
+        </div>`;
+    }
+
+    /**
+     * Render metadata results section
+     */
+    private static renderMetadataResults(scope: Scope): string {
+        const fs = require('fs');
+        let recordCount = 0;
+
+        if (scope.metadataResultPath && fs.existsSync(scope.metadataResultPath)) {
+            try {
+                const data = JSON.parse(fs.readFileSync(scope.metadataResultPath, 'utf-8'));
+                recordCount = data.records?.length || 0;
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+
+        return `
+        <div class="action-section">
+            <h3>Key Metadata</h3>
+            <div class="timestamp">Last run: ${new Date(scope.metadataTimestamp!).toLocaleString()}</div>
+            <p>Metadata query returned ${recordCount} key combinations.</p>
+            <p>Autocomplete values have been updated (merged) for this scope.</p>
+            <button onclick="viewMetadataResults()">🔑 View Metadata Table</button>
         </div>`;
     }
 

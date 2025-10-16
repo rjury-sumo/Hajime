@@ -5,6 +5,7 @@ import { SearchJobClient, SearchJobRequest } from '../api/searchJob';
 import { createClient } from './authenticate';
 import { ProfileManager } from '../profileManager';
 import { MetadataCompletionProvider } from '../metadataCompletions';
+import { executeQueryForRecords } from '../utils/queryExecutor';
 
 /**
  * Scope options for metadata query
@@ -295,4 +296,56 @@ function buildMetadataQuery(scope: MetadataScope, sampling: SamplingOption): str
     query += '\n| fields -_view';
 
     return query;
+}
+
+/**
+ * Execute metadata query for a custom scope
+ * Exported function for use by other modules (e.g., scope actions)
+ */
+export async function executeMetadataQuery(
+    context: vscode.ExtensionContext,
+    customScope: string,
+    profileName: string,
+    timeRange: string = '-3h',
+    mergeMode: 'replace' | 'merge' = 'merge',
+    metadataProvider?: MetadataCompletionProvider
+): Promise<any[]> {
+    const profileManager = new ProfileManager(context);
+
+    // Get the specified profile
+    const profiles = await profileManager.getProfiles();
+    const profile = profiles.find(p => p.name === profileName);
+
+    if (!profile) {
+        throw new Error(`Profile '${profileName}' not found`);
+    }
+
+    // Build query - for custom scopes, use event-based aggregation
+    // The scope expression should query actual events, not the summary view
+    const query = `${customScope}
+| sum(_size) as bytes, count by _sourcecategory, _collector, _source, _sourcehost, _sourcename`;
+
+    // Execute query using shared utility
+    const recordsData = await executeQueryForRecords(context, {
+        query,
+        profileName,
+        from: timeRange,
+        to: 'now',
+        timeZone: 'UTC'
+    });
+
+    const records = recordsData.records;
+
+    // Update metadata completion provider if provided
+    if (metadataProvider) {
+        await metadataProvider.updateCacheFromResults(records, mergeMode === 'merge');
+
+        // Save results to metadata directory
+        const metadataDir = profileManager.getProfileMetadataDirectory(profileName);
+        const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '.');
+        const resultsFile = path.join(metadataDir, `key_metadata_results.${timestamp}.json`);
+        fs.writeFileSync(resultsFile, JSON.stringify(records, null, 2));
+    }
+
+    return records;
 }

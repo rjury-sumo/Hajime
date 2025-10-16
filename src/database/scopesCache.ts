@@ -12,14 +12,17 @@ export interface Scope {
     description?: string;          // User description
     searchScope: string;           // Query scope (e.g., "_sourceCategory=prod/app")
     context?: string;              // AI context and use cases
+    queryFrom?: string;            // Default 'from' time for queries (e.g., "-3h", "-1d")
     createdAt: string;             // ISO timestamp
     modifiedAt: string;            // ISO timestamp
 
-    // Action results (stored as JSON)
-    facetsResult?: string;         // JSON from "Profile Scope" action
+    // Action results (stored as file paths)
+    facetsResultPath?: string;     // Path to facets result JSON file
     facetsTimestamp?: string;      // When facets was last run
-    sampleLogsResult?: string;     // JSON from "Sample Logs" action
+    sampleLogsResultPath?: string; // Path to sample logs result JSON file
     sampleLogsTimestamp?: string;  // When sample logs was last run
+    metadataResultPath?: string;   // Path to metadata result JSON file
+    metadataTimestamp?: string;    // When metadata was last cached
 }
 
 /**
@@ -62,17 +65,58 @@ export class ScopesCacheDB {
                 description TEXT,
                 searchScope TEXT NOT NULL,
                 context TEXT,
+                queryFrom TEXT DEFAULT '-3h',
                 createdAt TEXT NOT NULL,
                 modifiedAt TEXT NOT NULL,
-                facetsResult TEXT,
+                facetsResultPath TEXT,
                 facetsTimestamp TEXT,
-                sampleLogsResult TEXT,
-                sampleLogsTimestamp TEXT
+                sampleLogsResultPath TEXT,
+                sampleLogsTimestamp TEXT,
+                metadataResultPath TEXT,
+                metadataTimestamp TEXT
             );
 
             CREATE INDEX IF NOT EXISTS idx_profile ON scopes(profile);
             CREATE INDEX IF NOT EXISTS idx_name ON scopes(profile, name);
         `);
+
+        // Migration: Add metadataResult and metadataTimestamp columns if they don't exist
+        this.migrateSchema();
+    }
+
+    /**
+     * Migrate schema to add missing columns
+     */
+    private migrateSchema(): void {
+        // Check if columns exist
+        const tableInfo = this.db.pragma('table_info(scopes)') as Array<{ name: string }>;
+        const columns = tableInfo.map((col) => col.name);
+
+        // Legacy columns for backward compatibility
+        if (!columns.includes('metadataResult')) {
+            this.db.exec('ALTER TABLE scopes ADD COLUMN metadataResult TEXT');
+        }
+
+        if (!columns.includes('metadataTimestamp')) {
+            this.db.exec('ALTER TABLE scopes ADD COLUMN metadataTimestamp TEXT');
+        }
+
+        if (!columns.includes('queryFrom')) {
+            this.db.exec("ALTER TABLE scopes ADD COLUMN queryFrom TEXT DEFAULT '-3h'");
+        }
+
+        // New path-based columns
+        if (!columns.includes('facetsResultPath')) {
+            this.db.exec('ALTER TABLE scopes ADD COLUMN facetsResultPath TEXT');
+        }
+
+        if (!columns.includes('sampleLogsResultPath')) {
+            this.db.exec('ALTER TABLE scopes ADD COLUMN sampleLogsResultPath TEXT');
+        }
+
+        if (!columns.includes('metadataResultPath')) {
+            this.db.exec('ALTER TABLE scopes ADD COLUMN metadataResultPath TEXT');
+        }
     }
 
     /**
@@ -89,23 +133,26 @@ export class ScopesCacheDB {
             description: scope.description,
             searchScope: scope.searchScope,
             context: scope.context,
+            queryFrom: scope.queryFrom || '-3h',
             createdAt: now,
             modifiedAt: now,
-            facetsResult: scope.facetsResult,
+            facetsResultPath: scope.facetsResultPath,
             facetsTimestamp: scope.facetsTimestamp,
-            sampleLogsResult: scope.sampleLogsResult,
-            sampleLogsTimestamp: scope.sampleLogsTimestamp
+            sampleLogsResultPath: scope.sampleLogsResultPath,
+            sampleLogsTimestamp: scope.sampleLogsTimestamp,
+            metadataResultPath: scope.metadataResultPath,
+            metadataTimestamp: scope.metadataTimestamp
         };
 
         const stmt = this.db.prepare(`
             INSERT INTO scopes (
-                id, profile, name, description, searchScope, context,
-                createdAt, modifiedAt, facetsResult, facetsTimestamp,
-                sampleLogsResult, sampleLogsTimestamp
+                id, profile, name, description, searchScope, context, queryFrom,
+                createdAt, modifiedAt, facetsResultPath, facetsTimestamp,
+                sampleLogsResultPath, sampleLogsTimestamp, metadataResultPath, metadataTimestamp
             ) VALUES (
-                @id, @profile, @name, @description, @searchScope, @context,
-                @createdAt, @modifiedAt, @facetsResult, @facetsTimestamp,
-                @sampleLogsResult, @sampleLogsTimestamp
+                @id, @profile, @name, @description, @searchScope, @context, @queryFrom,
+                @createdAt, @modifiedAt, @facetsResultPath, @facetsTimestamp,
+                @sampleLogsResultPath, @sampleLogsTimestamp, @metadataResultPath, @metadataTimestamp
             )
         `);
 
@@ -136,11 +183,14 @@ export class ScopesCacheDB {
                 description = @description,
                 searchScope = @searchScope,
                 context = @context,
+                queryFrom = @queryFrom,
                 modifiedAt = @modifiedAt,
-                facetsResult = @facetsResult,
+                facetsResultPath = @facetsResultPath,
                 facetsTimestamp = @facetsTimestamp,
-                sampleLogsResult = @sampleLogsResult,
-                sampleLogsTimestamp = @sampleLogsTimestamp
+                sampleLogsResultPath = @sampleLogsResultPath,
+                sampleLogsTimestamp = @sampleLogsTimestamp,
+                metadataResultPath = @metadataResultPath,
+                metadataTimestamp = @metadataTimestamp
             WHERE id = @id
         `);
 

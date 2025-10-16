@@ -3,7 +3,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ProfileManager } from '../profileManager';
 import { createScopesCacheDB } from '../database/scopesCache';
-import { SearchJobClient, SearchJobRequest } from '../api/searchJob';
+import { executeMetadataQuery } from './cacheKeyMetadata';
+import { getMetadataCompletionProvider } from '../extension';
+import { executeQueryForRecords, executeQueryForMessages } from '../utils/queryExecutor';
 
 /**
  * Profile a scope using facets query
@@ -34,87 +36,35 @@ export async function profileScope(
             cancellable: false
         }, async (progress) => {
             try {
-                // Get profile and credentials
-                const profiles = await profileManager.getProfiles();
-                const profile = profiles.find(p => p.name === profileName);
-                if (!profile) {
-                    throw new Error('Profile not found');
-                }
-
-                const credentials = await profileManager.getProfileCredentials(profileName);
-                if (!credentials) {
-                    throw new Error('No credentials found');
-                }
-
-                // Create client
-                const endpoint = profileManager.getProfileEndpoint(profile);
-                const searchClient = new SearchJobClient({
-                    accessId: credentials.accessId,
-                    accessKey: credentials.accessKey,
-                    endpoint
-                });
-
-                // Execute query
-                progress.report({ message: 'Executing facets query...' });
-
-                // Parse time ranges to epoch milliseconds
-                const fromTime = SearchJobClient.parseRelativeTime('-3h');
-                const toTime = SearchJobClient.parseRelativeTime('now');
-
-                const request: SearchJobRequest = {
+                // Execute query using shared utility
+                const recordsData = await executeQueryForRecords(context, {
                     query,
-                    from: fromTime,
-                    to: toTime,
-                    timeZone: 'UTC',
-                    byReceiptTime: false,
-                    autoParsingMode: 'Manual'
-                };
-
-                const jobResponse = await searchClient.createSearchJob(request);
-                if (jobResponse.error || !jobResponse.data) {
-                    throw new Error(jobResponse.error || 'Failed to create search job');
-                }
-
-                const jobId = jobResponse.data.id;
-
-                // Poll for completion
-                progress.report({ message: 'Waiting for query to complete...' });
-                const result = await searchClient.pollForCompletion(jobId);
-
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-
-                // Get records
-                progress.report({ message: 'Fetching results...' });
-                const recordsResponse = await searchClient.getRecords(jobId);
-
-                if (recordsResponse.error || !recordsResponse.data) {
-                    throw new Error(recordsResponse.error || 'Failed to fetch records');
-                }
-
-                // Save results to scope
-                const now = new Date().toISOString();
-                const resultsJson = JSON.stringify(recordsResponse.data);
-
-                db.updateScope(scopeId, {
-                    facetsResult: resultsJson,
-                    facetsTimestamp: now
+                    profileName,
+                    from: scope.queryFrom || '-3h',
+                    to: 'now',
+                    onProgress: (msg) => progress.report({ message: msg })
                 });
 
-                // Also save to file for reference
+                // Save results to file
+                const now = new Date().toISOString();
                 const outputDir = path.join(profileDir, 'scopes');
                 if (!fs.existsSync(outputDir)) {
                     fs.mkdirSync(outputDir, { recursive: true });
                 }
 
-                const fileName = `${scopeId}_facets_${now.replace(/[:.]/g, '-')}.json`;
+                const fileName = `${scopeId}_facets_latest.json`;
                 const filePath = path.join(outputDir, fileName);
-                fs.writeFileSync(filePath, JSON.stringify(recordsResponse.data, null, 2), 'utf-8');
+                fs.writeFileSync(filePath, JSON.stringify(recordsData, null, 2), 'utf-8');
+
+                // Update scope with file path
+                db.updateScope(scopeId, {
+                    facetsResultPath: filePath,
+                    facetsTimestamp: now
+                });
 
                 // Count fields from records
-                const fieldCount = recordsResponse.data.records && recordsResponse.data.records.length > 0
-                    ? Object.keys(recordsResponse.data.records[0].map || {}).length
+                const fieldCount = recordsData.records && recordsData.records.length > 0
+                    ? Object.keys(recordsData.records[0].map || {}).length
                     : 0;
 
                 vscode.window.showInformationMessage(
@@ -159,90 +109,109 @@ export async function sampleScopeLogs(
             cancellable: false
         }, async (progress) => {
             try {
-                // Get profile and credentials
-                const profiles = await profileManager.getProfiles();
-                const profile = profiles.find(p => p.name === profileName);
-                if (!profile) {
-                    throw new Error('Profile not found');
-                }
-
-                const credentials = await profileManager.getProfileCredentials(profileName);
-                if (!credentials) {
-                    throw new Error('No credentials found');
-                }
-
-                // Create client
-                const endpoint = profileManager.getProfileEndpoint(profile);
-                const searchClient = new SearchJobClient({
-                    accessId: credentials.accessId,
-                    accessKey: credentials.accessKey,
-                    endpoint
-                });
-
-                // Execute query
-                progress.report({ message: 'Executing sample query...' });
-
-                // Parse time ranges to epoch milliseconds
-                const fromTime = SearchJobClient.parseRelativeTime('-3h');
-                const toTime = SearchJobClient.parseRelativeTime('now');
-
-                const request: SearchJobRequest = {
+                // Execute query using shared utility
+                const messagesData = await executeQueryForMessages(context, {
                     query,
-                    from: fromTime,
-                    to: toTime,
-                    timeZone: 'UTC',
-                    byReceiptTime: false,
-                    autoParsingMode: 'Manual'
-                };
-
-                const jobResponse = await searchClient.createSearchJob(request);
-                if (jobResponse.error || !jobResponse.data) {
-                    throw new Error(jobResponse.error || 'Failed to create search job');
-                }
-
-                const jobId = jobResponse.data.id;
-
-                // Poll for completion
-                progress.report({ message: 'Waiting for query to complete...' });
-                const result = await searchClient.pollForCompletion(jobId);
-
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-
-                // Get messages
-                progress.report({ message: 'Fetching results...' });
-                const messagesResponse = await searchClient.getMessages(jobId);
-
-                if (messagesResponse.error || !messagesResponse.data) {
-                    throw new Error(messagesResponse.error || 'Failed to fetch messages');
-                }
-
-                // Save results to scope
-                const now = new Date().toISOString();
-                const resultsJson = JSON.stringify(messagesResponse.data);
-
-                db.updateScope(scopeId, {
-                    sampleLogsResult: resultsJson,
-                    sampleLogsTimestamp: now
+                    profileName,
+                    from: scope.queryFrom || '-3h',
+                    to: 'now',
+                    onProgress: (msg) => progress.report({ message: msg })
                 });
 
-                // Also save to file for reference
+                // Save results to file
+                const now = new Date().toISOString();
                 const outputDir = path.join(profileDir, 'scopes');
                 if (!fs.existsSync(outputDir)) {
                     fs.mkdirSync(outputDir, { recursive: true });
                 }
 
-                const fileName = `${scopeId}_sample_${now.replace(/[:.]/g, '-')}.json`;
+                const fileName = `${scopeId}_sample_latest.json`;
                 const filePath = path.join(outputDir, fileName);
-                fs.writeFileSync(filePath, JSON.stringify(messagesResponse.data, null, 2), 'utf-8');
+                fs.writeFileSync(filePath, JSON.stringify(messagesData, null, 2), 'utf-8');
+
+                // Update scope with file path
+                db.updateScope(scopeId, {
+                    sampleLogsResultPath: filePath,
+                    sampleLogsTimestamp: now
+                });
 
                 vscode.window.showInformationMessage(
-                    `Sample logs retrieved. Found ${messagesResponse.data.messages?.length || 0} messages.`
+                    `Sample logs retrieved. Found ${messagesData.messages?.length || 0} messages.`
                 );
 
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Failed to sample logs: ${error.message || error}`);
+            }
+        });
+    } finally {
+        db.close();
+    }
+}
+
+/**
+ * Cache metadata for a scope
+ * Executes key metadata query and updates autocomplete
+ */
+export async function cacheScopeMetadata(
+    context: vscode.ExtensionContext,
+    scopeId: string,
+    profileName: string
+): Promise<void> {
+    const profileManager = new ProfileManager(context);
+    const profileDir = profileManager.getProfileDirectory(profileName);
+    const db = createScopesCacheDB(profileDir, profileName);
+
+    try {
+        const scope = db.getScopeById(scopeId);
+        if (!scope) {
+            vscode.window.showErrorMessage('Scope not found');
+            return;
+        }
+
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Caching metadata for scope "${scope.name}"...`,
+            cancellable: false
+        }, async (progress) => {
+            try {
+                progress.report({ message: 'Executing metadata query...' });
+
+                // Get metadata completion provider
+                const metadataProvider = getMetadataCompletionProvider();
+
+                // Execute metadata query using the refactored function
+                const records = await executeMetadataQuery(
+                    context,
+                    scope.searchScope,
+                    profileName, // Use the specific profile for this scope
+                    scope.queryFrom || '-3h',
+                    'merge', // Always merge to append to existing metadata
+                    metadataProvider
+                );
+
+                // Save results to file
+                const now = new Date().toISOString();
+                const outputDir = path.join(profileDir, 'scopes');
+                if (!fs.existsSync(outputDir)) {
+                    fs.mkdirSync(outputDir, { recursive: true });
+                }
+
+                const fileName = `${scopeId}_metadata_latest.json`;
+                const filePath = path.join(outputDir, fileName);
+                fs.writeFileSync(filePath, JSON.stringify({ records }, null, 2), 'utf-8');
+
+                // Update scope with file path
+                db.updateScope(scopeId, {
+                    metadataResultPath: filePath,
+                    metadataTimestamp: now
+                });
+
+                vscode.window.showInformationMessage(
+                    `Metadata cached for scope. Found ${records.length} key combinations.`
+                );
+
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to cache metadata: ${error.message || error}`);
             }
         });
     } finally {

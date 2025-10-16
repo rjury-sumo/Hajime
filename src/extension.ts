@@ -471,14 +471,34 @@ export function activate(context: vscode.ExtensionContext) {
         return ScopeWebviewProvider.showScope(context, scopeId, profileName);
     });
 
-    const profileScopeCmd = vscode.commands.registerCommand('sumologic.profileScope', async (scopeId: string, profileName: string) => {
+    const profileScopeCmd = vscode.commands.registerCommand('sumologic.profileScope', async (scopeIdOrTreeItem: string | any, profileName?: string) => {
         const { profileScope } = require('./commands/scopeActions');
-        return profileScope(context, scopeId, profileName);
+        // Handle both direct call (scopeId, profileName) and context menu call (treeItem)
+        if (typeof scopeIdOrTreeItem === 'string') {
+            return profileScope(context, scopeIdOrTreeItem, profileName!);
+        } else {
+            return profileScope(context, scopeIdOrTreeItem.data.scopeId, scopeIdOrTreeItem.data.profileName);
+        }
     });
 
-    const sampleScopeLogsCmd = vscode.commands.registerCommand('sumologic.sampleScopeLogs', async (scopeId: string, profileName: string) => {
+    const sampleScopeLogsCmd = vscode.commands.registerCommand('sumologic.sampleScopeLogs', async (scopeIdOrTreeItem: string | any, profileName?: string) => {
         const { sampleScopeLogs } = require('./commands/scopeActions');
-        return sampleScopeLogs(context, scopeId, profileName);
+        // Handle both direct call (scopeId, profileName) and context menu call (treeItem)
+        if (typeof scopeIdOrTreeItem === 'string') {
+            return sampleScopeLogs(context, scopeIdOrTreeItem, profileName!);
+        } else {
+            return sampleScopeLogs(context, scopeIdOrTreeItem.data.scopeId, scopeIdOrTreeItem.data.profileName);
+        }
+    });
+
+    const cacheScopeMetadataCmd = vscode.commands.registerCommand('sumologic.cacheScopeMetadata', async (scopeIdOrTreeItem: string | any, profileName?: string) => {
+        const { cacheScopeMetadata } = require('./commands/scopeActions');
+        // Handle both direct call (scopeId, profileName) and context menu call (treeItem)
+        if (typeof scopeIdOrTreeItem === 'string') {
+            return cacheScopeMetadata(context, scopeIdOrTreeItem, profileName!);
+        } else {
+            return cacheScopeMetadata(context, scopeIdOrTreeItem.data.scopeId, scopeIdOrTreeItem.data.profileName);
+        }
     });
 
     context.subscriptions.push(
@@ -542,7 +562,8 @@ export function activate(context: vscode.ExtensionContext) {
         listScopesCmd,
         viewScopeCmd,
         profileScopeCmd,
-        sampleScopeLogsCmd
+        sampleScopeLogsCmd,
+        cacheScopeMetadataCmd
     );
 
     // Export context for tests

@@ -635,7 +635,10 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 const stats = fs.statSync(fullPath);
                 const sizeKB = (stats.size / 1024).toFixed(1);
 
-                items.push(new SumoTreeItem(
+                // Determine if this is a query JSON file in queries folder
+                const isQueryJson = file.name.endsWith('.json') && folderPath.includes('/queries');
+
+                const item = new SumoTreeItem(
                     file.name,
                     TreeItemType.StorageFile,
                     vscode.TreeItemCollapsibleState.None,
@@ -645,7 +648,14 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                         stats,
                         tooltip: `${file.name}\nSize: ${sizeKB} KB\nModified: ${stats.mtime.toLocaleString()}`
                     }
-                ));
+                );
+
+                // Override contextValue for query JSON files
+                if (isQueryJson) {
+                    item.contextValue = 'queryJsonFile';
+                }
+
+                items.push(item);
             }
 
             return items;

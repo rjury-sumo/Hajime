@@ -13,7 +13,7 @@ import { cleanupOldFilesCommand } from './commands/cleanupOldFiles';
 import { cacheKeyMetadataCommand } from './commands/cacheKeyMetadata';
 import { newSumoFileCommand } from './commands/newSumoFile';
 import { openSearchInWebCommand } from './commands/openSearchInWeb';
-import { revealStorageInExplorerCommand, deleteStorageItemCommand, copyStoragePathCommand, openStorageInTerminalCommand } from './commands/storageExplorer';
+import { revealStorageInExplorerCommand, deleteStorageItemCommand, copyStoragePathCommand, openStorageInTerminalCommand, openQueryResultAsWebviewCommand } from './commands/storageExplorer';
 import { viewLibraryContentCommand } from './commands/viewLibraryContent';
 import {
     copyLibraryNodeIdCommand,
@@ -371,6 +371,10 @@ export function activate(context: vscode.ExtensionContext) {
         return openStorageInTerminalCommand(treeItem);
     });
 
+    const openQueryResultAsWebviewCmd = vscode.commands.registerCommand('sumologic.openQueryResultAsWebview', (treeItem?: any) => {
+        return openQueryResultAsWebviewCommand(context, treeItem);
+    });
+
     const viewLibraryContentCmd = vscode.commands.registerCommand('sumologic.viewLibraryContent', (profileName: string, contentId: string, contentName: string) => {
         return viewLibraryContentCommand(context, profileName, contentId, contentName);
     });
@@ -480,6 +484,7 @@ export function activate(context: vscode.ExtensionContext) {
         deleteStorageCmd,
         copyStoragePathCmd,
         openStorageInTerminalCmd,
+        openQueryResultAsWebviewCmd,
         viewLibraryContentCmd,
         copyLibraryNodeIdCmd,
         copyLibraryNodePathCmd,

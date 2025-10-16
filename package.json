@@ -225,6 +225,11 @@
                 "icon": "$(terminal)"
             },
             {
+                "command": "sumologic.openQueryResultAsWebview",
+                "title": "Open Query Results as Webview",
+                "icon": "$(table)"
+            },
+            {
                 "command": "sumologic.viewLibraryNodeDetails",
                 "title": "View Library Content Details",
                 "icon": "$(info)"
@@ -335,6 +340,11 @@
                     "group": "navigation@3"
                 },
                 {
+                    "command": "sumologic.openQueryResultAsWebview",
+                    "when": "view == sumoExplorer && viewItem == queryJsonFile",
+                    "group": "navigation@0"
+                },
+                {
                     "command": "sumologic.revealStorageInExplorer",
                     "when": "view == sumoExplorer && viewItem == storageFile",
                     "group": "navigation@1"
@@ -352,6 +362,26 @@
                 {
                     "command": "sumologic.deleteStorageItem",
                     "when": "view == sumoExplorer && viewItem == storageFile",
+                    "group": "delete@1"
+                },
+                {
+                    "command": "sumologic.revealStorageInExplorer",
+                    "when": "view == sumoExplorer && viewItem == queryJsonFile",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.copyStoragePath",
+                    "when": "view == sumoExplorer && viewItem == queryJsonFile",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openStorageInTerminal",
+                    "when": "view == sumoExplorer && viewItem == queryJsonFile",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "sumologic.deleteStorageItem",
+                    "when": "view == sumoExplorer && viewItem == queryJsonFile",
                     "group": "delete@1"
                 },
                 {

@@ -1,5 +1,168 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * Open a query result JSON file as a webview
+ */
+export async function openQueryResultAsWebviewCommand(context: vscode.ExtensionContext, treeItem: any): Promise<void> {
+    const filePath = treeItem?.data?.path || treeItem?.data?.filePath;
+
+    if (!filePath) {
+        vscode.window.showErrorMessage('No file path available');
+        return;
+    }
+
+    // Check if it's a JSON file
+    if (!filePath.endsWith('.json')) {
+        vscode.window.showErrorMessage('Only JSON files can be opened as webviews');
+        return;
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+        vscode.window.showErrorMessage(`File does not exist: ${filePath}`);
+        return;
+    }
+
+    try {
+        // Read and parse the JSON file
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        let results: any[];
+
+        try {
+            results = JSON.parse(fileContent);
+        } catch (parseError) {
+            vscode.window.showErrorMessage(`Failed to parse JSON file: ${parseError}`);
+            return;
+        }
+
+        // Validate that it's an array of results
+        if (!Array.isArray(results)) {
+            vscode.window.showErrorMessage('JSON file must contain an array of query results');
+            return;
+        }
+
+        if (results.length === 0) {
+            vscode.window.showInformationMessage('Query results file is empty');
+            return;
+        }
+
+        // Extract metadata from filename if possible
+        // Expected format: query_{name}_{mode}_{from}_to_{to}_{timestamp}.json
+        const fileName = path.basename(filePath, '.json');
+        const queryName = fileName.replace(/_\d{8}_\d{6}$/, ''); // Remove timestamp
+
+        // Determine mode from data structure
+        const mode = results[0].map ? 'records' : 'messages';
+
+        // Import formatRecordsAsHTML from runQuery
+        const { formatRecordsAsHTML } = await import('./runQuery');
+
+        // Create webview panel
+        const panel = vscode.window.createWebviewPanel(
+            'sumoQueryResults',
+            `Saved Query Results: ${queryName}`,
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true
+            }
+        );
+
+        // Get page size from settings
+        const config = vscode.workspace.getConfiguration('sumologic');
+        const pageSize = config.get<number>('webviewPageSize') || 200;
+
+        // Get file stats for metadata
+        const stats = fs.statSync(filePath);
+
+        const htmlContent = formatRecordsAsHTML(results, {
+            query: queryName,
+            from: 'N/A (from file)',
+            to: 'N/A (from file)',
+            mode: mode,
+            count: results.length,
+            pageSize: pageSize,
+            jsonFilePath: filePath
+        });
+
+        panel.webview.html = htmlContent;
+
+        // Handle messages from webview (for field analysis, charting, etc.)
+        panel.webview.onDidReceiveMessage(
+            async (message) => {
+                if (message.command === 'exportCSV') {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    const defaultUri = workspaceFolder
+                        ? vscode.Uri.file(workspaceFolder.uri.fsPath)
+                        : undefined;
+
+                    const uri = await vscode.window.showSaveDialog({
+                        defaultUri: defaultUri,
+                        filters: {
+                            'CSV Files': ['csv'],
+                            'All Files': ['*']
+                        },
+                        saveLabel: 'Export CSV'
+                    });
+
+                    if (uri) {
+                        fs.writeFileSync(uri.fsPath, message.csvData, 'utf-8');
+                        vscode.window.showInformationMessage(`CSV exported to ${uri.fsPath}`);
+                    }
+                } else if (message.command === 'exportJSON') {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    const defaultUri = workspaceFolder
+                        ? vscode.Uri.file(workspaceFolder.uri.fsPath)
+                        : undefined;
+
+                    const uri = await vscode.window.showSaveDialog({
+                        defaultUri: defaultUri,
+                        filters: {
+                            'JSON Files': ['json'],
+                            'All Files': ['*']
+                        },
+                        saveLabel: 'Export JSON'
+                    });
+
+                    if (uri) {
+                        fs.writeFileSync(uri.fsPath, message.jsonData, 'utf-8');
+                        vscode.window.showInformationMessage(`JSON exported to ${uri.fsPath}`);
+                    }
+                } else if (message.command === 'showFieldValues') {
+                    const { FieldAnalyzer } = await import('../services/fieldAnalyzer');
+                    const { generateFieldValuesHTML } = await import('./runQuery');
+                    const fieldName = message.fieldName;
+                    const distribution = FieldAnalyzer.getValueDistribution(fieldName, results, 1000);
+
+                    const valuesPanel = vscode.window.createWebviewPanel(
+                        'fieldValues',
+                        `Field Values: ${fieldName}`,
+                        vscode.ViewColumn.Beside,
+                        {
+                            enableScripts: true,
+                            retainContextWhenHidden: false
+                        }
+                    );
+
+                    valuesPanel.webview.html = generateFieldValuesHTML(fieldName, distribution, results.length);
+                } else if (message.command === 'chartField') {
+                    const { FieldAnalyzer } = await import('../services/fieldAnalyzer');
+                    const { handleChartFieldExternal } = await import('./runQuery');
+                    const fieldAnalysis = FieldAnalyzer.analyze(results, mode as 'records' | 'messages');
+                    await handleChartFieldExternal(message.fieldName, results, fieldAnalysis);
+                }
+            },
+            undefined,
+            context.subscriptions
+        );
+
+        vscode.window.showInformationMessage(`Opened query results: ${results.length} ${mode}`);
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to open query result as webview: ${error}`);
+    }
+}
 
 /**
  * Reveal a storage item (file or folder) in the system file explorer

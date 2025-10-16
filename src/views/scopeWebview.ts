@@ -157,6 +157,20 @@ export class ScopeWebviewProvider {
                     sdb2.close();
                 }
                 break;
+
+            case 'newQuery':
+                const pm3 = new ProfileManager(context);
+                const pd3 = pm3.getProfileDirectory(profileName);
+                const sdb3 = createScopesCacheDB(pd3, profileName);
+                try {
+                    const sc3 = sdb3.getScopeById(scopeId);
+                    if (sc3) {
+                        await this.createNewQueryFromScope(sc3, pd3, profileName);
+                    }
+                } finally {
+                    sdb3.close();
+                }
+                break;
         }
     }
 
@@ -229,6 +243,156 @@ export class ScopeWebviewProvider {
         // Save as text file
         fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
         return filePath;
+    }
+
+    /**
+     * Create a new .sumo query file from scope with field list
+     */
+    private static async createNewQueryFromScope(
+        scope: Scope,
+        profileDir: string,
+        profileName: string
+    ): Promise<void> {
+        const fs = require('fs');
+        const path = require('path');
+
+        // Extract field list from facets results or sample logs
+        const fields = this.extractFieldsFromScope(scope);
+
+        // Build query content
+        const lines: string[] = [];
+        lines.push(`// @name ${scope.name}`);
+        lines.push('// @from -1h');
+        lines.push('// @to now');
+        lines.push('');
+
+        // Add field list as block comment with wrapping
+        if (fields.length > 0) {
+            // Separate built-in fields (starting with _) from custom fields
+            const builtInFields = fields.filter(f => f.startsWith('_')).sort();
+            const customFields = fields.filter(f => !f.startsWith('_')).sort();
+
+            lines.push('/*');
+            lines.push('Available fields in this scope:');
+
+            if (builtInFields.length > 0) {
+                const builtInLines = this.wrapFieldList(builtInFields, 80);
+                builtInLines.forEach(line => lines.push(line));
+            }
+
+            if (customFields.length > 0) {
+                if (builtInFields.length > 0) {
+                    lines.push(''); // Blank line between built-in and custom
+                }
+                const customLines = this.wrapFieldList(customFields, 80);
+                customLines.forEach(line => lines.push(line));
+            }
+
+            lines.push('*/');
+            lines.push('');
+        }
+
+        // Add the scope query
+        lines.push(scope.searchScope);
+        lines.push('');
+
+        const content = lines.join('\n');
+
+        // Create queries directory if it doesn't exist
+        const queriesDir = path.join(profileDir, 'queries');
+        if (!fs.existsSync(queriesDir)) {
+            fs.mkdirSync(queriesDir, { recursive: true });
+        }
+
+        // Create file with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+        const sanitizedName = scope.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `${sanitizedName}_${timestamp}.sumo`;
+        const filePath = path.join(queriesDir, fileName);
+
+        fs.writeFileSync(filePath, content, 'utf-8');
+
+        // Open the file
+        const doc = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(doc);
+    }
+
+    /**
+     * Wrap a list of fields into multiple lines with max width
+     */
+    private static wrapFieldList(fields: string[], maxWidth: number): string[] {
+        const lines: string[] = [];
+        let currentLine = '';
+
+        for (let i = 0; i < fields.length; i++) {
+            const field = fields[i];
+            const separator = i < fields.length - 1 ? ', ' : '';
+            const addition = currentLine ? field + separator : field + separator;
+
+            // Check if adding this field would exceed max width
+            if (currentLine && (currentLine.length + addition.length) > maxWidth) {
+                // Start a new line
+                lines.push(currentLine);
+                currentLine = field + separator;
+            } else {
+                currentLine += addition;
+            }
+        }
+
+        // Add the last line if it has content
+        if (currentLine) {
+            // Remove trailing comma and space if present
+            if (currentLine.endsWith(', ')) {
+                currentLine = currentLine.slice(0, -2);
+            }
+            lines.push(currentLine);
+        }
+
+        return lines;
+    }
+
+    /**
+     * Extract field names from scope results
+     */
+    private static extractFieldsFromScope(scope: Scope): string[] {
+        const fields = new Set<string>();
+
+        // Try to get fields from facets results first
+        if (scope.facetsResult) {
+            try {
+                const facetsData = JSON.parse(scope.facetsResult);
+                if (facetsData.records && facetsData.records.length > 0) {
+                    // Each record in facets represents a field
+                    for (const record of facetsData.records) {
+                        if (record.map && record.map.field) {
+                            fields.add(record.map.field);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+
+        // If no fields from facets, try to get from sample logs
+        if (fields.size === 0 && scope.sampleLogsResult) {
+            try {
+                const sampleData = JSON.parse(scope.sampleLogsResult);
+                if (sampleData.messages && sampleData.messages.length > 0) {
+                    // Get field names from first message
+                    const firstMessage = sampleData.messages[0];
+                    if (firstMessage.map) {
+                        for (const fieldName of Object.keys(firstMessage.map)) {
+                            fields.add(fieldName);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+
+        return Array.from(fields).sort();
     }
 
     /**
@@ -407,6 +571,7 @@ export class ScopeWebviewProvider {
     <div class="button-group">
         <button onclick="profileScope()">🔍 Profile Scope (Facets)</button>
         <button onclick="sampleLogs()">📄 Sample Logs (Messages)</button>
+        <button onclick="newQuery()">📝 New Query</button>
     </div>
 
     ${hasFacetsResult ? this.renderFacetsResults(scope) : ''}
@@ -447,6 +612,10 @@ export class ScopeWebviewProvider {
 
         function viewRawLogs() {
             vscode.postMessage({ command: 'viewRawLogs' });
+        }
+
+        function newQuery() {
+            vscode.postMessage({ command: 'newQuery' });
         }
     </script>
 </body>

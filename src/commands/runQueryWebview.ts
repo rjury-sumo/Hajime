@@ -258,6 +258,20 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
             dynamicProvider.addFieldsFromResults(results);
         }
 
+        // Save JSON file to queries subfolder
+        const { OutputWriter } = await import('../outputWriter');
+        const outputWriter = new OutputWriter(context);
+        const queryIdentifier = metadata.name || cleanedQuery.split('\n')[0].substring(0, 50);
+        const filename = `query_${queryIdentifier}_${mode}_${from}_to_${to}`;
+        let jsonFilePath: string | undefined;
+
+        try {
+            const jsonContent = JSON.stringify(results, null, 2);
+            jsonFilePath = await outputWriter.writeOutput('queries', filename, jsonContent, 'json');
+        } catch (error) {
+            console.error('Failed to write JSON file:', error);
+        }
+
         // Force webview output
         const panel = vscode.window.createWebviewPanel(
             'sumoQueryResults',
@@ -278,7 +292,8 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
             to: to,
             mode: mode,
             count: resultCount,
-            pageSize: pageSize
+            pageSize: pageSize,
+            jsonFilePath: jsonFilePath
         });
 
         panel.webview.html = htmlContent;
@@ -350,6 +365,6 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
             context.subscriptions
         );
 
-        vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (webview)`);
+        vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (webview)${jsonFilePath ? ` - JSON saved to ${jsonFilePath}` : ''}`);
     });
 }

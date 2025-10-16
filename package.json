@@ -215,6 +215,16 @@
                 "icon": "$(trash)"
             },
             {
+                "command": "sumologic.copyStoragePath",
+                "title": "Copy Path",
+                "icon": "$(clippy)"
+            },
+            {
+                "command": "sumologic.openStorageInTerminal",
+                "title": "Open in Integrated Terminal",
+                "icon": "$(terminal)"
+            },
+            {
                 "command": "sumologic.viewLibraryNodeDetails",
                 "title": "View Library Content Details",
                 "icon": "$(info)"
@@ -315,9 +325,29 @@
                     "group": "navigation@1"
                 },
                 {
+                    "command": "sumologic.copyStoragePath",
+                    "when": "view == sumoExplorer && viewItem == storageFolder",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openStorageInTerminal",
+                    "when": "view == sumoExplorer && viewItem == storageFolder",
+                    "group": "navigation@3"
+                },
+                {
                     "command": "sumologic.revealStorageInExplorer",
                     "when": "view == sumoExplorer && viewItem == storageFile",
                     "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.copyStoragePath",
+                    "when": "view == sumoExplorer && viewItem == storageFile",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openStorageInTerminal",
+                    "when": "view == sumoExplorer && viewItem == storageFile",
+                    "group": "navigation@3"
                 },
                 {
                     "command": "sumologic.deleteStorageItem",
@@ -330,9 +360,29 @@
                     "group": "navigation@1"
                 },
                 {
+                    "command": "sumologic.copyStoragePath",
+                    "when": "view == sumoExplorer && viewItem == recentQuery",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openStorageInTerminal",
+                    "when": "view == sumoExplorer && viewItem == recentQuery",
+                    "group": "navigation@3"
+                },
+                {
                     "command": "sumologic.revealStorageInExplorer",
                     "when": "view == sumoExplorer && viewItem == recentContent",
                     "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.copyStoragePath",
+                    "when": "view == sumoExplorer && viewItem == recentContent",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openStorageInTerminal",
+                    "when": "view == sumoExplorer && viewItem == recentContent",
+                    "group": "navigation@3"
                 },
                 {
                     "command": "sumologic.viewLibraryNodeDetails",

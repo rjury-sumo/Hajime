@@ -265,7 +265,7 @@ function formatResultsAsJSON(results: any[]): string {
 /**
  * Format records as HTML for webview display with sorting, filtering, and pagination
  */
-export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; from: string; to: string; mode: string; count: number; pageSize: number; executionTime?: number; jobStats?: any }): string {
+export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; from: string; to: string; mode: string; count: number; pageSize: number; executionTime?: number; jobStats?: any; jsonFilePath?: string }): string {
     if (records.length === 0) {
         return '<p>No results found</p>';
     }
@@ -670,6 +670,7 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         <div class="query-info"><strong>Results:</strong> ${queryInfo.count} ${queryInfo.mode}</div>
         ${queryInfo.executionTime ? `<div class="query-info"><strong>Execution Time:</strong> ${(queryInfo.executionTime / 1000).toFixed(2)}s</div>` : ''}
         ${queryInfo.jobStats ? `<div class="query-info"><strong>Job Stats:</strong> Records: ${queryInfo.jobStats.recordCount || 0}, Messages: ${queryInfo.jobStats.messageCount || 0}</div>` : ''}
+        ${queryInfo.jsonFilePath ? `<div class="query-info"><strong>JSON File:</strong> <code>${escapeHtml(queryInfo.jsonFilePath)}</code></div>` : ''}
         <div class="query-code">${escapeHtml(queryInfo.query)}</div>
     </div>
 
@@ -2499,6 +2500,19 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
         // Handle webview output separately
         if (outputFormat === 'webview') {
+            // Save JSON file to queries subfolder
+            const outputWriter = new OutputWriter(context);
+            const queryIdentifier = metadata.name || cleanedQuery.split('\n')[0].substring(0, 50);
+            const filename = `query_${queryIdentifier}_${mode}_${from}_to_${to}`;
+            let jsonFilePath: string | undefined;
+
+            try {
+                const jsonContent = formatResultsAsJSON(results);
+                jsonFilePath = await outputWriter.writeOutput('queries', filename, jsonContent, 'json');
+            } catch (error) {
+                console.error('Failed to write JSON file:', error);
+            }
+
             const panel = vscode.window.createWebviewPanel(
                 'sumoQueryResults',
                 `Query Results: ${metadata.name || cleanedQuery.split('\n')[0].substring(0, 30)}`,
@@ -2525,7 +2539,8 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
                 count: resultCount,
                 pageSize: pageSize,
                 executionTime: executionTime,
-                jobStats: finalJobStats
+                jobStats: finalJobStats,
+                jsonFilePath: jsonFilePath
             });
 
             panel.webview.html = htmlContent;
@@ -2597,7 +2612,7 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
                 context.subscriptions
             );
 
-            vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (webview)`);
+            vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (webview)${jsonFilePath ? ` - JSON saved to ${jsonFilePath}` : ''}`);
         } else {
             // Format results based on selected format for file output
             let resultText: string;
@@ -2633,7 +2648,19 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
 
             try {
                 const filePath = await outputWriter.writeAndOpen('queries', filename, resultText, fileExtension);
-                vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)`);
+
+                // Also save JSON file for table output
+                let jsonFilePath: string | undefined;
+                if (outputFormat === 'table') {
+                    try {
+                        const jsonContent = formatResultsAsJSON(results);
+                        jsonFilePath = await outputWriter.writeOutput('queries', filename, jsonContent, 'json');
+                    } catch (error) {
+                        console.error('Failed to write JSON file:', error);
+                    }
+                }
+
+                vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)${jsonFilePath ? ` - JSON saved to ${jsonFilePath}` : ''}`);
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to write results: ${error}`);
             }

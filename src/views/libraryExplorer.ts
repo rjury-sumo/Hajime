@@ -203,26 +203,23 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         dbViewerItem.iconPath = new vscode.ThemeIcon('database');
         items.push(dbViewerItem);
 
-        // Check cache first
-        const db = await this.getCacheDatabase(profileName);
-        const cachedTopLevel = db.getTopLevelNodes();
-
-        if (cachedTopLevel.length > 0) {
-            // Return cached nodes - mark as top level
-            const contentItems = this.contentItemsToTreeItems(profileName, cachedTopLevel, true);
-            items.push(...contentItems);
-            return items;
-        }
-
-        // No cache - create placeholder nodes that will fetch on expansion
+        // Always show standard top-level nodes (regardless of cache)
         const topLevelNodes = [
             { name: 'Personal', id: 'personal', type: 'Folder' },
             { name: 'Global', id: 'global', type: 'Folder' },
+            { name: 'Global (isAdminMode)', id: 'global_admin', type: 'Folder' },
             { name: 'Admin Recommended', id: 'adminRecommended', type: 'Folder' },
             { name: 'Installed Apps', id: 'installedApps', type: 'Folder' }
         ];
 
+        // Check cache to determine if children have been fetched
+        const db = await this.getCacheDatabase(profileName);
+
         for (const node of topLevelNodes) {
+            // Check if this node has been cached (fetched before)
+            const cachedNode = db.getTopLevelNodes().find(n => n.id === node.id);
+            const childrenFetched = cachedNode ? cachedNode.childrenFetched : false;
+
             items.push(new LibraryTreeItem(
                 profileName,
                 node.id,
@@ -230,7 +227,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
                 node.name,
                 vscode.TreeItemCollapsibleState.Collapsed,
                 true,
-                false,
+                childrenFetched,
                 LibraryItemType.TopLevelNode
             ));
         }
@@ -344,14 +341,26 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
             }
 
             case 'global': {
-                const response = await client.exportGlobalFolder();
+                const response = await client.exportGlobalFolder(false);
                 if (response.error || !response.data) {
                     throw new Error(`Failed to export Global folder: ${response.error}`);
                 }
 
                 const exported = response.data;
-                this.cacheExportedContent(exported, '0000000000000000', profileName, db, now, 'data');
+                this.cacheGlobalFolderFlat(exported, 'global', profileName, db, now);
                 await this.saveContentJSON(profileName, exported.id || 'global', exported);
+                break;
+            }
+
+            case 'global_admin': {
+                const response = await client.exportGlobalFolder(true);
+                if (response.error || !response.data) {
+                    throw new Error(`Failed to export Global folder (isAdminMode): ${response.error}`);
+                }
+
+                const exported = response.data;
+                this.cacheGlobalFolderFlat(exported, 'global_admin', profileName, db, now);
+                await this.saveContentJSON(profileName, exported.id || 'global_admin', exported);
                 break;
             }
 
@@ -438,7 +447,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         const items: ContentItem[] = children.map(child => ({
             id: child.id,
             profile: profileName,
-            name: child.name,
+            name: child.name || child.id || 'Unnamed',
             itemType: child.itemType,
             parentId: parentId,
             description: child.description,
@@ -470,7 +479,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         db.upsertContentItem({
             id: exported.id || parentId,
             profile: profileName,
-            name: exported.name,
+            name: exported.name || exported.id || 'Unnamed',
             itemType: exported.itemType || 'Folder',
             parentId: parentId,
             description: exported.description,
@@ -489,6 +498,90 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         if (children && Array.isArray(children)) {
             this.cacheChildren(children, exported.id, profileName, db, timestamp);
         }
+    }
+
+    /**
+     * Cache Global folder flat export data
+     * Global folder exports return a flat list of all items with their parentIds
+     * We need to build a hierarchy by finding root items and their children
+     */
+    private cacheGlobalFolderFlat(
+        exported: any,
+        globalNodeId: string,
+        profileName: string,
+        db: LibraryCacheDB,
+        timestamp: string
+    ): void {
+        if (!exported.data || !Array.isArray(exported.data)) {
+            // No data - create empty Global node
+            db.upsertContentItem({
+                id: globalNodeId,
+                profile: profileName,
+                name: 'Global',
+                itemType: 'Folder',
+                parentId: '0000000000000000',
+                description: 'Global folder',
+                createdAt: timestamp,
+                createdBy: '',
+                modifiedAt: timestamp,
+                modifiedBy: '',
+                hasChildren: false,
+                childrenFetched: true,
+                permissions: [],
+                lastFetched: timestamp
+            });
+            return;
+        }
+
+        const allItems = exported.data;
+        const itemIds = new Set(allItems.map((item: any) => item.id));
+
+        // Find root items - items whose parentId is NOT in the list
+        // (meaning their parent is outside this export, so they're top-level in Global)
+        const rootItems = allItems.filter((item: any) => !itemIds.has(item.parentId));
+
+        // Create the Global root node
+        db.upsertContentItem({
+            id: globalNodeId,
+            profile: profileName,
+            name: 'Global',
+            itemType: 'Folder',
+            parentId: '0000000000000000',
+            description: 'Global folder',
+            createdAt: timestamp,
+            createdBy: '',
+            modifiedAt: timestamp,
+            modifiedBy: '',
+            hasChildren: rootItems.length > 0,
+            childrenFetched: true,
+            permissions: [],
+            lastFetched: timestamp
+        });
+
+        // Cache all items with adjusted parentIds
+        const items: ContentItem[] = allItems.map((item: any) => {
+            // If this is a root item, set its parent to the Global node
+            const parentId = itemIds.has(item.parentId) ? item.parentId : globalNodeId;
+
+            return {
+                id: item.id,
+                profile: profileName,
+                name: item.name || item.id || 'Unnamed',
+                itemType: item.itemType,
+                parentId: parentId,
+                description: item.description,
+                createdAt: item.createdAt,
+                createdBy: item.createdBy,
+                modifiedAt: item.modifiedAt,
+                modifiedBy: item.modifiedBy,
+                hasChildren: item.itemType === 'Folder',
+                childrenFetched: false,
+                permissions: item.permissions,
+                lastFetched: timestamp
+            };
+        });
+
+        db.upsertContentItems(items);
     }
 
     /**

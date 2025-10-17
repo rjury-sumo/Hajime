@@ -663,17 +663,17 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         /* JSON Viewer Styles */
         .json-cell {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 6px;
         }
         .json-preview {
-            color: var(--vscode-descriptionForeground);
-            font-style: italic;
+            color: var(--vscode-foreground);
             font-size: 11px;
             flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            word-wrap: break-word;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
         }
         .json-expand-btn {
             background-color: var(--vscode-button-secondaryBackground);

@@ -5,7 +5,6 @@ import * as fs from 'fs';
 import { LibraryExplorerProvider, LibraryTreeItem } from './libraryExplorer';
 import { RecentQueriesManager } from '../recentQueriesManager';
 import { RecentContentManager } from '../recentContentManager';
-import { ScopesCacheDB, createScopesCacheDB } from '../database/scopesCache';
 
 /**
  * Tree item types for the Sumo Logic Explorer
@@ -20,6 +19,7 @@ export enum TreeItemType {
     QuickActionsSection = 'quickActionsSection',
     StorageSection = 'storageSection',
     LibrarySection = 'librarySection',
+    AutocompleteDataSection = 'autocompleteDataSection',
     UsersSection = 'usersSection',
     RolesSection = 'rolesSection',
     ScopesSection = 'scopesSection',
@@ -74,7 +74,15 @@ export class SumoTreeItem extends vscode.TreeItem {
                 break;
             case TreeItemType.CollectorsSection:
                 this.iconPath = new vscode.ThemeIcon('server');
-                this.tooltip = 'Data Collectors';
+                this.tooltip = `Fetch collectors for ${this.profile?.name || 'profile'}`;
+                // Make it clickable to fetch collectors
+                if (this.profile) {
+                    this.command = {
+                        command: 'sumologic.fetchCollectors',
+                        title: 'Fetch Collectors',
+                        arguments: []
+                    };
+                }
                 break;
             case TreeItemType.ContentSection:
                 this.iconPath = new vscode.ThemeIcon('folder-library');
@@ -157,6 +165,15 @@ export class SumoTreeItem extends vscode.TreeItem {
             case TreeItemType.ScopesSection:
                 this.iconPath = new vscode.ThemeIcon('target');
                 this.tooltip = 'Scopes';
+                this.command = {
+                    command: 'sumologic.viewScopesOverview',
+                    title: 'View Scopes Overview',
+                    arguments: [this.profile?.name]
+                };
+                break;
+            case TreeItemType.AutocompleteDataSection:
+                this.iconPath = new vscode.ThemeIcon('list-tree');
+                this.tooltip = 'Autocomplete Data for this profile';
                 break;
             case TreeItemType.Scope:
                 this.iconPath = new vscode.ThemeIcon('scope');
@@ -197,7 +214,6 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     private libraryExplorerProvider: LibraryExplorerProvider;
     private recentQueriesManager: RecentQueriesManager;
     private recentContentManager: RecentContentManager;
-    private scopesDatabases: Map<string, ScopesCacheDB> = new Map();
 
     constructor(private context: vscode.ExtensionContext) {
         this.profileManager = new ProfileManager(context);
@@ -267,14 +283,12 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 return this.getRecentQueryItems();
             case TreeItemType.RecentContentSection:
                 return this.getRecentContentItems();
-            case TreeItemType.CollectorsSection:
-                return this.getCollectorItems();
             case TreeItemType.StorageSection:
                 return this.getStorageItems();
             case TreeItemType.LibrarySection:
-                return this.libraryExplorerProvider.getChildren();
-            case TreeItemType.ScopesSection:
-                return this.getScopeItems();
+                return this.getLibraryItemsForProfile(sumoElement.profile);
+            case TreeItemType.AutocompleteDataSection:
+                return this.getAutocompleteDataItems(sumoElement.profile);
             case TreeItemType.Profile:
                 return this.getProfileSubItems(sumoElement.profile);
             case TreeItemType.StorageFolder:
@@ -346,26 +360,15 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
             vscode.TreeItemCollapsibleState.Collapsed
         ));
 
-        // Collectors section
-        items.push(new SumoTreeItem(
-            'Collectors',
-            TreeItemType.CollectorsSection,
-            vscode.TreeItemCollapsibleState.Collapsed
-        ));
-
-        // Library section (new hierarchical explorer)
-        items.push(new SumoTreeItem(
-            'Library',
-            TreeItemType.LibrarySection,
-            vscode.TreeItemCollapsibleState.Collapsed
-        ));
-
-        // Scopes section
-        items.push(new SumoTreeItem(
-            'Scopes',
-            TreeItemType.ScopesSection,
-            vscode.TreeItemCollapsibleState.Collapsed
-        ));
+        // Scopes section (uses _global folder, not profile-specific)
+        if (activeProfile) {
+            items.push(new SumoTreeItem(
+                'Scopes',
+                TreeItemType.ScopesSection,
+                vscode.TreeItemCollapsibleState.None,
+                activeProfile
+            ));
+        }
 
         // Storage section
         items.push(new SumoTreeItem(
@@ -412,6 +415,39 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
 
         const items: SumoTreeItem[] = [];
 
+        // Test Connection
+        items.push(new SumoTreeItem(
+            'Test Connection',
+            TreeItemType.QuickAction,
+            vscode.TreeItemCollapsibleState.None,
+            profile,
+            { command: 'sumologic.testConnection', icon: 'plug' }
+        ));
+
+        // Autocomplete Data section
+        items.push(new SumoTreeItem(
+            'Autocomplete Data',
+            TreeItemType.AutocompleteDataSection,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            profile
+        ));
+
+        // Collectors section
+        items.push(new SumoTreeItem(
+            'Collectors',
+            TreeItemType.CollectorsSection,
+            vscode.TreeItemCollapsibleState.None,
+            profile
+        ));
+
+        // Library section
+        items.push(new SumoTreeItem(
+            'Library',
+            TreeItemType.LibrarySection,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            profile
+        ));
+
         // Users section
         items.push(new SumoTreeItem(
             'Users',
@@ -440,8 +476,29 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         const actions = [
             { label: 'New Query', command: 'sumologic.newSumoFile', icon: 'new-file' },
             { label: 'Run Query', command: 'sumologic.runQuery', icon: 'play' },
-            { label: 'Open Exported Content', command: 'sumologic.openExportedContent', icon: 'file-code' },
-            { label: 'Test Connection', command: 'sumologic.testConnection', icon: 'plug' },
+            { label: 'Open Exported Content', command: 'sumologic.openExportedContent', icon: 'file-code' }
+        ];
+
+        return actions.map(action =>
+            new SumoTreeItem(
+                action.label,
+                TreeItemType.QuickAction,
+                vscode.TreeItemCollapsibleState.None,
+                undefined,
+                { command: action.command, icon: action.icon }
+            )
+        );
+    }
+
+    /**
+     * Get autocomplete data items for a specific profile
+     */
+    private getAutocompleteDataItems(profile?: SumoLogicProfile): SumoTreeItem[] {
+        if (!profile) {
+            return [];
+        }
+
+        const actions = [
             { label: 'Fetch Custom Fields', command: 'sumologic.fetchCustomFields', icon: 'refresh' },
             { label: 'Fetch Partitions', command: 'sumologic.fetchPartitions', icon: 'refresh' },
             { label: 'Cache Key Metadata', command: 'sumologic.cacheKeyMetadata', icon: 'database' },
@@ -453,7 +510,7 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 action.label,
                 TreeItemType.QuickAction,
                 vscode.TreeItemCollapsibleState.None,
-                undefined,
+                profile,
                 { command: action.command, icon: action.icon }
             )
         );
@@ -547,71 +604,38 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     }
 
     /**
-     * Get collector items - show profile nodes with fetch collectors command
+     * Get library items for a specific profile
      */
-    private async getCollectorItems(): Promise<SumoTreeItem[]> {
-        const profiles = await this.profileManager.getProfiles();
-        const activeProfileName = await this.profileManager.getActiveProfileName();
+    private async getLibraryItemsForProfile(profile?: SumoLogicProfile): Promise<LibraryTreeItem[]> {
+        if (!profile) {
+            return [];
+        }
 
-        return profiles.map(profile => {
-            const isActive = profile.name === activeProfileName;
-            const label = isActive ? `${profile.name} (Active)` : profile.name;
-            const item = new SumoTreeItem(
-                label,
-                TreeItemType.QuickAction,
-                vscode.TreeItemCollapsibleState.None,
-                profile,
-                {
-                    command: 'sumologic.fetchCollectors',
-                    icon: 'database',
-                    profileName: profile.name
-                }
-            );
-            item.tooltip = `Fetch collectors for ${profile.name}`;
-            return item;
-        });
+        // Create a fake LibraryTreeItem for the profile's library root
+        // Then get its top-level nodes
+        const libraryRootItem = new (await import('./libraryExplorer')).LibraryTreeItem(
+            profile.name,
+            'library_root',
+            'LibraryRoot',
+            profile.name,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            true,
+            false,
+            (await import('./libraryExplorer')).LibraryItemType.LibraryRoot
+        );
+
+        return this.libraryExplorerProvider.getChildren(libraryRootItem);
     }
 
     /**
-     * Get storage items - shows active profile's storage directory and root storage path
+     * Get storage items - shows contents of the File Storage Path
      */
     private async getStorageItems(): Promise<SumoTreeItem[]> {
-        const items: SumoTreeItem[] = [];
+        // Get the root storage path (e.g., ~/.sumologic)
+        const storageRoot = this.profileManager.getStorageRoot();
 
-        // Get active profile
-        const activeProfile = await this.profileManager.getActiveProfile();
-
-        if (activeProfile) {
-            const profileDir = this.profileManager.getProfileDirectory(activeProfile.name);
-
-            // Add active profile storage folder
-            items.push(new SumoTreeItem(
-                activeProfile.name,
-                TreeItemType.StorageFolder,
-                vscode.TreeItemCollapsibleState.Collapsed,
-                activeProfile,
-                { path: profileDir, isProfileRoot: true }
-            ));
-        }
-
-        // Add all profiles storage folder (shows all profiles)
-        const allProfiles = await this.profileManager.getProfiles();
-        if (allProfiles.length > 1) {
-            for (const profile of allProfiles) {
-                if (!activeProfile || profile.name !== activeProfile.name) {
-                    const profileDir = this.profileManager.getProfileDirectory(profile.name);
-                    items.push(new SumoTreeItem(
-                        profile.name,
-                        TreeItemType.StorageFolder,
-                        vscode.TreeItemCollapsibleState.Collapsed,
-                        profile,
-                        { path: profileDir, isProfileRoot: true }
-                    ));
-                }
-            }
-        }
-
-        return items;
+        // Return contents of the storage root directory
+        return this.getStorageFolderContents(storageRoot);
     }
 
     /**
@@ -691,57 +715,4 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         }
     }
 
-    /**
-     * Get scope items for active profile
-     */
-    private async getScopeItems(): Promise<SumoTreeItem[]> {
-        const activeProfile = await this.profileManager.getActiveProfile();
-        if (!activeProfile) {
-            return [];
-        }
-
-        const db = await this.getScopesDatabase(activeProfile.name);
-        const scopes = db.getAllScopes();
-
-        return scopes.map(scope => {
-            const item = new SumoTreeItem(
-                scope.name,
-                TreeItemType.Scope,
-                vscode.TreeItemCollapsibleState.None,
-                activeProfile,
-                {
-                    scopeId: scope.id,
-                    profileName: activeProfile.name,
-                    description: scope.description,
-                    searchScope: scope.searchScope
-                }
-            );
-            item.description = scope.searchScope;
-            return item;
-        });
-    }
-
-    /**
-     * Get or create scopes database for a profile
-     */
-    async getScopesDatabase(profileName: string): Promise<ScopesCacheDB> {
-        if (!this.scopesDatabases.has(profileName)) {
-            const profileDir = this.profileManager.getProfileDirectory(profileName);
-            const db = createScopesCacheDB(profileDir, profileName);
-            this.scopesDatabases.set(profileName, db);
-        }
-
-        return this.scopesDatabases.get(profileName)!;
-    }
-
-    /**
-     * Dispose of resources
-     */
-    dispose(): void {
-        // Close all scope databases
-        for (const db of this.scopesDatabases.values()) {
-            db.close();
-        }
-        this.scopesDatabases.clear();
-    }
 }

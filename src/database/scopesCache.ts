@@ -7,7 +7,8 @@ import * as fs from 'fs';
  */
 export interface Scope {
     id: string;                    // UUID for the scope
-    profile: string;               // Profile name this scope belongs to
+    profile: string;               // Profile name this scope belongs to (deprecated, use profiles instead)
+    profiles: string;              // Comma-separated profile names, or "*" for all profiles
     name: string;                  // Display name
     description?: string;          // User description
     searchScope: string;           // Query scope (e.g., "_sourceCategory=prod/app")
@@ -61,6 +62,7 @@ export class ScopesCacheDB {
             CREATE TABLE IF NOT EXISTS scopes (
                 id TEXT PRIMARY KEY,
                 profile TEXT NOT NULL,
+                profiles TEXT DEFAULT '*',
                 name TEXT NOT NULL,
                 description TEXT,
                 searchScope TEXT NOT NULL,
@@ -77,6 +79,7 @@ export class ScopesCacheDB {
             );
 
             CREATE INDEX IF NOT EXISTS idx_profile ON scopes(profile);
+            CREATE INDEX IF NOT EXISTS idx_profiles ON scopes(profiles);
             CREATE INDEX IF NOT EXISTS idx_name ON scopes(profile, name);
         `);
 
@@ -117,6 +120,13 @@ export class ScopesCacheDB {
         if (!columns.includes('metadataResultPath')) {
             this.db.exec('ALTER TABLE scopes ADD COLUMN metadataResultPath TEXT');
         }
+
+        // Add profiles column for multi-profile support
+        if (!columns.includes('profiles')) {
+            this.db.exec("ALTER TABLE scopes ADD COLUMN profiles TEXT DEFAULT '*'");
+            // Migrate existing data: if profile column exists, copy to profiles
+            this.db.exec("UPDATE scopes SET profiles = profile WHERE profiles IS NULL OR profiles = ''");
+        }
     }
 
     /**
@@ -129,6 +139,7 @@ export class ScopesCacheDB {
         const newScope: Scope = {
             id,
             profile: scope.profile,
+            profiles: scope.profiles || '*',
             name: scope.name,
             description: scope.description,
             searchScope: scope.searchScope,
@@ -146,11 +157,11 @@ export class ScopesCacheDB {
 
         const stmt = this.db.prepare(`
             INSERT INTO scopes (
-                id, profile, name, description, searchScope, context, queryFrom,
+                id, profile, profiles, name, description, searchScope, context, queryFrom,
                 createdAt, modifiedAt, facetsResultPath, facetsTimestamp,
                 sampleLogsResultPath, sampleLogsTimestamp, metadataResultPath, metadataTimestamp
             ) VALUES (
-                @id, @profile, @name, @description, @searchScope, @context, @queryFrom,
+                @id, @profile, @profiles, @name, @description, @searchScope, @context, @queryFrom,
                 @createdAt, @modifiedAt, @facetsResultPath, @facetsTimestamp,
                 @sampleLogsResultPath, @sampleLogsTimestamp, @metadataResultPath, @metadataTimestamp
             )
@@ -179,6 +190,7 @@ export class ScopesCacheDB {
 
         const stmt = this.db.prepare(`
             UPDATE scopes SET
+                profiles = @profiles,
                 name = @name,
                 description = @description,
                 searchScope = @searchScope,
@@ -217,10 +229,28 @@ export class ScopesCacheDB {
 
     /**
      * Get all scopes for the current profile
+     * Includes scopes where:
+     * - profiles is "*" (all profiles)
+     * - profiles contains the current profile name
      */
     getAllScopes(): Scope[] {
-        const stmt = this.db.prepare('SELECT * FROM scopes WHERE profile = ? ORDER BY name ASC');
-        return stmt.all(this.profileName) as Scope[];
+        // Check if profiles column exists
+        const tableInfo = this.db.pragma('table_info(scopes)') as Array<{ name: string }>;
+        const hasProfilesColumn = tableInfo.some(col => col.name === 'profiles');
+
+        if (hasProfilesColumn) {
+            const stmt = this.db.prepare(`
+                SELECT * FROM scopes
+                WHERE profiles = '*'
+                   OR profiles LIKE '%' || ? || '%'
+                ORDER BY name ASC
+            `);
+            return stmt.all(this.profileName) as Scope[];
+        } else {
+            // Fallback for old schema without profiles column
+            const stmt = this.db.prepare('SELECT * FROM scopes WHERE profile = ? ORDER BY name ASC');
+            return stmt.all(this.profileName) as Scope[];
+        }
     }
 
     /**
@@ -248,13 +278,15 @@ export class ScopesCacheDB {
 
 /**
  * Factory function to create a ScopesCacheDB instance
+ * The database is stored globally in ~/.sumologic/_global/scopes/scopes.db
+ * since scopes can apply to multiple profiles
  */
-export function createScopesCacheDB(profileDir: string, profileName: string): ScopesCacheDB {
-    const metadataDir = path.join(profileDir, 'metadata');
-    if (!fs.existsSync(metadataDir)) {
-        fs.mkdirSync(metadataDir, { recursive: true });
+export function createScopesCacheDB(storageRoot: string, profileName: string): ScopesCacheDB {
+    const globalDir = path.join(storageRoot, '_global', 'scopes');
+    if (!fs.existsSync(globalDir)) {
+        fs.mkdirSync(globalDir, { recursive: true });
     }
 
-    const dbPath = path.join(metadataDir, 'scopes.db');
+    const dbPath = path.join(globalDir, 'scopes.db');
     return new ScopesCacheDB(dbPath, profileName);
 }

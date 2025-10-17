@@ -299,6 +299,10 @@
                 "title": "Sumo Logic: List Scopes"
             },
             {
+                "command": "sumologic.viewScopesOverview",
+                "title": "View Scopes Overview"
+            },
+            {
                 "command": "sumologic.viewScope",
                 "title": "View Scope"
             },

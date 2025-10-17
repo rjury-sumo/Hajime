@@ -17,8 +17,9 @@ export async function profileScope(
     profileName: string
 ): Promise<void> {
     const profileManager = new ProfileManager(context);
+    const storageRoot = profileManager.getStorageRoot();
     const profileDir = profileManager.getProfileDirectory(profileName);
-    const db = createScopesCacheDB(profileDir, profileName);
+    const db = createScopesCacheDB(storageRoot, profileName);
 
     try {
         const scope = db.getScopeById(scopeId);
@@ -90,8 +91,9 @@ export async function sampleScopeLogs(
     profileName: string
 ): Promise<void> {
     const profileManager = new ProfileManager(context);
+    const storageRoot = profileManager.getStorageRoot();
     const profileDir = profileManager.getProfileDirectory(profileName);
-    const db = createScopesCacheDB(profileDir, profileName);
+    const db = createScopesCacheDB(storageRoot, profileName);
 
     try {
         const scope = db.getScopeById(scopeId);
@@ -158,8 +160,9 @@ export async function cacheScopeMetadata(
     profileName: string
 ): Promise<void> {
     const profileManager = new ProfileManager(context);
+    const storageRoot = profileManager.getStorageRoot();
     const profileDir = profileManager.getProfileDirectory(profileName);
-    const db = createScopesCacheDB(profileDir, profileName);
+    const db = createScopesCacheDB(storageRoot, profileName);
 
     try {
         const scope = db.getScopeById(scopeId);

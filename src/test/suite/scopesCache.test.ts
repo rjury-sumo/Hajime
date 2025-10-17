@@ -27,6 +27,7 @@ suite('ScopesCache Test Suite', () => {
     test('should create a scope with default index search scope', () => {
         const newScope = scopesDB.createScope({
             profile: testProfileName,
+            profiles: '*',
             name: 'default index',
             searchScope: '_index = sumologic_default',
             description: '',
@@ -39,6 +40,7 @@ suite('ScopesCache Test Suite', () => {
         assert.strictEqual(newScope.description, '');
         assert.strictEqual(newScope.context, '');
         assert.strictEqual(newScope.profile, testProfileName);
+        assert.strictEqual(newScope.profiles, '*');
         assert.ok(newScope.createdAt, 'Scope should have createdAt timestamp');
         assert.ok(newScope.modifiedAt, 'Scope should have modifiedAt timestamp');
     });

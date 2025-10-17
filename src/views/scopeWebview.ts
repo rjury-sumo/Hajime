@@ -17,8 +17,8 @@ export class ScopeWebviewProvider {
         profileName: string
     ): Promise<void> {
         const profileManager = new ProfileManager(context);
-        const profileDir = profileManager.getProfileDirectory(profileName);
-        const db = createScopesCacheDB(profileDir, profileName);
+        const storageRoot = profileManager.getStorageRoot();
+        const db = createScopesCacheDB(storageRoot, profileName);
 
         try {
             const scope = db.getScopeById(scopeId);
@@ -113,8 +113,8 @@ export class ScopeWebviewProvider {
 
             case 'viewFacetsResults':
                 const profileManager = new ProfileManager(context);
-                const profileDir = profileManager.getProfileDirectory(profileName);
-                const db = createScopesCacheDB(profileDir, profileName);
+                const storageRoot = profileManager.getStorageRoot();
+                const db = createScopesCacheDB(storageRoot, profileName);
                 try {
                     const scope = db.getScopeById(scopeId);
                     if (scope?.facetsResultPath) {
@@ -129,8 +129,8 @@ export class ScopeWebviewProvider {
 
             case 'viewSampleLogsResults':
                 const pm = new ProfileManager(context);
-                const pd = pm.getProfileDirectory(profileName);
-                const sdb = createScopesCacheDB(pd, profileName);
+                const sr = pm.getStorageRoot();
+                const sdb = createScopesCacheDB(sr, profileName);
                 try {
                     const sc = sdb.getScopeById(scopeId);
                     if (sc?.sampleLogsResultPath) {
@@ -145,8 +145,8 @@ export class ScopeWebviewProvider {
 
             case 'viewRawLogs':
                 const pm2 = new ProfileManager(context);
-                const pd2 = pm2.getProfileDirectory(profileName);
-                const sdb2 = createScopesCacheDB(pd2, profileName);
+                const sr2 = pm2.getStorageRoot();
+                const sdb2 = createScopesCacheDB(sr2, profileName);
                 try {
                     const sc2 = sdb2.getScopeById(scopeId);
                     if (sc2?.sampleLogsResultPath) {
@@ -161,8 +161,9 @@ export class ScopeWebviewProvider {
 
             case 'newQuery':
                 const pm3 = new ProfileManager(context);
+                const sr3 = pm3.getStorageRoot();
                 const pd3 = pm3.getProfileDirectory(profileName);
-                const sdb3 = createScopesCacheDB(pd3, profileName);
+                const sdb3 = createScopesCacheDB(sr3, profileName);
                 try {
                     const sc3 = sdb3.getScopeById(scopeId);
                     if (sc3) {
@@ -183,8 +184,8 @@ export class ScopeWebviewProvider {
 
             case 'viewMetadataResults':
                 const pm4 = new ProfileManager(context);
-                const pd4 = pm4.getProfileDirectory(profileName);
-                const sdb4 = createScopesCacheDB(pd4, profileName);
+                const sr4 = pm4.getStorageRoot();
+                const sdb4 = createScopesCacheDB(sr4, profileName);
                 try {
                     const sc4 = sdb4.getScopeById(scopeId);
                     if (sc4?.metadataResultPath) {
@@ -199,8 +200,8 @@ export class ScopeWebviewProvider {
 
             case 'updateQueryFrom':
                 const pm5 = new ProfileManager(context);
-                const pd5 = pm5.getProfileDirectory(profileName);
-                const sdb5 = createScopesCacheDB(pd5, profileName);
+                const sr5 = pm5.getStorageRoot();
+                const sdb5 = createScopesCacheDB(sr5, profileName);
                 try {
                     const success = sdb5.updateScope(scopeId, { queryFrom: message.value });
                     if (success) {

@@ -55,13 +55,31 @@ export async function createScope(context: vscode.ExtensionContext): Promise<voi
         placeHolder: 'e.g., Used for analyzing application errors and performance issues'
     });
 
+    // Ask which profiles this scope applies to
+    const profilesInput = await vscode.window.showInputBox({
+        prompt: 'Which profiles should this scope apply to?',
+        placeHolder: '* for all profiles, or comma-separated profile names',
+        value: '*',
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Profile list is required (* for all)';
+            }
+            return null;
+        }
+    });
+
+    if (!profilesInput) {
+        return;
+    }
+
     // Create scope in database
-    const profileDir = profileManager.getProfileDirectory(activeProfile.name);
-    const db = createScopesCacheDB(profileDir, activeProfile.name);
+    const storageRoot = profileManager.getStorageRoot();
+    const db = createScopesCacheDB(storageRoot, activeProfile.name);
 
     try {
         const newScope = db.createScope({
             profile: activeProfile.name,
+            profiles: profilesInput.trim(),
             name: name.trim(),
             searchScope: searchScope.trim(),
             description: description?.trim(),
@@ -91,8 +109,8 @@ export async function editScope(
     profileName: string
 ): Promise<void> {
     const profileManager = new ProfileManager(context);
-    const profileDir = profileManager.getProfileDirectory(profileName);
-    const db = createScopesCacheDB(profileDir, profileName);
+    const storageRoot = profileManager.getStorageRoot();
+    const db = createScopesCacheDB(storageRoot, profileName);
 
     try {
         const scope = db.getScopeById(scopeId);
@@ -142,8 +160,26 @@ export async function editScope(
             value: scope.context || ''
         });
 
+        // Ask which profiles this scope applies to
+        const profilesInput = await vscode.window.showInputBox({
+            prompt: 'Which profiles should this scope apply to?',
+            placeHolder: '* for all profiles, or comma-separated profile names',
+            value: scope.profiles || '*',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Profile list is required (* for all)';
+                }
+                return null;
+            }
+        });
+
+        if (!profilesInput) {
+            return;
+        }
+
         // Update scope
         const updated = db.updateScope(scopeId, {
+            profiles: profilesInput.trim(),
             name: name.trim(),
             searchScope: searchScope.trim(),
             description: description?.trim(),
@@ -173,8 +209,8 @@ export async function deleteScope(
     profileName: string
 ): Promise<void> {
     const profileManager = new ProfileManager(context);
-    const profileDir = profileManager.getProfileDirectory(profileName);
-    const db = createScopesCacheDB(profileDir, profileName);
+    const storageRoot = profileManager.getStorageRoot();
+    const db = createScopesCacheDB(storageRoot, profileName);
 
     try {
         const scope = db.getScopeById(scopeId);
@@ -217,8 +253,8 @@ export async function listScopes(context: vscode.ExtensionContext): Promise<void
         return;
     }
 
-    const profileDir = profileManager.getProfileDirectory(activeProfile.name);
-    const db = createScopesCacheDB(profileDir, activeProfile.name);
+    const storageRoot = profileManager.getStorageRoot();
+    const db = createScopesCacheDB(storageRoot, activeProfile.name);
 
     try {
         const scopes = db.getAllScopes();

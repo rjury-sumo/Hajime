@@ -142,6 +142,13 @@ export class ProfileManager {
     }
 
     /**
+     * Get the storage root path (e.g., ~/.sumologic)
+     */
+    getStorageRoot(): string {
+        return this.getFileStoragePath();
+    }
+
+    /**
      * Get the directory path for a specific profile
      */
     getProfileDirectory(profileName: string): string {

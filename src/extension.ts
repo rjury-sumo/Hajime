@@ -466,6 +466,11 @@ export function activate(context: vscode.ExtensionContext) {
         return listScopes(context);
     });
 
+    const viewScopesOverviewCmd = vscode.commands.registerCommand('sumologic.viewScopesOverview', async (profileName: string) => {
+        const { ScopesOverviewWebviewProvider } = require('./views/scopesOverviewWebview');
+        return ScopesOverviewWebviewProvider.showScopesOverview(context, profileName);
+    });
+
     const viewScopeCmd = vscode.commands.registerCommand('sumologic.viewScope', async (scopeId: string, profileName: string) => {
         const { ScopeWebviewProvider } = require('./views/scopeWebview');
         return ScopeWebviewProvider.showScope(context, scopeId, profileName);
@@ -560,6 +565,7 @@ export function activate(context: vscode.ExtensionContext) {
         editScopeCmd,
         deleteScopeCmd,
         listScopesCmd,
+        viewScopesOverviewCmd,
         viewScopeCmd,
         profileScopeCmd,
         sampleScopeLogsCmd,

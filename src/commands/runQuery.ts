@@ -660,6 +660,221 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             font-size: 10px;
             margin-left: 4px;
         }
+        /* JSON Viewer Styles */
+        .json-cell {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .json-preview {
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+            font-size: 11px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .json-expand-btn {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 2px;
+            padding: 2px 6px;
+            font-size: 11px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .json-expand-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .json-badge {
+            background-color: rgba(0, 122, 204, 0.2);
+            color: #007acc;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 9px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .json-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        .json-modal.show {
+            display: flex;
+        }
+        .json-modal-content {
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .json-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            background-color: var(--vscode-editor-lineHighlightBackground);
+        }
+        .json-modal-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .json-modal-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .json-modal-btn {
+            padding: 4px 10px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .json-modal-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .json-modal-btn.primary {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+        .json-modal-btn.primary:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .json-modal-close {
+            background: none;
+            border: none;
+            color: var(--vscode-foreground);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+        }
+        .json-modal-close:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .json-modal-tabs {
+            display: flex;
+            gap: 2px;
+            padding: 8px 16px 0 16px;
+            background-color: var(--vscode-editor-background);
+        }
+        .json-modal-tab {
+            padding: 6px 16px;
+            background-color: transparent;
+            color: var(--vscode-descriptionForeground);
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .json-modal-tab:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .json-modal-tab.active {
+            color: var(--vscode-foreground);
+            border-bottom-color: var(--vscode-focusBorder);
+        }
+        .json-modal-body {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+        }
+        .json-view {
+            display: none;
+        }
+        .json-view.active {
+            display: block;
+        }
+        .json-formatted {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 12px;
+            border-radius: 4px;
+            overflow: auto;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .json-raw {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 12px;
+            border-radius: 4px;
+            overflow: auto;
+            font-family: var(--vscode-editor-font-family);
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .json-tree {
+            font-family: var(--vscode-editor-font-family);
+            font-size: 12px;
+        }
+        .json-tree-node {
+            margin-left: 20px;
+        }
+        .json-tree-key {
+            color: #9cdcfe;
+            font-weight: 500;
+        }
+        .json-tree-string {
+            color: #ce9178;
+        }
+        .json-tree-number {
+            color: #b5cea8;
+        }
+        .json-tree-boolean {
+            color: #569cd6;
+        }
+        .json-tree-null {
+            color: #569cd6;
+        }
+        .json-tree-toggle {
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            width: 12px;
+        }
+        /* Syntax highlighting for formatted JSON */
+        .json-key {
+            color: #9cdcfe;
+        }
+        .json-string {
+            color: #ce9178;
+        }
+        .json-number {
+            color: #b5cea8;
+        }
+        .json-boolean {
+            color: #569cd6;
+        }
+        .json-null {
+            color: #569cd6;
+        }
     </style>
 </head>
 <body>
@@ -753,7 +968,34 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             <tbody id="tableBody">
                 ${records.map((record, rowIdx) => `
                     <tr data-row="${rowIdx}">
-                        ${keys.map(key => `<td>${escapeHtml(String(record.map[key] || ''))}</td>`).join('')}
+                        ${keys.map((key, colIdx) => {
+                            const value = String(record.map[key] || '');
+                            // Try to detect JSON
+                            let isJson = false;
+                            let jsonPreview = '';
+                            try {
+                                if ((value.startsWith('{') && value.endsWith('}')) ||
+                                    (value.startsWith('[') && value.endsWith(']'))) {
+                                    JSON.parse(value);
+                                    isJson = true;
+                                    // Create preview
+                                    if (value.startsWith('{')) {
+                                        jsonPreview = '{...}';
+                                    } else {
+                                        jsonPreview = '[...]';
+                                    }
+                                    jsonPreview += ` (${value.length} chars)`;
+                                }
+                            } catch (e) {
+                                isJson = false;
+                            }
+
+                            if (isJson) {
+                                return `<td><div class="json-cell"><span class="json-badge">JSON</span><span class="json-preview">${escapeHtml(value)}</span><button class="json-expand-btn" onclick="showJsonModal(${rowIdx}, ${colIdx}, '${escapeHtml(key).replace(/'/g, "\\'")}')">⤢ View</button></div></td>`;
+                            } else {
+                                return `<td>${escapeHtml(value)}</td>`;
+                            }
+                        }).join('')}
                     </tr>
                 `).join('')}
             </tbody>
@@ -769,6 +1011,35 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             <span style="font-size: 12px;">Page <input type="number" class="page-input" id="pageInput" value="1" min="1" onchange="goToPageInput()"> of <span id="totalPages">1</span></span>
             <button class="pagination-button" id="nextPageBtn" onclick="goToPage(currentPage + 1)">Next</button>
             <button class="pagination-button" id="lastPageBtn" onclick="goToPage(totalPages)">Last</button>
+        </div>
+    </div>
+
+    <!-- JSON Modal -->
+    <div class="json-modal" id="jsonModal">
+        <div class="json-modal-content">
+            <div class="json-modal-header">
+                <div class="json-modal-title" id="jsonModalTitle">JSON Viewer</div>
+                <div class="json-modal-actions">
+                    <button class="json-modal-btn primary" onclick="copyJsonContent()">Copy</button>
+                    <button class="json-modal-close" onclick="closeJsonModal()">&times;</button>
+                </div>
+            </div>
+            <div class="json-modal-tabs">
+                <button class="json-modal-tab active" id="tab-formatted" onclick="switchJsonTab('formatted')">Formatted</button>
+                <button class="json-modal-tab" id="tab-raw" onclick="switchJsonTab('raw')">Raw</button>
+                <button class="json-modal-tab" id="tab-tree" onclick="switchJsonTab('tree')">Tree</button>
+            </div>
+            <div class="json-modal-body">
+                <div class="json-view active" id="view-formatted">
+                    <pre class="json-formatted" id="jsonFormatted"></pre>
+                </div>
+                <div class="json-view" id="view-raw">
+                    <div class="json-raw" id="jsonRaw"></div>
+                </div>
+                <div class="json-view" id="view-tree">
+                    <div class="json-tree" id="jsonTree"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -795,6 +1066,218 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // JSON Modal state
+        let currentJsonData = null;
+        let currentJsonFieldName = '';
+        let currentJsonTab = 'formatted';
+
+        // Show JSON in modal
+        function showJsonModal(rowIdx, colIdx, fieldName) {
+            const value = allData[rowIdx][columns[colIdx]];
+
+            try {
+                const jsonData = JSON.parse(value);
+                currentJsonData = value;
+                currentJsonFieldName = fieldName;
+
+                // Update modal title
+                document.getElementById('jsonModalTitle').textContent = 'JSON Viewer - ' + fieldName;
+
+                // Populate all views
+                populateFormattedView(jsonData);
+                populateRawView(value);
+                populateTreeView(jsonData);
+
+                // Show modal
+                document.getElementById('jsonModal').classList.add('show');
+
+                // Add escape key listener
+                document.addEventListener('keydown', handleJsonModalEscape);
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+            }
+        }
+
+        // Close JSON modal
+        function closeJsonModal() {
+            document.getElementById('jsonModal').classList.remove('show');
+            document.removeEventListener('keydown', handleJsonModalEscape);
+        }
+
+        // Handle escape key to close modal
+        function handleJsonModalEscape(e) {
+            if (e.key === 'Escape') {
+                closeJsonModal();
+            }
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('jsonModal');
+            if (e.target === modal) {
+                closeJsonModal();
+            }
+        });
+
+        // Switch between JSON tabs
+        function switchJsonTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.json-modal-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // Update views
+            document.querySelectorAll('.json-view').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById('view-' + tabName).classList.add('active');
+
+            currentJsonTab = tabName;
+        }
+
+        // Populate formatted view with syntax highlighting
+        function populateFormattedView(jsonData) {
+            const formatted = JSON.stringify(jsonData, null, 2);
+            const highlighted = syntaxHighlightJson(formatted);
+            document.getElementById('jsonFormatted').innerHTML = highlighted;
+        }
+
+        // Populate raw view
+        function populateRawView(rawString) {
+            document.getElementById('jsonRaw').textContent = rawString;
+        }
+
+        // Populate tree view
+        function populateTreeView(jsonData) {
+            const treeHtml = buildJsonTree(jsonData, 0);
+            document.getElementById('jsonTree').innerHTML = treeHtml;
+        }
+
+        // Syntax highlighting for JSON
+        function syntaxHighlightJson(json) {
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // Build interactive tree view
+        function buildJsonTree(data, depth = 0) {
+            const indent = '  '.repeat(depth);
+            let html = '';
+
+            if (Array.isArray(data)) {
+                html += '<div class="json-tree-node">';
+                html += '<span class="json-tree-toggle" onclick="toggleTreeNode(this)">▼</span>';
+                html += '<span class="json-tree-bracket">[</span>';
+                html += '<div class="json-tree-children">';
+                data.forEach((item, idx) => {
+                    html += '<div style="margin-left: 20px;">';
+                    if (typeof item === 'object' && item !== null) {
+                        html += buildJsonTree(item, depth + 1);
+                    } else {
+                        html += formatJsonValue(item);
+                    }
+                    if (idx < data.length - 1) html += '<span>,</span>';
+                    html += '</div>';
+                });
+                html += '</div>';
+                html += '<span class="json-tree-bracket">]</span>';
+                html += '</div>';
+            } else if (typeof data === 'object' && data !== null) {
+                html += '<div class="json-tree-node">';
+                html += '<span class="json-tree-toggle" onclick="toggleTreeNode(this)">▼</span>';
+                html += '<span class="json-tree-bracket">{</span>';
+                html += '<div class="json-tree-children">';
+                const keys = Object.keys(data);
+                keys.forEach((key, idx) => {
+                    html += '<div style="margin-left: 20px;">';
+                    html += '<span class="json-tree-key">"' + escapeHtml(key) + '"</span>: ';
+                    const value = data[key];
+                    if (typeof value === 'object' && value !== null) {
+                        html += buildJsonTree(value, depth + 1);
+                    } else {
+                        html += formatJsonValue(value);
+                    }
+                    if (idx < keys.length - 1) html += '<span>,</span>';
+                    html += '</div>';
+                });
+                html += '</div>';
+                html += '<span class="json-tree-bracket">}</span>';
+                html += '</div>';
+            } else {
+                html += formatJsonValue(data);
+            }
+
+            return html;
+        }
+
+        // Format JSON value with appropriate styling
+        function formatJsonValue(value) {
+            if (typeof value === 'string') {
+                return '<span class="json-tree-string">"' + escapeHtml(value) + '"</span>';
+            } else if (typeof value === 'number') {
+                return '<span class="json-tree-number">' + value + '</span>';
+            } else if (typeof value === 'boolean') {
+                return '<span class="json-tree-boolean">' + value + '</span>';
+            } else if (value === null) {
+                return '<span class="json-tree-null">null</span>';
+            }
+            return String(value);
+        }
+
+        // Toggle tree node collapse/expand
+        function toggleTreeNode(toggle) {
+            const node = toggle.parentElement;
+            const children = node.querySelector('.json-tree-children');
+            if (children) {
+                if (children.style.display === 'none') {
+                    children.style.display = 'block';
+                    toggle.textContent = '▼';
+                } else {
+                    children.style.display = 'none';
+                    toggle.textContent = '▶';
+                }
+            }
+        }
+
+        // Copy JSON content to clipboard
+        function copyJsonContent() {
+            let textToCopy = '';
+
+            if (currentJsonTab === 'formatted') {
+                const jsonData = JSON.parse(currentJsonData);
+                textToCopy = JSON.stringify(jsonData, null, 2);
+            } else {
+                textToCopy = currentJsonData;
+            }
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // Visual feedback
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
         }
 
         function sortTable(columnIndex) {

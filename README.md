@@ -60,6 +60,13 @@ Dedicated sidebar in the activity bar provides one-click access to:
 - **Quick Actions** - Common commands (New Query, Test Connection, Fetch Metadata)
 - **Profiles** - Switch between deployments with a single click
 - **Recent Queries** - Recently opened .sumo files with intelligent tracking across profiles
+- **Scopes** - Define and manage log analysis scopes for efficient data exploration
+  - Create scopes with search filters (e.g., `_sourceCategory=prod/app`)
+  - Profile logs with facets analysis showing field distributions
+  - Sample logs to preview data within scope
+  - Cache metadata for autocomplete
+  - Generate queries from scopes with field lists
+  - Auto-create scopes from partitions
 - **Library Explorer** - Full hierarchical navigation of your content library with caching and lazy loading
   - Browse Personal, Global, Admin Recommended, and Installed Apps folders
   - Recursive folder fetching for bulk content downloads
@@ -196,6 +203,37 @@ Fetch and manage configuration from your Sumo Logic deployment:
   - Smart bracket matching
 
 ## Usage Guide
+
+### Working with Scopes
+
+Scopes help you organize and explore log data by defining reusable search contexts:
+
+1. **Create a Scope**:
+   - Click "Scopes" in the sidebar, then click "Create Scope" button
+   - Or run `Sumo Logic: Create Scope` from command palette
+   - Provide:
+     - **Name** - e.g., "Production App Logs"
+     - **Search Scope** - filter query like `_sourceCategory=prod/application`
+     - **Description** - optional context about the scope
+     - **Context** - optional use case information
+     - **Profiles** - `*` for all profiles, or comma-separated profile names
+
+2. **Use Scope Actions**:
+   - **Profile Scope (Facets)** - Analyze field distributions with top values
+   - **Sample Logs** - Preview up to 1000 log messages
+   - **Cache Metadata** - Add field values to autocomplete
+   - **New Query** - Generate a .sumo file with scope filter and field list
+
+3. **Auto-Create from Partitions**:
+   - Click "Add Partition Scopes" to create a scope for each partition
+   - Scopes include routing expressions and partition metadata
+   - Use "Refresh Partition Scopes" to update existing partition scopes
+
+4. **View Scope Results**:
+   - Click a scope to open its webview
+   - View properties, action results, and cached data
+   - Results stored per scope with timestamps
+   - Click "View" buttons to open results in interactive tables
 
 ### Writing Queries
 
@@ -630,7 +668,29 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
-#### Current Session: Users & Roles Management + Enhanced Library
+#### Current Session: Scopes Feature + Query Improvements
+- **Scopes Management**:
+  - Create, edit, and delete log analysis scopes
+  - Multi-profile scope support (apply to specific profiles or all)
+  - SQLite storage in global scopes database
+  - Dedicated webview for scope properties and actions
+  - Scopes overview webview with sortable table
+- **Scope Actions**:
+  - Profile Scope - Run facets query to analyze field distributions
+  - Sample Logs - Retrieve up to 1000 sample messages
+  - Cache Metadata - Extract field values for autocomplete
+  - New Query - Generate .sumo file with scope filter and available fields
+- **Partition Integration**:
+  - Auto-create scopes from partitions with one click
+  - Refresh partition scopes to update routing expressions
+  - Includes partition metadata (routing, retention, analytics tier)
+- **Query Enhancements**:
+  - Improved query execution with result caching
+  - Cache metadata from query results to autocomplete
+  - Better handling of query parameters and directives
+  - Enhanced toolbar with scope-aware actions
+
+#### Previous Session: Users & Roles Management + Enhanced Library
 - **Users & Roles Management**:
   - Fetch and cache users and roles via API
   - Dedicated webviews with filtering, sorting, and pagination

@@ -37,6 +37,7 @@ export class SumoLogicClient {
 
     private endpoint: string;
     private authHeader: string;
+    private cookies: string[] = []; // Store cookies for session management
 
     constructor(config: SumoLogicConfig) {
         this.endpoint = this.resolveEndpoint(config.endpoint);
@@ -73,28 +74,56 @@ export class SumoLogicClient {
         path: string,
         method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
         body?: any,
-        additionalHeaders?: { [key: string]: string }
+        additionalHeaders?: { [key: string]: string },
+        maxRedirects: number = 5
     ): Promise<ApiResponse<T>> {
         return new Promise((resolve) => {
             const url = new URL(path, this.endpoint);
             const isHttps = url.protocol === 'https:';
             const client = isHttps ? https : http;
 
+            const headers: { [key: string]: string } = {
+                'Authorization': this.authHeader,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...additionalHeaders
+            };
+
+            // Add cookies if we have any stored
+            if (this.cookies.length > 0) {
+                headers['Cookie'] = this.cookies.join('; ');
+            }
+
             const options: https.RequestOptions = {
                 hostname: url.hostname,
                 port: url.port || (isHttps ? 443 : 80),
                 path: url.pathname + url.search,
                 method: method,
-                headers: {
-                    'Authorization': this.authHeader,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    ...additionalHeaders
-                }
+                headers
             };
 
             const req = client.request(options, (res) => {
                 let data = '';
+
+                // Capture cookies from response
+                const setCookieHeaders = res.headers['set-cookie'];
+                if (setCookieHeaders) {
+                    // Extract and store cookies
+                    for (const cookieHeader of setCookieHeaders) {
+                        // Parse cookie - take only the name=value part before first semicolon
+                        const cookieValue = cookieHeader.split(';')[0];
+                        // Check if this cookie already exists (by name)
+                        const cookieName = cookieValue.split('=')[0];
+                        const existingIndex = this.cookies.findIndex(c => c.startsWith(cookieName + '='));
+                        if (existingIndex >= 0) {
+                            // Update existing cookie
+                            this.cookies[existingIndex] = cookieValue;
+                        } else {
+                            // Add new cookie
+                            this.cookies.push(cookieValue);
+                        }
+                    }
+                }
 
                 res.on('data', (chunk) => {
                     data += chunk;
@@ -103,6 +132,25 @@ export class SumoLogicClient {
                 res.on('end', () => {
                     try {
                         const statusCode = res.statusCode || 500;
+
+                        // Handle redirects (301, 302, 307, 308)
+                        if (statusCode >= 301 && statusCode <= 308 && res.headers.location) {
+                            if (maxRedirects <= 0) {
+                                resolve({
+                                    error: `Too many redirects`,
+                                    statusCode
+                                });
+                                return;
+                            }
+
+                            // Follow the redirect
+                            const redirectUrl = res.headers.location;
+                            // Use the full redirect URL, not relative to this.endpoint
+                            this.makeRequest<T>(redirectUrl, method, body, additionalHeaders, maxRedirects - 1)
+                                .then(resolve)
+                                .catch(error => resolve({ error: `Redirect failed: ${error}` }));
+                            return;
+                        }
 
                         if (statusCode >= 200 && statusCode < 300) {
                             const parsed = data ? JSON.parse(data) : {};

@@ -5,6 +5,7 @@ import { getDynamicCompletionProvider } from '../extension';
 import { OutputWriter } from '../outputWriter';
 import { FieldAnalyzer, FieldMetadata } from '../services/fieldAnalyzer';
 import { ChartRegistry, ChartType, ChartConfig, initializeChartRegistry } from '../charts';
+import { ProfileManager } from '../profileManager';
 
 /**
  * Parse query metadata from comments
@@ -17,6 +18,7 @@ import { ChartRegistry, ChartType, ChartConfig, initializeChartRegistry } from '
  * // @output webview
  * // @byReceiptTime true
  * // @autoParsingMode AutoParse
+ * // @debug true
  * // @param query_type=copilot
  * // @param user_name=*
  */
@@ -29,6 +31,7 @@ function parseQueryMetadata(queryText: string): {
     output?: 'table' | 'json' | 'csv' | 'webview';
     byReceiptTime?: boolean;
     autoParsingMode?: 'AutoParse' | 'Manual';
+    debug?: boolean;
     params?: Map<string, string>;
 } {
     const metadata: {
@@ -40,6 +43,7 @@ function parseQueryMetadata(queryText: string): {
         output?: 'table' | 'json' | 'csv' | 'webview';
         byReceiptTime?: boolean;
         autoParsingMode?: 'AutoParse' | 'Manual';
+        debug?: boolean;
         params?: Map<string, string>;
     } = {};
 
@@ -103,6 +107,13 @@ function parseQueryMetadata(queryText: string): {
             continue;
         }
 
+        // Match @debug directive
+        const debugMatch = trimmed.match(/^\/\/\s*@debug\s+(true|false)$/i);
+        if (debugMatch) {
+            metadata.debug = debugMatch[1].toLowerCase() === 'true';
+            continue;
+        }
+
         // Match @param directive
         const paramMatch = trimmed.match(/^\/\/\s*@param\s+(\w+)=(.+)$/i);
         if (paramMatch) {
@@ -124,7 +135,7 @@ function cleanQuery(queryText: string): string {
     const lines = queryText.split('\n');
     const cleanedLines = lines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|byReceiptTime|autoParsingMode|param)\s+/i);
+        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|byReceiptTime|autoParsingMode|debug|param)\s+/i);
     });
     return cleanedLines.join('\n').trim();
 }
@@ -2741,16 +2752,30 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
         return;
     }
 
-    // Get client
+    // Get client for active profile
     const baseClient = await createClient(context);
     if (!baseClient) {
         vscode.window.showErrorMessage('No credentials configured. Please run "Sumo Logic: Configure Credentials" first.');
         return;
     }
 
+    // Get active profile credentials
+    const profileManager = new ProfileManager(context);
+    const activeProfile = await profileManager.getActiveProfile();
+    if (!activeProfile) {
+        vscode.window.showErrorMessage('No active profile found. Please select a profile first.');
+        return;
+    }
+
+    const credentials = await profileManager.getProfileCredentials(activeProfile.name);
+    if (!credentials) {
+        vscode.window.showErrorMessage(`No credentials found for profile '${activeProfile.name}'`);
+        return;
+    }
+
     const client = new SearchJobClient({
-        accessId: (await context.secrets.get('sumologic.accessId'))!,
-        accessKey: (await context.secrets.get('sumologic.accessKey'))!,
+        accessId: credentials.accessId,
+        accessKey: credentials.accessKey,
         endpoint: baseClient.getEndpoint()
     });
 
@@ -2899,6 +2924,28 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
     let jobId: string | undefined;
     const startTime = Date.now();
     let finalJobStats: any;
+    const debugMode = metadata.debug || false;
+
+    // Create debug output channel if debug mode is enabled
+    let debugChannel: vscode.OutputChannel | undefined;
+    if (debugMode) {
+        debugChannel = vscode.window.createOutputChannel('Sumo Logic Query Debug');
+        debugChannel.show(true); // Show but don't focus
+        debugChannel.appendLine('=== Sumo Logic Query Debug Log ===');
+        debugChannel.appendLine(`Time: ${new Date().toISOString()}`);
+        debugChannel.appendLine('');
+
+        // Get active profile name for debug output
+        const profileManager = new ProfileManager(context);
+        const activeProfile = await profileManager.getActiveProfile();
+        const profileName = activeProfile?.name || 'unknown';
+
+        debugChannel.appendLine(`Profile: ${profileName}`);
+        debugChannel.appendLine(`Endpoint: ${client.getEndpoint()}`);
+        debugChannel.appendLine(`Mode: ${mode}`);
+        debugChannel.appendLine(`Output Format: ${outputFormat}`);
+        debugChannel.appendLine('');
+    }
 
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -2907,9 +2954,21 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
     }, async (progress) => {
         progress.report({ message: 'Creating search job...' });
 
+        if (debugChannel) {
+            debugChannel.appendLine('--- Request Payload ---');
+            debugChannel.appendLine(JSON.stringify(request, null, 2));
+            debugChannel.appendLine('');
+        }
+
         // Create job
         const createResponse = await client.createSearchJob(request);
         if (createResponse.error || !createResponse.data) {
+            if (debugChannel) {
+                debugChannel.appendLine('--- Create Job Error ---');
+                debugChannel.appendLine(`Error: ${createResponse.error}`);
+                debugChannel.appendLine(`Status Code: ${createResponse.statusCode}`);
+                debugChannel.appendLine('');
+            }
             vscode.window.showErrorMessage(`Failed to create search job: ${createResponse.error}`);
             return;
         }
@@ -2917,17 +2976,54 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
         jobId = createResponse.data.id;
         progress.report({ message: `Job created: ${jobId}` });
 
+        if (debugChannel) {
+            debugChannel.appendLine('--- Job Created ---');
+            debugChannel.appendLine(`Job ID: ${jobId}`);
+            debugChannel.appendLine(`Job Link: ${JSON.stringify(createResponse.data.link)}`);
+            debugChannel.appendLine('');
+        }
+
         // Poll for completion
+        if (debugChannel) {
+            debugChannel.appendLine('--- Polling for Completion ---');
+        }
+
         const pollResponse = await client.pollForCompletion(jobId, (status: SearchJobStatus) => {
             finalJobStats = status;
             progress.report({
                 message: `State: ${status.state}, Records: ${status.recordCount}, Messages: ${status.messageCount}`
             });
+            if (debugChannel) {
+                debugChannel.appendLine(`Status: ${status.state}`);
+                debugChannel.appendLine(`  Records: ${status.recordCount}`);
+                debugChannel.appendLine(`  Messages: ${status.messageCount}`);
+                if (status.pendingErrors.length > 0) {
+                    debugChannel.appendLine(`  Errors: ${JSON.stringify(status.pendingErrors)}`);
+                }
+                if (status.pendingWarnings.length > 0) {
+                    debugChannel.appendLine(`  Warnings: ${JSON.stringify(status.pendingWarnings)}`);
+                }
+            }
         });
 
         if (pollResponse.error) {
+            if (debugChannel) {
+                debugChannel.appendLine('');
+                debugChannel.appendLine('--- Poll Error ---');
+                debugChannel.appendLine(`Error: ${pollResponse.error}`);
+                debugChannel.appendLine('');
+            }
             vscode.window.showErrorMessage(`Search job failed: ${pollResponse.error}`);
             return;
+        }
+
+        if (debugChannel && pollResponse.data) {
+            debugChannel.appendLine('');
+            debugChannel.appendLine('--- Final Job Status ---');
+            debugChannel.appendLine(`State: ${pollResponse.data.state}`);
+            debugChannel.appendLine(`Record Count: ${pollResponse.data.recordCount}`);
+            debugChannel.appendLine(`Message Count: ${pollResponse.data.messageCount}`);
+            debugChannel.appendLine('');
         }
 
         progress.report({ message: 'Fetching results...' });
@@ -2937,32 +3033,79 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
         let resultCount: number;
 
         if (mode === 'messages') {
+            if (debugChannel) {
+                debugChannel.appendLine('--- Fetching Messages ---');
+                debugChannel.appendLine(`Job ID: ${jobId}`);
+            }
             const messagesResponse = await client.getMessages(jobId);
             if (messagesResponse.error || !messagesResponse.data) {
+                if (debugChannel) {
+                    debugChannel.appendLine('');
+                    debugChannel.appendLine('--- Get Messages Error ---');
+                    debugChannel.appendLine(`Error: ${messagesResponse.error}`);
+                    debugChannel.appendLine(`Status Code: ${messagesResponse.statusCode}`);
+                    debugChannel.appendLine('');
+                }
                 vscode.window.showErrorMessage(`Failed to fetch messages: ${messagesResponse.error}`);
                 await client.deleteSearchJob(jobId);
                 return;
             }
             results = messagesResponse.data.messages;
             resultCount = results.length;
+            if (debugChannel) {
+                debugChannel.appendLine(`Retrieved: ${resultCount} messages`);
+                debugChannel.appendLine('');
+            }
         } else {
+            if (debugChannel) {
+                debugChannel.appendLine('--- Fetching Records ---');
+                debugChannel.appendLine(`Job ID: ${jobId}`);
+            }
             const recordsResponse = await client.getRecords(jobId);
             if (recordsResponse.error || !recordsResponse.data) {
+                if (debugChannel) {
+                    debugChannel.appendLine('');
+                    debugChannel.appendLine('--- Get Records Error ---');
+                    debugChannel.appendLine(`Error: ${recordsResponse.error}`);
+                    debugChannel.appendLine(`Status Code: ${recordsResponse.statusCode}`);
+                    debugChannel.appendLine('');
+                }
                 vscode.window.showErrorMessage(`Failed to fetch records: ${recordsResponse.error}`);
                 await client.deleteSearchJob(jobId);
                 return;
             }
             results = recordsResponse.data.records;
             resultCount = results.length;
+            if (debugChannel) {
+                debugChannel.appendLine(`Retrieved: ${resultCount} records`);
+                debugChannel.appendLine('');
+            }
         }
 
         // Clean up job
         await client.deleteSearchJob(jobId);
+        if (debugChannel) {
+            debugChannel.appendLine('--- Cleanup ---');
+            debugChannel.appendLine(`Job ${jobId} deleted`);
+            debugChannel.appendLine('');
+        }
 
         // Display results
         if (results.length === 0) {
+            if (debugChannel) {
+                debugChannel.appendLine('=== NO RESULTS ===');
+                debugChannel.appendLine('Final job stats:');
+                debugChannel.appendLine(JSON.stringify(finalJobStats, null, 2));
+                debugChannel.appendLine('');
+            }
             vscode.window.showInformationMessage('Query completed: No results found');
             return;
+        }
+
+        if (debugChannel) {
+            debugChannel.appendLine('=== SUCCESS ===');
+            debugChannel.appendLine(`Total results: ${results.length}`);
+            debugChannel.appendLine('');
         }
 
         // Update status bar with last query time

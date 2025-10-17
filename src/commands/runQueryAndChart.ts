@@ -3,6 +3,7 @@ import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searc
 import { createClient } from './authenticate';
 import { OutputWriter } from '../outputWriter';
 import { chartCSVCommand } from './chartCSV';
+import { ProfileManager } from '../profileManager';
 
 /**
  * Parse query metadata from comments
@@ -117,16 +118,30 @@ export async function runQueryAndChartCommand(context: vscode.ExtensionContext):
         return;
     }
 
-    // Get client
+    // Get client for active profile
     const baseClient = await createClient(context);
     if (!baseClient) {
         vscode.window.showErrorMessage('No credentials configured. Please run "Sumo Logic: Configure Credentials" first.');
         return;
     }
 
+    // Get active profile credentials
+    const profileManager = new ProfileManager(context);
+    const activeProfile = await profileManager.getActiveProfile();
+    if (!activeProfile) {
+        vscode.window.showErrorMessage('No active profile found. Please select a profile first.');
+        return;
+    }
+
+    const credentials = await profileManager.getProfileCredentials(activeProfile.name);
+    if (!credentials) {
+        vscode.window.showErrorMessage(`No credentials found for profile '${activeProfile.name}'`);
+        return;
+    }
+
     const client = new SearchJobClient({
-        accessId: (await context.secrets.get('sumologic.accessId'))!,
-        accessKey: (await context.secrets.get('sumologic.accessKey'))!,
+        accessId: credentials.accessId,
+        accessKey: credentials.accessKey,
         endpoint: baseClient.getEndpoint()
     });
 

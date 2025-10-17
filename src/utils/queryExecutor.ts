@@ -14,6 +14,7 @@ export interface QueryExecutionOptions {
     byReceiptTime?: boolean; // Default: false
     autoParsingMode?: 'AutoParse' | 'Manual'; // Default: 'Manual'
     onProgress?: (message: string) => void;
+    debug?: boolean;        // Default: false - enables detailed logging
 }
 
 /**
@@ -32,7 +33,8 @@ export async function executeQueryForRecords(
         timeZone = 'UTC',
         byReceiptTime = false,
         autoParsingMode = 'Manual',
-        onProgress
+        onProgress,
+        debug = false
     } = options;
 
     const profileManager = new ProfileManager(context);
@@ -58,9 +60,22 @@ export async function executeQueryForRecords(
         endpoint
     });
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Profile: ${profileName}`);
+        onProgress(`[DEBUG] Endpoint: ${endpoint}`);
+        onProgress(`[DEBUG] Region: ${profile.region}`);
+    }
+
     // Parse time ranges
     const fromTime = SearchJobClient.parseRelativeTime(from);
     const toTime = SearchJobClient.parseRelativeTime(to);
+
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Time range: ${from} (${fromTime}) to ${to} (${toTime})`);
+        onProgress(`[DEBUG] Time zone: ${timeZone}`);
+        onProgress(`[DEBUG] By receipt time: ${byReceiptTime}`);
+        onProgress(`[DEBUG] Auto parsing mode: ${autoParsingMode}`);
+    }
 
     if (onProgress) {
         onProgress('Creating search job...');
@@ -76,8 +91,16 @@ export async function executeQueryForRecords(
         autoParsingMode
     };
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Request payload: ${JSON.stringify(request, null, 2)}`);
+    }
+
     const createResponse = await searchClient.createSearchJob(request);
     if (createResponse.error || !createResponse.data) {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Create job error: ${createResponse.error}`);
+            onProgress(`[DEBUG] Status code: ${createResponse.statusCode}`);
+        }
         throw new Error(createResponse.error || 'Failed to create search job');
     }
 
@@ -87,14 +110,38 @@ export async function executeQueryForRecords(
         onProgress(`Job created: ${jobId}`);
     }
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Job link: ${JSON.stringify(createResponse.data.link)}`);
+    }
+
     // Poll for completion
     if (onProgress) {
         onProgress('Waiting for query to complete...');
     }
 
-    const pollResult = await searchClient.pollForCompletion(jobId);
+    const pollResult = await searchClient.pollForCompletion(jobId, (status) => {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Job status: ${status.state}, Records: ${status.recordCount}, Messages: ${status.messageCount}`);
+            if (status.pendingErrors.length > 0) {
+                onProgress(`[DEBUG] Pending errors: ${JSON.stringify(status.pendingErrors)}`);
+            }
+            if (status.pendingWarnings.length > 0) {
+                onProgress(`[DEBUG] Pending warnings: ${JSON.stringify(status.pendingWarnings)}`);
+            }
+        }
+    });
+
     if (pollResult.error) {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Poll error: ${pollResult.error}`);
+        }
         throw new Error(pollResult.error);
+    }
+
+    if (debug && onProgress && pollResult.data) {
+        onProgress(`[DEBUG] Final status: ${pollResult.data.state}`);
+        onProgress(`[DEBUG] Final record count: ${pollResult.data.recordCount}`);
+        onProgress(`[DEBUG] Final message count: ${pollResult.data.messageCount}`);
     }
 
     // Get records
@@ -102,13 +149,29 @@ export async function executeQueryForRecords(
         onProgress('Fetching results...');
     }
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Fetching records from job ${jobId} (offset: 0, limit: 10000)`);
+    }
+
     const recordsResponse = await searchClient.getRecords(jobId, 0, 10000);
     if (recordsResponse.error || !recordsResponse.data) {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Get records error: ${recordsResponse.error}`);
+            onProgress(`[DEBUG] Status code: ${recordsResponse.statusCode}`);
+        }
         throw new Error(recordsResponse.error || 'Failed to fetch records');
+    }
+
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Retrieved ${recordsResponse.data.records.length} records`);
     }
 
     // Cleanup - delete job
     await searchClient.deleteSearchJob(jobId);
+
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Job ${jobId} deleted`);
+    }
 
     return recordsResponse.data;
 }
@@ -129,7 +192,8 @@ export async function executeQueryForMessages(
         timeZone = 'UTC',
         byReceiptTime = false,
         autoParsingMode = 'Manual',
-        onProgress
+        onProgress,
+        debug = false
     } = options;
 
     const profileManager = new ProfileManager(context);
@@ -155,9 +219,22 @@ export async function executeQueryForMessages(
         endpoint
     });
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Profile: ${profileName}`);
+        onProgress(`[DEBUG] Endpoint: ${endpoint}`);
+        onProgress(`[DEBUG] Region: ${profile.region}`);
+    }
+
     // Parse time ranges
     const fromTime = SearchJobClient.parseRelativeTime(from);
     const toTime = SearchJobClient.parseRelativeTime(to);
+
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Time range: ${from} (${fromTime}) to ${to} (${toTime})`);
+        onProgress(`[DEBUG] Time zone: ${timeZone}`);
+        onProgress(`[DEBUG] By receipt time: ${byReceiptTime}`);
+        onProgress(`[DEBUG] Auto parsing mode: ${autoParsingMode}`);
+    }
 
     if (onProgress) {
         onProgress('Creating search job...');
@@ -173,8 +250,16 @@ export async function executeQueryForMessages(
         autoParsingMode
     };
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Request payload: ${JSON.stringify(request, null, 2)}`);
+    }
+
     const createResponse = await searchClient.createSearchJob(request);
     if (createResponse.error || !createResponse.data) {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Create job error: ${createResponse.error}`);
+            onProgress(`[DEBUG] Status code: ${createResponse.statusCode}`);
+        }
         throw new Error(createResponse.error || 'Failed to create search job');
     }
 
@@ -184,14 +269,38 @@ export async function executeQueryForMessages(
         onProgress(`Job created: ${jobId}`);
     }
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Job link: ${JSON.stringify(createResponse.data.link)}`);
+    }
+
     // Poll for completion
     if (onProgress) {
         onProgress('Waiting for query to complete...');
     }
 
-    const pollResult = await searchClient.pollForCompletion(jobId);
+    const pollResult = await searchClient.pollForCompletion(jobId, (status) => {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Job status: ${status.state}, Records: ${status.recordCount}, Messages: ${status.messageCount}`);
+            if (status.pendingErrors.length > 0) {
+                onProgress(`[DEBUG] Pending errors: ${JSON.stringify(status.pendingErrors)}`);
+            }
+            if (status.pendingWarnings.length > 0) {
+                onProgress(`[DEBUG] Pending warnings: ${JSON.stringify(status.pendingWarnings)}`);
+            }
+        }
+    });
+
     if (pollResult.error) {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Poll error: ${pollResult.error}`);
+        }
         throw new Error(pollResult.error);
+    }
+
+    if (debug && onProgress && pollResult.data) {
+        onProgress(`[DEBUG] Final status: ${pollResult.data.state}`);
+        onProgress(`[DEBUG] Final record count: ${pollResult.data.recordCount}`);
+        onProgress(`[DEBUG] Final message count: ${pollResult.data.messageCount}`);
     }
 
     // Get messages
@@ -199,13 +308,29 @@ export async function executeQueryForMessages(
         onProgress('Fetching results...');
     }
 
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Fetching messages from job ${jobId} (offset: 0, limit: 10000)`);
+    }
+
     const messagesResponse = await searchClient.getMessages(jobId, 0, 10000);
     if (messagesResponse.error || !messagesResponse.data) {
+        if (debug && onProgress) {
+            onProgress(`[DEBUG] Get messages error: ${messagesResponse.error}`);
+            onProgress(`[DEBUG] Status code: ${messagesResponse.statusCode}`);
+        }
         throw new Error(messagesResponse.error || 'Failed to fetch messages');
+    }
+
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Retrieved ${messagesResponse.data.messages.length} messages`);
     }
 
     // Cleanup - delete job
     await searchClient.deleteSearchJob(jobId);
+
+    if (debug && onProgress) {
+        onProgress(`[DEBUG] Job ${jobId} deleted`);
+    }
 
     return messagesResponse.data;
 }

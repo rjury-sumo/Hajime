@@ -334,6 +334,11 @@
             ],
             "view/item/context": [
                 {
+                    "command": "sumologic.createProfile",
+                    "when": "view == sumoExplorer && viewItem == profilesSection",
+                    "group": "inline"
+                },
+                {
                     "command": "sumologic.switchProfile",
                     "when": "view == sumoExplorer && viewItem == profile",
                     "group": "inline"

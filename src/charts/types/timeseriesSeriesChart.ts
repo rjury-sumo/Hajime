@@ -6,6 +6,7 @@
 
 import { EChartsOption } from 'echarts';
 import { ChartType, ChartConfig, ChartConfigOption } from '../chartTypes';
+import { applyAdvancedSettings } from '../chartUtils';
 
 /**
  * Parse timestamp to milliseconds
@@ -211,7 +212,7 @@ function transformTimeseriesSeriesData(data: any[], config: ChartConfig, fieldMe
         return seriesConfig;
     });
 
-    return {
+    const baseOption: EChartsOption = {
         title: {
             text: `${aggregation} ${valueField ? 'of ' + valueField : ''} by ${seriesField} over Time`,
             left: 'center'
@@ -224,14 +225,16 @@ function transformTimeseriesSeriesData(data: any[], config: ChartConfig, fieldMe
         },
         legend: {
             data: allSeriesData.map(s => s.name),
-            bottom: 0,
+            right: 10,
+            top: 'middle',
+            orient: 'vertical',
             type: 'scroll'
         },
         grid: {
             left: '3%',
-            right: '4%',
-            bottom: '15%',
-            top: '15%',
+            right: '15%',
+            bottom: '12%',
+            top: '80px',
             containLabel: true
         },
         toolbox: {
@@ -263,6 +266,9 @@ function transformTimeseriesSeriesData(data: any[], config: ChartConfig, fieldMe
         ],
         series
     };
+
+    // Apply advanced settings if configured
+    return applyAdvancedSettings(baseOption, options.advancedSettings);
 }
 
 /**
@@ -346,6 +352,13 @@ const timeseriesSeriesChartOptions: ChartConfigOption[] = [
         type: 'checkbox',
         defaultValue: false,
         description: 'Group series outside Top N into an "Other" series'
+    },
+    {
+        id: 'advancedSettings',
+        label: 'Advanced Settings',
+        type: 'advanced-settings',
+        defaultValue: {},
+        description: 'Configure title, legend, axes, and other display settings'
     }
 ];
 

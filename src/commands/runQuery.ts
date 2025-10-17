@@ -2409,6 +2409,50 @@ function generateChartConfigDialogHTML(
                     </select>
                 </div>
             `;
+        } else if (opt.id === 'valueFields' && opt.type === 'multi-field-select') {
+            // For value fields in timeseries, show numeric fields AND numeric strings (Sumo Logic often returns aggregated numbers as strings)
+            const valueFields = allFields.filter(f =>
+                (f.dataType === 'number' || f.isNumericString) && !f.isTimeField
+            );
+
+            // Check if the clicked field is numeric and should be pre-selected
+            const preSelectedField = valueFields.some(f => f.name === fieldName) ? fieldName : '';
+            const preSelectedAgg = preSelectedField ? 'sum' : 'count';
+            const preSelectedKey = preSelectedField ? `${preSelectedAgg}(${preSelectedField})` : '__count__';
+            const preSelectedDisplay = preSelectedField ? `${preSelectedAgg}(${preSelectedField})` : 'count';
+
+            return `
+                <div class="form-group">
+                    <label for="${opt.id}">${opt.label}${opt.required ? ' *' : ''}</label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <div id="${opt.id}_container" class="multi-field-container">
+                        <div class="field-item" data-field="${escapeHtml(preSelectedKey)}">
+                            <span>${escapeHtml(preSelectedDisplay)}</span>
+                            <button type="button" class="remove-field-btn" onclick="removeValueField('${escapeHtml(preSelectedKey).replace(/'/g, "\\'")}')">×</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <select id="${opt.id}_aggregation" style="width: 100px;">
+                            <option value="sum">sum</option>
+                            <option value="avg">avg</option>
+                            <option value="min">min</option>
+                            <option value="max">max</option>
+                            <option value="count">count</option>
+                        </select>
+                        <select id="${opt.id}_selector" style="flex: 1;">
+                            <option value="">-- Select a field to add --</option>
+                            <option value="__count__">count (record count)</option>
+                            ${valueFields.map(f => `
+                                <option value="${escapeHtml(f.name)}">
+                                    ${escapeHtml(f.name)} (${f.dataType}${f.isNumericString ? ', numeric' : ''})
+                                </option>
+                            `).join('')}
+                        </select>
+                        <button type="button" class="secondary-button" onclick="addValueField()">Add Field</button>
+                    </div>
+                    <input type="hidden" id="${opt.id}" name="${opt.id}" value="${JSON.stringify([preSelectedKey])}">
+                </div>
+            `;
         } else if (opt.type === 'select') {
             return `
                 <div class="form-group">
@@ -2439,6 +2483,109 @@ function generateChartConfigDialogHTML(
                     <label for="${opt.id}">${opt.label}</label>
                     ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
                     <input type="number" id="${opt.id}" name="${opt.id}" value="${opt.defaultValue}" min="1">
+                </div>
+            `;
+        } else if (opt.type === 'time-bucket') {
+            return `
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="${opt.id}_enabled" name="${opt.id}_enabled">
+                        ${opt.label}
+                    </label>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <div id="${opt.id}_settings" class="time-bucket-settings" style="display: none; margin-top: 8px;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="${opt.id}_value" name="${opt.id}_value" value="1" min="1" style="width: 80px;">
+                            <select id="${opt.id}_unit" name="${opt.id}_unit" style="width: 120px;">
+                                <option value="minute">Minute(s)</option>
+                                <option value="hour">Hour(s)</option>
+                                <option value="day">Day(s)</option>
+                                <option value="week">Week(s)</option>
+                                <option value="month">Month(s)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <input type="hidden" id="${opt.id}" name="${opt.id}" value="">
+                </div>
+            `;
+        } else if (opt.type === 'advanced-settings') {
+            return `
+                <div class="form-group advanced-settings-group">
+                    <button type="button" class="advanced-settings-toggle" onclick="toggleAdvancedSettings()">
+                        <span class="toggle-icon">▶</span> ${opt.label}
+                    </button>
+                    ${opt.description ? `<div class="description">${opt.description}</div>` : ''}
+                    <div id="advancedSettingsPanel" class="advanced-settings-panel" style="display: none;">
+                        <div class="settings-section">
+                            <label>Title Text</label>
+                            <input type="text" id="setting_title_text" placeholder="Chart Title">
+                        </div>
+                        <div class="settings-section">
+                            <label>Title Position</label>
+                            <select id="setting_title_position">
+                                <option value="center">Center</option>
+                                <option value="left">Left</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                        <div class="settings-section">
+                            <label>Legend Position</label>
+                            <select id="setting_legend_position">
+                                <option value="bottom">Bottom</option>
+                                <option value="top">Top</option>
+                                <option value="left">Left</option>
+                                <option value="right" selected>Right</option>
+                            </select>
+                        </div>
+                        <div class="settings-section">
+                            <label>Legend Type</label>
+                            <select id="setting_legend_type">
+                                <option value="plain">Plain</option>
+                                <option value="scroll" selected>Scroll</option>
+                            </select>
+                        </div>
+                        <div class="settings-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting_legend_show" checked>
+                                Show Legend
+                            </label>
+                        </div>
+                        <div class="settings-section">
+                            <label>X-Axis Label</label>
+                            <input type="text" id="setting_xaxis_name" placeholder="X-Axis Name">
+                        </div>
+                        <div class="settings-section">
+                            <label>Y-Axis Label</label>
+                            <input type="text" id="setting_yaxis_name" placeholder="Y-Axis Name">
+                        </div>
+                        <div class="settings-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting_xaxis_show" checked>
+                                Show X-Axis
+                            </label>
+                        </div>
+                        <div class="settings-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting_yaxis_show" checked>
+                                Show Y-Axis
+                            </label>
+                        </div>
+                        <div class="settings-section">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="setting_yaxis_log">
+                                Y-Axis Log Scale
+                            </label>
+                        </div>
+                        <div class="settings-section">
+                            <label>Y-Axis Min Value</label>
+                            <input type="number" id="setting_yaxis_min" placeholder="Auto" step="any">
+                        </div>
+                        <div class="settings-section">
+                            <label>Y-Axis Max Value</label>
+                            <input type="number" id="setting_yaxis_max" placeholder="Auto" step="any">
+                        </div>
+                    </div>
+                    <input type="hidden" id="${opt.id}" name="${opt.id}" value="{}">
                 </div>
             `;
         }
@@ -2537,6 +2684,83 @@ function generateChartConfigDialogHTML(
         .secondary-button:hover {
             background-color: var(--vscode-button-secondaryHoverBackground);
         }
+        .advanced-settings-toggle {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 13px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .advanced-settings-toggle:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+        .advanced-settings-panel {
+            margin-top: 12px;
+            padding: 12px;
+            background-color: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+        }
+        .settings-section {
+            margin-bottom: 12px;
+        }
+        .settings-section:last-child {
+            margin-bottom: 0;
+        }
+        .settings-section label {
+            font-size: 12px;
+            font-weight: normal;
+        }
+        .settings-section input[type="text"] {
+            width: 100%;
+        }
+        .multi-field-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 32px;
+            padding: 8px;
+            background-color: var(--vscode-input-background);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+        }
+        .field-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .remove-field-btn {
+            background: none;
+            border: none;
+            color: var(--vscode-badge-foreground);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+            margin-left: 4px;
+        }
+        .remove-field-btn:hover {
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -2554,11 +2778,199 @@ function generateChartConfigDialogHTML(
 
     <div class="button-group">
         <button type="button" class="primary-button" onclick="createChart()">Create Chart</button>
+        <button type="button" class="primary-button" onclick="viewChart()">View Chart</button>
         <button type="button" class="secondary-button" onclick="cancel()">Cancel</button>
     </div>
 
     <script>
         const vscode = acquireVsCodeApi();
+
+        // Initialize time bucket toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const timeBucketEnabled = document.getElementById('timeBucket_enabled');
+            const timeBucketSettings = document.getElementById('timeBucket_settings');
+
+            if (timeBucketEnabled && timeBucketSettings) {
+                timeBucketEnabled.addEventListener('change', function() {
+                    timeBucketSettings.style.display = this.checked ? 'block' : 'none';
+                });
+            }
+        });
+
+        function collectTimeBucketSettings() {
+            const enabled = document.getElementById('timeBucket_enabled')?.checked || false;
+            const value = parseInt(document.getElementById('timeBucket_value')?.value || '1', 10);
+            const unit = document.getElementById('timeBucket_unit')?.value || 'minute';
+
+            return {
+                enabled: enabled,
+                value: value,
+                unit: unit
+            };
+        }
+
+        function addValueField() {
+            const selector = document.getElementById('valueFields_selector');
+            const aggSelector = document.getElementById('valueFields_aggregation');
+            const container = document.getElementById('valueFields_container');
+            const hiddenInput = document.getElementById('valueFields');
+
+            if (!selector || !aggSelector || !container || !hiddenInput) return;
+
+            const fieldName = selector.value;
+            const aggregation = aggSelector.value;
+            if (!fieldName) return;
+
+            // Build the field key based on aggregation and field
+            let fieldKey;
+            let displayName;
+
+            if (fieldName === '__count__') {
+                fieldKey = '__count__';
+                displayName = 'count';
+            } else {
+                fieldKey = aggregation + '(' + fieldName + ')';
+                displayName = aggregation + '(' + fieldName + ')';
+            }
+
+            // Get current fields
+            let currentFields = [];
+            try {
+                currentFields = JSON.parse(hiddenInput.value || '[]');
+            } catch (e) {
+                currentFields = [];
+            }
+
+            // Check if field already exists
+            if (currentFields.includes(fieldKey)) {
+                return;
+            }
+
+            // Add field
+            currentFields.push(fieldKey);
+            hiddenInput.value = JSON.stringify(currentFields);
+
+            // Create field item
+            const fieldItem = document.createElement('div');
+            fieldItem.className = 'field-item';
+            fieldItem.setAttribute('data-field', fieldKey);
+            fieldItem.innerHTML = \`
+                <span>\${displayName}</span>
+                <button type="button" class="remove-field-btn" onclick="removeValueField('\${fieldKey.replace(/'/g, "\\\\'")}')">×</button>
+            \`;
+
+            container.appendChild(fieldItem);
+
+            // Reset selector
+            selector.value = '';
+        }
+
+        function removeValueField(fieldName) {
+            const container = document.getElementById('valueFields_container');
+            const hiddenInput = document.getElementById('valueFields');
+
+            if (!container || !hiddenInput) return;
+
+            // Get current fields
+            let currentFields = [];
+            try {
+                currentFields = JSON.parse(hiddenInput.value || '[]');
+            } catch (e) {
+                currentFields = [];
+            }
+
+            // Remove field
+            currentFields = currentFields.filter(f => f !== fieldName);
+            hiddenInput.value = JSON.stringify(currentFields);
+
+            // Remove field item from DOM
+            const fieldItems = container.querySelectorAll('.field-item');
+            fieldItems.forEach(item => {
+                if (item.getAttribute('data-field') === fieldName) {
+                    item.remove();
+                }
+            });
+        }
+
+        function toggleAdvancedSettings() {
+            const panel = document.getElementById('advancedSettingsPanel');
+            const icon = document.querySelector('.toggle-icon');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                icon.classList.add('expanded');
+            } else {
+                panel.style.display = 'none';
+                icon.classList.remove('expanded');
+            }
+        }
+
+        function collectAdvancedSettings() {
+            const settings = {};
+
+            // Title settings
+            const titleText = document.getElementById('setting_title_text')?.value;
+            const titlePosition = document.getElementById('setting_title_position')?.value;
+            if (titleText || titlePosition !== 'center') {
+                settings.title = {};
+                if (titleText) settings.title.text = titleText;
+                if (titlePosition) settings.title.left = titlePosition;
+            }
+
+            // Legend settings
+            const legendShow = document.getElementById('setting_legend_show')?.checked;
+            const legendPosition = document.getElementById('setting_legend_position')?.value;
+            const legendType = document.getElementById('setting_legend_type')?.value;
+            if (legendShow !== undefined || legendPosition || legendType) {
+                settings.legend = {};
+                if (legendShow !== undefined) settings.legend.show = legendShow;
+                if (legendType) settings.legend.type = legendType;
+
+                // Set position - only set the chosen position
+                if (legendPosition) {
+                    if (legendPosition === 'left') {
+                        settings.legend.orient = 'vertical';
+                        settings.legend.left = 0;
+                        settings.legend.top = 'middle';
+                    } else if (legendPosition === 'right') {
+                        settings.legend.orient = 'vertical';
+                        settings.legend.right = 0;
+                        settings.legend.top = 'middle';
+                    } else if (legendPosition === 'top') {
+                        settings.legend.top = 0;
+                        settings.legend.orient = 'horizontal';
+                    } else if (legendPosition === 'bottom') {
+                        settings.legend.bottom = 0;
+                        settings.legend.orient = 'horizontal';
+                    }
+                }
+            }
+
+            // X-Axis settings
+            const xAxisName = document.getElementById('setting_xaxis_name')?.value;
+            const xAxisShow = document.getElementById('setting_xaxis_show')?.checked;
+            if (xAxisName || xAxisShow !== undefined) {
+                settings.xAxis = {};
+                if (xAxisName) settings.xAxis.name = xAxisName;
+                if (xAxisShow !== undefined) settings.xAxis.show = xAxisShow;
+            }
+
+            // Y-Axis settings
+            const yAxisName = document.getElementById('setting_yaxis_name')?.value;
+            const yAxisShow = document.getElementById('setting_yaxis_show')?.checked;
+            const yAxisLog = document.getElementById('setting_yaxis_log')?.checked;
+            const yAxisMin = document.getElementById('setting_yaxis_min')?.value;
+            const yAxisMax = document.getElementById('setting_yaxis_max')?.value;
+            if (yAxisName || yAxisShow !== undefined || yAxisLog || yAxisMin || yAxisMax) {
+                settings.yAxis = {};
+                if (yAxisName) settings.yAxis.name = yAxisName;
+                if (yAxisShow !== undefined) settings.yAxis.show = yAxisShow;
+                if (yAxisLog) settings.yAxis.type = 'log';
+                if (yAxisMin !== undefined && yAxisMin !== '') settings.yAxis.min = parseFloat(yAxisMin);
+                if (yAxisMax !== undefined && yAxisMax !== '') settings.yAxis.max = parseFloat(yAxisMax);
+            }
+
+            return settings;
+        }
 
         function createChart() {
             const form = document.getElementById('chartConfigForm');
@@ -2572,6 +2984,19 @@ function generateChartConfigDialogHTML(
                     config[key] = element.checked;
                 } else if (element.type === 'number') {
                     config[key] = parseInt(value, 10);
+                } else if (key === 'advancedSettings') {
+                    // Collect advanced settings from the panel
+                    config[key] = collectAdvancedSettings();
+                } else if (key === 'timeBucket') {
+                    // Collect time bucket settings
+                    config[key] = collectTimeBucketSettings();
+                } else if (key === 'valueFields') {
+                    // Parse JSON array for multi-field select
+                    try {
+                        config[key] = JSON.parse(value || '[]');
+                    } catch (e) {
+                        config[key] = [];
+                    }
                 } else {
                     config[key] = value;
                 }
@@ -2580,6 +3005,43 @@ function generateChartConfigDialogHTML(
             // Send configuration back
             vscode.postMessage({
                 command: 'createChart',
+                config: config
+            });
+        }
+
+        function viewChart() {
+            const form = document.getElementById('chartConfigForm');
+            const formData = new FormData(form);
+            const config = {};
+
+            // Collect all form values
+            for (const [key, value] of formData.entries()) {
+                const element = document.getElementById(key);
+                if (element.type === 'checkbox') {
+                    config[key] = element.checked;
+                } else if (element.type === 'number') {
+                    config[key] = parseInt(value, 10);
+                } else if (key === 'advancedSettings') {
+                    // Collect advanced settings from the panel
+                    config[key] = collectAdvancedSettings();
+                } else if (key === 'timeBucket') {
+                    // Collect time bucket settings
+                    config[key] = collectTimeBucketSettings();
+                } else if (key === 'valueFields') {
+                    // Parse JSON array for multi-field select
+                    try {
+                        config[key] = JSON.parse(value || '[]');
+                    } catch (e) {
+                        config[key] = [];
+                    }
+                } else {
+                    config[key] = value;
+                }
+            }
+
+            // Send configuration back without closing dialog
+            vscode.postMessage({
+                command: 'viewChart',
                 config: config
             });
         }
@@ -2718,6 +3180,53 @@ async function handleChartField(
                 chartPanel.webview.html = generateChartHTML(config, chartData, fieldAnalysis.fields);
 
                 resolve();
+            }
+
+            if (message.command === 'viewChart') {
+                const userConfig = message.config;
+
+                // Build chart configuration
+                const config: ChartConfig = {
+                    chartTypeId: chartType.id,
+                    fields: [fieldName],
+                    options: {}
+                };
+
+                // Set all options from form
+                chartType.configOptions.forEach(opt => {
+                    if (userConfig[opt.id] !== undefined) {
+                        config.options[opt.id] = userConfig[opt.id];
+                    } else {
+                        config.options[opt.id] = opt.defaultValue;
+                    }
+                });
+
+                // Validate configuration
+                if (chartType.validate) {
+                    const validation = chartType.validate(config, fieldAnalysis.fields);
+                    if (!validation.valid) {
+                        vscode.window.showErrorMessage(validation.error || 'Invalid chart configuration');
+                        return;
+                    }
+                }
+
+                // DO NOT close config dialog - keep it open for further editing
+
+                // Create chart in new window
+                const chartPanel = vscode.window.createWebviewPanel(
+                    'sumoChart',
+                    `Chart: ${fieldName}`,
+                    vscode.ViewColumn.Beside,
+                    {
+                        enableScripts: true,
+                        retainContextWhenHidden: true
+                    }
+                );
+
+                const chartData = results.map(r => r.map);
+                chartPanel.webview.html = generateChartHTML(config, chartData, fieldAnalysis.fields);
+
+                // Don't resolve - keep the promise open so the config panel stays
             }
         });
 

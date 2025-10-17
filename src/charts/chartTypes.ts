@@ -11,7 +11,7 @@ import { EChartsOption } from 'echarts';
 export interface ChartConfigOption {
     id: string;
     label: string;
-    type: 'select' | 'checkbox' | 'number' | 'field-select' | 'multi-field-select';
+    type: 'select' | 'checkbox' | 'number' | 'field-select' | 'multi-field-select' | 'advanced-settings' | 'time-bucket';
     defaultValue: any;
     options?: Array<{ value: any; label: string }>;
     description?: string;

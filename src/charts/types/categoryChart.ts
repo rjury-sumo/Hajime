@@ -5,6 +5,7 @@
 
 import { EChartsOption } from 'echarts';
 import { ChartType, ChartConfig, ChartConfigOption } from '../chartTypes';
+import { applyAdvancedSettings } from '../chartUtils';
 
 /**
  * Transform data for category charts
@@ -104,8 +105,10 @@ function transformCategoryData(data: any[], config: ChartConfig, fieldMetadata?:
     }
 
     // Generate chart based on type
+    let baseOption: EChartsOption;
+
     if (chartType === 'pie') {
-        return {
+        baseOption = {
             title: {
                 text: `${categoryField} Distribution`,
                 left: 'center'
@@ -140,7 +143,7 @@ function transformCategoryData(data: any[], config: ChartConfig, fieldMetadata?:
         };
     } else {
         // Bar or line chart
-        return {
+        baseOption = {
             title: {
                 text: `${categoryField} by ${aggregation}${valueField ? ' of ' + valueField : ''}`,
                 left: 'center'
@@ -190,6 +193,9 @@ function transformCategoryData(data: any[], config: ChartConfig, fieldMetadata?:
             ]
         };
     }
+
+    // Apply advanced settings if configured
+    return applyAdvancedSettings(baseOption, options.advancedSettings);
 }
 
 /**
@@ -276,6 +282,13 @@ const categoryChartOptions: ChartConfigOption[] = [
         type: 'checkbox',
         defaultValue: false,
         description: 'Fill area under line chart'
+    },
+    {
+        id: 'advancedSettings',
+        label: 'Advanced Settings',
+        type: 'advanced-settings',
+        defaultValue: {},
+        description: 'Configure title, legend, axes, and other display settings'
     }
 ];
 

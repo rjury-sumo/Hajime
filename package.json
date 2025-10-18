@@ -445,6 +445,21 @@
                 },
                 {
                     "command": "sumologic.revealStorageInExplorer",
+                    "when": "view == sumoExplorer && viewItem == recentResult",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "sumologic.copyStoragePath",
+                    "when": "view == sumoExplorer && viewItem == recentResult",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "sumologic.openStorageInTerminal",
+                    "when": "view == sumoExplorer && viewItem == recentResult",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "sumologic.revealStorageInExplorer",
                     "when": "view == sumoExplorer && viewItem == recentContent",
                     "group": "navigation@1"
                 },

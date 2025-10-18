@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searchJob';
 import { createClient } from './authenticate';
-import { getDynamicCompletionProvider } from '../extension';
+import { getDynamicCompletionProvider, getSumoExplorerProvider } from '../extension';
 import { OutputWriter } from '../outputWriter';
 import { FieldAnalyzer, FieldMetadata } from '../services/fieldAnalyzer';
 import { ChartRegistry, ChartType, ChartConfig, initializeChartRegistry } from '../charts';
@@ -3906,15 +3906,33 @@ export async function runQueryCommand(context: vscode.ExtensionContext): Promise
             try {
                 const filePath = await outputWriter.writeAndOpen('queries', filename, resultText, fileExtension);
 
+                // Track the result file in recent results
+                const explorerProvider = getSumoExplorerProvider();
+                if (explorerProvider && filePath) {
+                    const recentResultsManager = explorerProvider.getRecentResultsManager();
+                    recentResultsManager.addResult(filePath);
+                }
+
                 // Also save JSON file for table output
                 let jsonFilePath: string | undefined;
                 if (outputFormat === 'table') {
                     try {
                         const jsonContent = formatResultsAsJSON(results);
                         jsonFilePath = await outputWriter.writeOutput('queries', filename, jsonContent, 'json');
+
+                        // Track JSON file as well
+                        if (explorerProvider && jsonFilePath) {
+                            const recentResultsManager = explorerProvider.getRecentResultsManager();
+                            recentResultsManager.addResult(jsonFilePath);
+                        }
                     } catch (error) {
                         console.error('Failed to write JSON file:', error);
                     }
+                }
+
+                // Refresh explorer to show new results
+                if (explorerProvider) {
+                    explorerProvider.refresh();
                 }
 
                 vscode.window.showInformationMessage(`Query completed: ${resultCount} ${mode} found (${outputFormat} format)${jsonFilePath ? ` - JSON saved to ${jsonFilePath}` : ''}`);

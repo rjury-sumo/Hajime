@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import { LibraryExplorerProvider, LibraryTreeItem } from './libraryExplorer';
 import { RecentQueriesManager } from '../recentQueriesManager';
 import { RecentContentManager } from '../recentContentManager';
+import { RecentResultsManager } from '../recentResultsManager';
 
 /**
  * Tree item types for the Sumo Logic Explorer
@@ -14,6 +15,7 @@ export enum TreeItemType {
     ProfilesSection = 'profilesSection',
     QueriesSection = 'queriesSection',
     RecentContentSection = 'recentContentSection',
+    RecentResultsSection = 'recentResultsSection',
     CollectorsSection = 'collectorsSection',
     ContentSection = 'contentSection',
     QuickActionsSection = 'quickActionsSection',
@@ -27,6 +29,7 @@ export enum TreeItemType {
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
     RecentContent = 'recentContent',
+    RecentResult = 'recentResult',
     Collector = 'collector',
     Content = 'content',
     StorageFolder = 'storageFolder',
@@ -71,6 +74,10 @@ export class SumoTreeItem extends vscode.TreeItem {
             case TreeItemType.RecentContentSection:
                 this.iconPath = new vscode.ThemeIcon('book');
                 this.tooltip = 'Recent Content';
+                break;
+            case TreeItemType.RecentResultsSection:
+                this.iconPath = new vscode.ThemeIcon('output');
+                this.tooltip = 'Recent Query Results';
                 break;
             case TreeItemType.CollectorsSection:
                 this.iconPath = new vscode.ThemeIcon('server');
@@ -127,6 +134,31 @@ export class SumoTreeItem extends vscode.TreeItem {
                     title: 'Open Content',
                     arguments: [this.data?.filePath]
                 };
+                break;
+            case TreeItemType.RecentResult:
+                // Use different icons based on file format
+                const formatIconMap: Record<string, string> = {
+                    'json': 'json',
+                    'csv': 'file-text',
+                    'table': 'output'
+                };
+                const resultIcon = formatIconMap[this.data?.format || ''] || 'file';
+                this.iconPath = new vscode.ThemeIcon(resultIcon);
+                this.tooltip = this.data?.tooltip || this.label;
+                // Open JSON results in dedicated query results webview, others in editor
+                if (this.data?.format === 'json') {
+                    this.command = {
+                        command: 'sumologic.openQueryResultAsWebview',
+                        title: 'Open Result',
+                        arguments: [this]
+                    };
+                } else {
+                    this.command = {
+                        command: 'vscode.open',
+                        title: 'Open Result',
+                        arguments: [vscode.Uri.file(this.data?.filePath)]
+                    };
+                }
                 break;
             case TreeItemType.Collector:
                 this.iconPath = new vscode.ThemeIcon('server-process');
@@ -214,12 +246,14 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     private libraryExplorerProvider: LibraryExplorerProvider;
     private recentQueriesManager: RecentQueriesManager;
     private recentContentManager: RecentContentManager;
+    private recentResultsManager: RecentResultsManager;
 
     constructor(private context: vscode.ExtensionContext) {
         this.profileManager = new ProfileManager(context);
         this.libraryExplorerProvider = new LibraryExplorerProvider(context);
         this.recentQueriesManager = new RecentQueriesManager(context);
         this.recentContentManager = new RecentContentManager(context);
+        this.recentResultsManager = new RecentResultsManager(context);
 
         // Listen for configuration changes to refresh tree
         vscode.workspace.onDidChangeConfiguration(e => {
@@ -249,6 +283,13 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
      */
     getRecentContentManager(): RecentContentManager {
         return this.recentContentManager;
+    }
+
+    /**
+     * Get recent results manager
+     */
+    getRecentResultsManager(): RecentResultsManager {
+        return this.recentResultsManager;
     }
 
     /**
@@ -283,6 +324,8 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 return this.getRecentQueryItems();
             case TreeItemType.RecentContentSection:
                 return this.getRecentContentItems();
+            case TreeItemType.RecentResultsSection:
+                return this.getRecentResultItems();
             case TreeItemType.StorageSection:
                 return this.getStorageItems();
             case TreeItemType.LibrarySection:
@@ -357,6 +400,13 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Recent Content',
             TreeItemType.RecentContentSection,
+            vscode.TreeItemCollapsibleState.Collapsed
+        ));
+
+        // Recent Results section
+        items.push(new SumoTreeItem(
+            'Recent Results',
+            TreeItemType.RecentResultsSection,
             vscode.TreeItemCollapsibleState.Collapsed
         ));
 
@@ -554,6 +604,42 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
                 vscode.TreeItemCollapsibleState.None,
                 undefined,
                 { filePath: query.filePath, path: query.filePath, tooltip }
+            );
+        });
+    }
+
+    /**
+     * Get recent result items
+     */
+    private async getRecentResultItems(): Promise<SumoTreeItem[]> {
+        const recentResults = this.recentResultsManager.getResults(10);
+
+        if (recentResults.length === 0) {
+            return [];
+        }
+
+        return recentResults.map(result => {
+            const label = result.queryName || result.fileName;
+            const lastOpened = new Date(result.lastOpened);
+            const tooltipLines = [
+                label,
+                `File: ${result.fileName}`,
+                `Format: ${result.format || 'unknown'}`,
+                `Opened: ${lastOpened.toLocaleString()}`
+            ];
+
+            if (result.resultPreview) {
+                tooltipLines.push(`Preview: ${result.resultPreview}`);
+            }
+
+            const tooltip = tooltipLines.join('\n');
+
+            return new SumoTreeItem(
+                label,
+                TreeItemType.RecentResult,
+                vscode.TreeItemCollapsibleState.None,
+                undefined,
+                { filePath: result.filePath, path: result.filePath, format: result.format, tooltip }
             );
         });
     }

@@ -42,6 +42,7 @@ let dynamicCompletionProvider: DynamicCompletionProvider;
 let parserCompletionProvider: ParserCompletionProvider;
 let metadataCompletionProvider: MetadataCompletionProvider;
 let statusBarManager: StatusBarManager;
+let sumoExplorerProvider: SumoExplorerProvider;
 
 export function getDynamicCompletionProvider(): DynamicCompletionProvider {
     return dynamicCompletionProvider;
@@ -53,6 +54,10 @@ export function getMetadataCompletionProvider(): MetadataCompletionProvider {
 
 export function getStatusBarManager(): StatusBarManager | undefined {
     return statusBarManager;
+}
+
+export function getSumoExplorerProvider(): SumoExplorerProvider | undefined {
+    return sumoExplorerProvider;
 }
 
 // Build completion items once at activation
@@ -201,7 +206,7 @@ export function activate(context: vscode.ExtensionContext) {
     const statusBar = statusBarManager;
 
     // Initialize tree view
-    const sumoExplorerProvider = new SumoExplorerProvider(context);
+    sumoExplorerProvider = new SumoExplorerProvider(context);
     const treeView = vscode.window.registerTreeDataProvider('sumoExplorer', sumoExplorerProvider);
 
     // Initialize CodeLens provider

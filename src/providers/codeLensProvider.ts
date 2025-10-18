@@ -54,11 +54,18 @@ export class SumoCodeLensProvider implements vscode.CodeLensProvider {
                 tooltip: "Execute this query and display results in interactive table"
             }));
 
-            // Run and Chart
+            // Quick Chart
             codeLenses.push(new vscode.CodeLens(range, {
-                title: "📈 Run and Chart",
+                title: "📈 Quick Chart",
                 command: "sumologic.runQueryAndChart",
                 tooltip: "Execute this query and visualize results"
+            }));
+
+            // Open in Sumo UI
+            codeLenses.push(new vscode.CodeLens(range, {
+                title: "🌐 Edit in Sumo UI",
+                command: "sumologic.openSearchInWeb",
+                tooltip: "Open this query in Sumo Logic Search UI"
             }));
         }
 

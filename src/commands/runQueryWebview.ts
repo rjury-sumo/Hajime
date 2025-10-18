@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { SearchJobClient, SearchJobRequest, SearchJobStatus } from '../api/searchJob';
 import { createClient } from './authenticate';
-import { getDynamicCompletionProvider } from '../extension';
+import { getDynamicCompletionProvider, getSumoExplorerProvider } from '../extension';
 import { formatRecordsAsHTML } from './runQuery';
 import { FieldAnalyzer } from '../services/fieldAnalyzer';
 import { ProfileManager } from '../profileManager';
@@ -283,6 +283,14 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
         try {
             const jsonContent = JSON.stringify(results, null, 2);
             jsonFilePath = await outputWriter.writeOutput('queries', filename, jsonContent, 'json');
+
+            // Track the result file in recent results
+            const explorerProvider = getSumoExplorerProvider();
+            if (explorerProvider && jsonFilePath) {
+                const recentResultsManager = explorerProvider.getRecentResultsManager();
+                recentResultsManager.addResult(jsonFilePath);
+                explorerProvider.refresh();
+            }
         } catch (error) {
             console.error('Failed to write JSON file:', error);
         }

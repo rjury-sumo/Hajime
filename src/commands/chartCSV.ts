@@ -130,10 +130,12 @@ function generateTimeseriesChart(headers: string[], data: any[]): string {
         </label>
         <button onclick="chart.dispatchAction({type: 'restore'})">Reset Zoom</button>
         <button onclick="downloadChart()">Download PNG</button>
+        <button onclick="toggleConfigEditor()">Show Configuration</button>
     </div>
     <div id="chart"></div>
 
     <script>
+        const vscode = acquireVsCodeApi();
         const chartDom = document.getElementById('chart');
         const chart = echarts.init(chartDom, 'dark');
 
@@ -254,6 +256,26 @@ function generateTimeseriesChart(headers: string[], data: any[]): string {
             link.href = url;
             link.click();
         }
+
+        function toggleConfigEditor() {
+            const currentOption = chart.getOption();
+            vscode.postMessage({
+                command: 'toggleConfigEditor',
+                config: currentOption
+            });
+        }
+
+        // Listen for configuration updates from the editor
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'updateChart') {
+                try {
+                    chart.setOption(message.config, true);
+                } catch (error) {
+                    console.error('Failed to update chart:', error);
+                }
+            }
+        });
     </script>
 </body>
 </html>`;
@@ -343,10 +365,12 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
             Stack Series
         </label>
         <button onclick="downloadChart()">Download PNG</button>
+        <button onclick="toggleConfigEditor()">Show Configuration</button>
     </div>
     <div id="chart"></div>
 
     <script>
+        const vscode = acquireVsCodeApi();
         const chartDom = document.getElementById('chart');
         const chart = echarts.init(chartDom, 'dark');
 
@@ -494,6 +518,26 @@ function generateCategoricalChart(headers: string[], data: any[]): string {
             link.href = url;
             link.click();
         }
+
+        function toggleConfigEditor() {
+            const currentOption = chart.getOption();
+            vscode.postMessage({
+                command: 'toggleConfigEditor',
+                config: currentOption
+            });
+        }
+
+        // Listen for configuration updates from the editor
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'updateChart') {
+                try {
+                    chart.setOption(message.config, true);
+                } catch (error) {
+                    console.error('Failed to update chart:', error);
+                }
+            }
+        });
     </script>
 </body>
 </html>`;
@@ -544,6 +588,56 @@ export async function chartCSVCommand(context: vscode.ExtensionContext, uri?: vs
 
         panel.webview.html = htmlContent;
 
+        // Track config editor panel for this chart
+        let configEditorPanel: vscode.WebviewPanel | undefined;
+
+        // Handle messages from chart webview
+        panel.webview.onDidReceiveMessage(async (message) => {
+            if (message.command === 'toggleConfigEditor') {
+                if (configEditorPanel) {
+                    // Close existing editor
+                    configEditorPanel.dispose();
+                    configEditorPanel = undefined;
+                } else {
+                    // Create new config editor panel
+                    configEditorPanel = vscode.window.createWebviewPanel(
+                        'chartConfigEditor',
+                        `Config: ${path.basename(uri.fsPath)}`,
+                        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+                        {
+                            enableScripts: true,
+                            retainContextWhenHidden: true
+                        }
+                    );
+
+                    configEditorPanel.webview.html = generateConfigEditorHTML(message.config);
+
+                    // Handle messages from config editor
+                    configEditorPanel.webview.onDidReceiveMessage((editorMessage) => {
+                        if (editorMessage.command === 'runChart') {
+                            // Update the chart with new configuration
+                            panel.webview.postMessage({
+                                command: 'updateChart',
+                                config: editorMessage.config
+                            });
+                        }
+                    });
+
+                    // Clean up reference when editor is disposed
+                    configEditorPanel.onDidDispose(() => {
+                        configEditorPanel = undefined;
+                    });
+                }
+            }
+        });
+
+        // Close config editor when chart is closed
+        panel.onDidDispose(() => {
+            if (configEditorPanel) {
+                configEditorPanel.dispose();
+            }
+        });
+
         vscode.window.showInformationMessage(
             `Chart created for ${path.basename(uri.fsPath)} (${hasTimeslice ? 'timeseries' : 'categorical'})`
         );
@@ -551,4 +645,154 @@ export async function chartCSVCommand(context: vscode.ExtensionContext, uri?: vs
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to chart CSV: ${error}`);
     }
+}
+
+/**
+ * Generate HTML for chart configuration editor
+ */
+function generateConfigEditorHTML(config: any): string {
+    const configJson = JSON.stringify(config, null, 2);
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Configuration Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-foreground);
+            font-family: var(--vscode-font-family);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .editor-toolbar {
+            padding: 10px;
+            background-color: var(--vscode-editor-lineHighlightBackground);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .editor-toolbar button {
+            padding: 6px 14px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .editor-toolbar button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .editor-toolbar .status {
+            margin-left: auto;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+        .editor-toolbar .error {
+            color: var(--vscode-errorForeground);
+        }
+        .editor-toolbar .success {
+            color: var(--vscode-testing-iconPassed);
+        }
+        #editor-container {
+            flex: 1;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-toolbar">
+        <button onclick="runChart()">▶ Run</button>
+        <button onclick="formatConfig()">Format JSON</button>
+        <button onclick="copyConfig()">Copy to Clipboard</button>
+        <span class="status" id="status"></span>
+    </div>
+    <div id="editor-container"></div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        let editor;
+
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: ${JSON.stringify(configJson)},
+                language: 'json',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: true },
+                fontSize: 13,
+                tabSize: 2,
+                formatOnPaste: true,
+                formatOnType: true
+            });
+        });
+
+        function runChart() {
+            try {
+                const configText = editor.getValue();
+                const config = JSON.parse(configText);
+
+                vscode.postMessage({
+                    command: 'runChart',
+                    config: config
+                });
+
+                showStatus('Chart updated', 'success');
+            } catch (error) {
+                showStatus('Invalid JSON: ' + error.message, 'error');
+            }
+        }
+
+        function formatConfig() {
+            try {
+                const configText = editor.getValue();
+                const config = JSON.parse(configText);
+                const formatted = JSON.stringify(config, null, 2);
+                editor.setValue(formatted);
+                showStatus('Formatted', 'success');
+            } catch (error) {
+                showStatus('Cannot format invalid JSON', 'error');
+            }
+        }
+
+        function copyConfig() {
+            const configText = editor.getValue();
+            navigator.clipboard.writeText(configText).then(() => {
+                showStatus('Copied to clipboard', 'success');
+            }).catch(() => {
+                showStatus('Failed to copy', 'error');
+            });
+        }
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+            setTimeout(() => {
+                statusEl.textContent = '';
+                statusEl.className = 'status';
+            }, 3000);
+        }
+
+        // Keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                runChart();
+            }
+        });
+    </script>
+</body>
+</html>`;
 }

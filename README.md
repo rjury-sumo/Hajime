@@ -608,6 +608,7 @@ Control query execution with comment directives:
 // @output table               // Output format: table, json, csv, or webview
 // @byReceiptTime false        // Run by receipt time (true/false)
 // @autoParsingMode Manual     // Auto-parsing: AutoParse or Manual
+// @debug true                 // Enable debug output showing detailed API information and job status
 // @param paramName=value      // Set default value for {{paramName}} placeholder
 ```
 

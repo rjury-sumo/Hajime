@@ -117,6 +117,7 @@ export async function sampleScopeLogs(
                     profileName,
                     from: scope.queryFrom || '-3h',
                     to: 'now',
+                    autoParsingMode: 'AutoParse',
                     onProgress: (msg) => progress.report({ message: msg })
                 });
 

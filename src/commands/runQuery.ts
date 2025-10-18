@@ -347,6 +347,11 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             width: 100%;
             font-size: 13px;
         }
+        /* Set default minimum width for _raw column */
+        th.raw-column,
+        td.raw-column {
+            min-width: 500px;
+        }
         th {
             background-color: var(--vscode-editor-lineHighlightBackground);
             color: var(--vscode-foreground);
@@ -587,6 +592,24 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         }
         .field-browser-content.collapsed {
             display: none;
+        }
+        .field-filter-container {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            background-color: var(--vscode-editor-background);
+        }
+        .field-filter-input {
+            width: 300px;
+            max-width: 100%;
+            padding: 6px 10px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 12px;
+        }
+        .field-filter-input::placeholder {
+            color: var(--vscode-input-placeholderForeground);
         }
         .field-table {
             width: 100%;
@@ -905,10 +928,13 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         <div class="field-browser-header" onclick="toggleFieldBrowser()">
             <div class="field-browser-title">
                 <span class="field-browser-toggle" id="fieldBrowserToggle">▼</span>
-                <span>Field Browser (${fieldAnalysis.fields.length} fields)</span>
+                <span>Field Browser (<span id="fieldCount">${fieldAnalysis.fields.length}</span> fields)</span>
             </div>
         </div>
         <div class="field-browser-content" id="fieldBrowserContent">
+            <div class="field-filter-container">
+                <input type="text" class="field-filter-input" id="fieldFilterInput" placeholder="Filter fields by name..." oninput="filterFields()">
+            </div>
             <table class="field-table">
                 <thead>
                     <tr>
@@ -970,10 +996,10 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         <table id="resultsTable">
             <thead>
                 <tr class="header-row">
-                    ${keys.map((key, idx) => `<th data-column="${idx}"><span onclick="sortTable(${idx})">${escapeHtml(key)}<span class="sort-indicator" id="sort-${idx}"></span></span><div class="resize-handle" onmousedown="startResize(event, ${idx})"></div></th>`).join('')}
+                    ${keys.map((key, idx) => `<th data-column="${idx}" class="${key === '_raw' ? 'raw-column' : ''}"><span onclick="sortTable(${idx})">${escapeHtml(key)}<span class="sort-indicator" id="sort-${idx}"></span></span><div class="resize-handle" onmousedown="startResize(event, ${idx})"></div></th>`).join('')}
                 </tr>
                 <tr class="filter-row">
-                    ${keys.map((key, idx) => `<th><input type="text" class="filter-input" placeholder="Filter..." oninput="filterTable()" data-column="${idx}"></th>`).join('')}
+                    ${keys.map((key, idx) => `<th class="${key === '_raw' ? 'raw-column' : ''}"><input type="text" class="filter-input" placeholder="Filter..." oninput="filterTable()" data-column="${idx}"></th>`).join('')}
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -981,6 +1007,7 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
                     <tr data-row="${rowIdx}">
                         ${keys.map((key, colIdx) => {
                             const value = String(record.map[key] || '');
+                            const className = key === '_raw' ? 'raw-column' : '';
                             // Try to detect JSON
                             let isJson = false;
                             let jsonPreview = '';
@@ -1002,9 +1029,9 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
                             }
 
                             if (isJson) {
-                                return `<td><div class="json-cell"><span class="json-badge">JSON</span><span class="json-preview">${escapeHtml(value)}</span><button class="json-expand-btn" onclick="showJsonModal(${rowIdx}, ${colIdx}, '${escapeHtml(key).replace(/'/g, "\\'")}')">⤢ View</button></div></td>`;
+                                return `<td class="${className}"><div class="json-cell"><span class="json-badge">JSON</span><span class="json-preview">${escapeHtml(value)}</span><button class="json-expand-btn" onclick="showJsonModal(${rowIdx}, ${colIdx}, '${escapeHtml(key).replace(/'/g, "\\'")}')">⤢ View</button></div></td>`;
                             } else {
-                                return `<td>${escapeHtml(value)}</td>`;
+                                return `<td class="${className}">${escapeHtml(value)}</td>`;
                             }
                         }).join('')}
                     </tr>
@@ -1072,6 +1099,7 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         // Field browser state
         let fieldSortColumn = 'name';
         let fieldSortAscending = true;
+        let fieldFilterText = '';
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -1743,8 +1771,17 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
                 indicator.textContent = fieldSortAscending ? '▲' : '▼';
             }
 
-            // Sort field metadata
-            const sortedFields = [...fieldMetadata].sort((a, b) => {
+            // Filter and sort field metadata
+            let fieldsToSort = [...fieldMetadata];
+
+            // Apply filter if active
+            if (fieldFilterText) {
+                fieldsToSort = fieldsToSort.filter(field =>
+                    field.name.toLowerCase().includes(fieldFilterText)
+                );
+            }
+
+            const sortedFields = fieldsToSort.sort((a, b) => {
                 let aValue, bValue;
 
                 switch (column) {
@@ -1782,9 +1819,94 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
                 return fieldSortAscending ? comparison : -comparison;
             });
 
+            // Update count display
+            document.getElementById('fieldCount').textContent = sortedFields.length;
+
             // Re-render field table body
             const tbody = document.getElementById('fieldTableBody');
             tbody.innerHTML = sortedFields.map((field, idx) => \`
+                <tr data-field-idx="\${idx}">
+                    <td>
+                        <span class="field-name">\${escapeHtml(field.name)}</span>
+                        \${field.isTimeField ? '<span class="time-field-indicator" title="Time Field">🕐</span>' : ''}
+                    </td>
+                    <td><span class="field-type \${field.dataType}">\${field.dataType}</span></td>
+                    <td>\${field.nonNullCount.toLocaleString()}</td>
+                    <td>\${field.distinctCount.toLocaleString()}</td>
+                    <td>\${field.fillPercentage.toFixed(1)}%</td>
+                    <td>
+                        <div class="field-actions">
+                            <button class="field-action-btn" onclick="showFieldValues('\${escapeHtml(field.name)}')">Show Values</button>
+                            <button class="field-action-btn" onclick="chartField('\${escapeHtml(field.name)}')">Chart Field</button>
+                        </div>
+                    </td>
+                </tr>
+            \`).join('');
+        }
+
+        /**
+         * Filter fields in the field browser
+         */
+        function filterFields() {
+            const filterInput = document.getElementById('fieldFilterInput');
+            fieldFilterText = filterInput.value.toLowerCase();
+
+            // Get fields and filter by name
+            let fieldsToDisplay = [...fieldMetadata];
+
+            if (fieldFilterText) {
+                fieldsToDisplay = fieldsToDisplay.filter(field =>
+                    field.name.toLowerCase().includes(fieldFilterText)
+                );
+            }
+
+            // Apply current sort
+            if (fieldSortColumn) {
+                fieldsToDisplay.sort((a, b) => {
+                    let aValue, bValue;
+
+                    switch (fieldSortColumn) {
+                        case 'name':
+                            aValue = a.name.toLowerCase();
+                            bValue = b.name.toLowerCase();
+                            break;
+                        case 'type':
+                            aValue = a.dataType;
+                            bValue = b.dataType;
+                            break;
+                        case 'nonNull':
+                            aValue = a.nonNullCount;
+                            bValue = b.nonNullCount;
+                            break;
+                        case 'distinct':
+                            aValue = a.distinctCount;
+                            bValue = b.distinctCount;
+                            break;
+                        case 'fill':
+                            aValue = a.fillPercentage;
+                            bValue = b.fillPercentage;
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    let comparison = 0;
+                    if (typeof aValue === 'string') {
+                        comparison = aValue.localeCompare(bValue);
+                    } else {
+                        comparison = aValue - bValue;
+                    }
+
+                    return fieldSortAscending ? comparison : -comparison;
+                });
+            }
+
+            // Update count display
+            document.getElementById('fieldCount').textContent = fieldsToDisplay.length;
+
+            // Re-render field table body
+            const tbody = document.getElementById('fieldTableBody');
+            tbody.innerHTML = fieldsToDisplay.map((field, idx) => \`
                 <tr data-field-idx="\${idx}">
                     <td>
                         <span class="field-name">\${escapeHtml(field.name)}</span>

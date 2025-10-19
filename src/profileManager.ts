@@ -178,6 +178,14 @@ export class ProfileManager {
     }
 
     /**
+     * Get the dashboards directory path for a specific profile
+     * This is where dashboard JSON files are stored
+     */
+    getProfileDashboardsDirectory(profileName: string): string {
+        return path.join(this.getProfileDirectory(profileName), 'dashboards');
+    }
+
+    /**
      * Get the output directory path for a specific profile
      * This is where exported/generated files are stored
      */
@@ -212,6 +220,12 @@ export class ProfileManager {
         const libraryContentDir = this.getProfileLibraryContentDirectory(profileName);
         if (!fs.existsSync(libraryContentDir)) {
             fs.mkdirSync(libraryContentDir, { recursive: true });
+        }
+
+        // Create dashboards subdirectory
+        const dashboardsDir = this.getProfileDashboardsDirectory(profileName);
+        if (!fs.existsSync(dashboardsDir)) {
+            fs.mkdirSync(dashboardsDir, { recursive: true });
         }
     }
 

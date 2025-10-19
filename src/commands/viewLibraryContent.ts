@@ -529,7 +529,8 @@ function getSearchWebviewContent(content: any, contentName: string, contentId: s
  */
 function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string): string {
     // Top-level string properties to display at the top
-    const topLevelProps = ['name', 'description', 'title', 'theme', 'type'];
+    // Include dashboard API specific properties: id, contentId, folderId, domain, isPublic
+    const topLevelProps = ['name', 'description', 'title', 'id', 'contentId', 'folderId', 'domain', 'theme', 'type', 'isPublic', 'refreshInterval'];
 
     // Detect dashboard version
     const isV1Dashboard = content.type === 'DashboardSyncDefinition';
@@ -705,6 +706,173 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
         </div>
     ` : '';
 
+    // Generate layout table HTML
+    let layoutHtml = '';
+    if (content.layout && content.layout.layoutStructures && Array.isArray(content.layout.layoutStructures)) {
+        // Create a map of panel keys to panel names for quick lookup
+        const panelKeyToName: { [key: string]: string } = {};
+        if (content.panels && Array.isArray(content.panels)) {
+            content.panels.forEach((panel: any) => {
+                const key = panel.key || panel.id;
+                const name = panel.title || panel.name || 'Untitled';
+                if (key) {
+                    panelKeyToName[key] = name;
+                }
+            });
+        }
+
+        // Parse and enrich layout structures with panel names
+        const layoutItems = content.layout.layoutStructures.map((item: any) => {
+            const key = item.key || '';
+            let panelName = '-';
+
+            // Match the key directly with panel keys
+            // Keys look like "panelpane-03afc899b83e3b40" or "panelPANE-4AD569BB8E29FA47"
+            if (key) {
+                panelName = panelKeyToName[key] || '-';
+            }
+
+            // Parse the structure JSON
+            let structureObj: any = {};
+            try {
+                structureObj = JSON.parse(item.structure);
+            } catch (e) {
+                // If parsing fails, leave it as empty object
+            }
+
+            return {
+                key,
+                panelName,
+                x: structureObj.x ?? '-',
+                y: structureObj.y ?? '-',
+                width: structureObj.width ?? '-',
+                height: structureObj.height ?? '-'
+            };
+        });
+
+        // Sort by panel name for the table
+        const sortedLayoutItems = [...layoutItems].sort((a, b) => {
+            return a.panelName.localeCompare(b.panelName);
+        });
+
+        // Generate visual grid preview
+        const gridWidth = 24; // Standard Sumo Logic dashboard grid width
+
+        // Group panels by their Y position to create logical rows
+        type PanelInfo = {
+            name: string;
+            key: string;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+
+        const panelsByRow = new Map<number, PanelInfo[]>();
+        layoutItems.forEach((item: any) => {
+            const x = typeof item.x === 'number' ? item.x : 0;
+            const y = typeof item.y === 'number' ? item.y : 0;
+            const width = typeof item.width === 'number' ? item.width : 1;
+            const height = typeof item.height === 'number' ? item.height : 1;
+
+            if (!panelsByRow.has(y)) {
+                panelsByRow.set(y, []);
+            }
+
+            panelsByRow.get(y)!.push({
+                name: item.panelName,
+                key: item.key,
+                x,
+                y,
+                width,
+                height
+            });
+        });
+
+        // Sort rows by Y position
+        const sortedRows = Array.from(panelsByRow.entries()).sort((a, b) => a[0] - b[0]);
+
+        // Generate HTML grid visualization
+        let gridHtml = '<div class="grid-preview">';
+
+        sortedRows.forEach(([rowY, panels]) => {
+            // Sort panels in the row by X position
+            panels.sort((a, b) => a.x - b.x);
+
+            // Find the max height in this row (all panels should have same height ideally)
+            const rowHeight = Math.max(...panels.map(p => p.height));
+
+            gridHtml += `<div class="grid-row" style="min-height: ${rowHeight * 60}px;">`;
+
+            let currentX = 0;
+
+            panels.forEach((panel, idx) => {
+                // Add empty space if there's a gap before this panel
+                if (panel.x > currentX) {
+                    const gapWidth = panel.x - currentX;
+                    gridHtml += `<div class="grid-cell empty" style="flex: ${gapWidth}"></div>`;
+                    currentX = panel.x;
+                }
+
+                // Extract short panel ID from key (e.g., "panelpane-03afc899b83e3b40" -> "03af...")
+                const keyMatch = panel.key.match(/panelpane-(.+)/i);
+                const shortId = keyMatch ? keyMatch[1].substring(0, 4) + '...' : '';
+
+                // Add the panel
+                const panelContent = `${escapeHtml(panel.name)}<br/><span style="font-size: 9px; opacity: 0.7;">${shortId} (${panel.width}×${panel.height})</span>`;
+                const panelTitle = `${escapeHtml(panel.name)}\\nID: ${escapeHtml(panel.key)}\\nPosition: (${panel.x}, ${panel.y})\\nSize: ${panel.width}×${panel.height}`;
+
+                gridHtml += `<div class="grid-cell" style="flex: ${panel.width}" title="${panelTitle}">${panelContent}</div>`;
+                currentX = panel.x + panel.width;
+            });
+
+            // Fill remaining space to reach gridWidth
+            if (currentX < gridWidth) {
+                const remainingWidth = gridWidth - currentX;
+                gridHtml += `<div class="grid-cell empty" style="flex: ${remainingWidth}"></div>`;
+            }
+
+            gridHtml += '</div>';
+        });
+
+        gridHtml += '</div>';
+
+        layoutHtml = `
+        <h2>Layout (${content.layout.layoutType || 'Grid'}, ${layoutItems.length} items)</h2>
+
+        <h3>Visual Preview</h3>
+        ${gridHtml}
+
+        <h3 style="margin-top: 30px;">Layout Details</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Panel Name</th>
+                        <th>Panel Key</th>
+                        <th>X</th>
+                        <th>Y</th>
+                        <th>Width</th>
+                        <th>Height</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sortedLayoutItems.map((item: any) => `
+                        <tr>
+                            <td>${escapeHtml(item.panelName)}</td>
+                            <td class="monospace">${escapeHtml(item.key)}</td>
+                            <td>${escapeHtml(String(item.x))}</td>
+                            <td>${escapeHtml(String(item.y))}</td>
+                            <td>${escapeHtml(String(item.width))}</td>
+                            <td>${escapeHtml(String(item.height))}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        `;
+    }
+
     // Other properties to show at the bottom
     const excludeProps = [...topLevelProps, 'variables', 'panels', 'layout'];
     const otherPropsHtml = Object.entries(content)
@@ -781,6 +949,50 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
 
         .property-value {
             color: var(--vscode-foreground);
+        }
+
+        .grid-preview {
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        .grid-row {
+            display: flex;
+            min-height: 60px;
+            gap: 2px;
+            margin-bottom: 2px;
+        }
+
+        .grid-cell {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 3px;
+            padding: 8px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .grid-cell.empty {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-style: dashed;
+            opacity: 0.3;
+        }
+
+        .grid-cell:not(.empty):hover {
+            background-color: var(--vscode-button-hoverBackground);
+            cursor: default;
         }
 
         .tabs {
@@ -939,6 +1151,7 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
     ${variablesHtml}
     ${panelsHtml}
     ${queriesHtml}
+    ${layoutHtml}
 
     <div class="tabs">
         <button class="tab active" onclick="showTab('other')">Other Properties</button>

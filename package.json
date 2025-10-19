@@ -270,6 +270,21 @@
                 "icon": "$(database)"
             },
             {
+                "command": "sumologic.viewDashboards",
+                "title": "Sumo Logic: View Dashboards",
+                "icon": "$(dashboard)"
+            },
+            {
+                "command": "sumologic.listMyDashboards",
+                "title": "Sumo Logic: List My Dashboards",
+                "icon": "$(cloud-download)"
+            },
+            {
+                "command": "sumologic.getDashboardById",
+                "title": "Sumo Logic: Get Dashboard by ID",
+                "icon": "$(search)"
+            },
+            {
                 "command": "sumologic.fetchRecursiveFolder",
                 "title": "Fetch All Subfolders Recursively",
                 "icon": "$(cloud-download)"
@@ -516,6 +531,11 @@
                 {
                     "command": "sumologic.createScope",
                     "when": "view == sumoExplorer && viewItem == scopesSection",
+                    "group": "inline"
+                },
+                {
+                    "command": "sumologic.listMyDashboards",
+                    "when": "view == sumoExplorer && viewItem == dashboardsSection",
                     "group": "inline"
                 },
                 {

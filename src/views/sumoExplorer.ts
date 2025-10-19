@@ -25,6 +25,7 @@ export enum TreeItemType {
     UsersSection = 'usersSection',
     RolesSection = 'rolesSection',
     ScopesSection = 'scopesSection',
+    DashboardsSection = 'dashboardsSection',
     Scope = 'scope',
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
@@ -191,6 +192,15 @@ export class SumoTreeItem extends vscode.TreeItem {
                 this.command = {
                     command: 'sumologic.viewRoles',
                     title: 'View Roles',
+                    arguments: [this.data?.profileName]
+                };
+                break;
+            case TreeItemType.DashboardsSection:
+                this.iconPath = new vscode.ThemeIcon('dashboard');
+                this.tooltip = 'Dashboards';
+                this.command = {
+                    command: 'sumologic.viewDashboards',
+                    title: 'View Dashboards',
                     arguments: [this.data?.profileName]
                 };
                 break;
@@ -511,6 +521,15 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Roles',
             TreeItemType.RolesSection,
+            vscode.TreeItemCollapsibleState.None,
+            profile,
+            { profileName: profile.name }
+        ));
+
+        // Dashboards section
+        items.push(new SumoTreeItem(
+            'Dashboards',
+            TreeItemType.DashboardsSection,
             vscode.TreeItemCollapsibleState.None,
             profile,
             { profileName: profile.name }

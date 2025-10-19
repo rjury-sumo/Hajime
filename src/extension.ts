@@ -35,7 +35,9 @@ import { SumoCodeLensProvider } from './providers/codeLensProvider';
 import { DatabaseWebviewProvider } from './views/databaseWebviewProvider';
 import { UsersWebviewProvider } from './views/usersWebviewProvider';
 import { RolesWebviewProvider } from './views/rolesWebviewProvider';
+import { DashboardsWebviewProvider } from './views/dashboardsWebviewProvider';
 import { registerUsersRolesCommands } from './commands/usersRoles';
+import { listMyDashboards, viewDashboards, getDashboardById } from './commands/dashboardCommands';
 
 // Global completion providers
 let dynamicCompletionProvider: DynamicCompletionProvider;
@@ -312,8 +314,8 @@ export function activate(context: vscode.ExtensionContext) {
         return getContentByIdCommand(context);
     });
 
-    const exportContentCmd = vscode.commands.registerCommand('sumologic.exportContent', () => {
-        return exportContentCommand(context);
+    const exportContentCmd = vscode.commands.registerCommand('sumologic.exportContent', (contentId?: string) => {
+        return exportContentCommand(context, contentId);
     });
 
     const exportAdminRecommendedCmd = vscode.commands.registerCommand('sumologic.exportAdminRecommended', () => {
@@ -431,6 +433,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Create webview providers for users and roles
     const usersWebviewProvider = new UsersWebviewProvider(context.extensionUri, context);
     const rolesWebviewProvider = new RolesWebviewProvider(context.extensionUri, context);
+    const dashboardsWebviewProvider = new DashboardsWebviewProvider(context.extensionUri, context);
 
     const viewUsersCmd = vscode.commands.registerCommand('sumologic.viewUsers', async (profileName?: string) => {
         return usersWebviewProvider.show(profileName);
@@ -438,6 +441,20 @@ export function activate(context: vscode.ExtensionContext) {
 
     const viewRolesCmd = vscode.commands.registerCommand('sumologic.viewRoles', async (profileName?: string) => {
         return rolesWebviewProvider.show(profileName);
+    });
+
+    const viewDashboardsCmd = vscode.commands.registerCommand('sumologic.viewDashboards', async (profileName?: string) => {
+        return viewDashboards(context, dashboardsWebviewProvider, profileName);
+    });
+
+    const listMyDashboardsCmd = vscode.commands.registerCommand('sumologic.listMyDashboards', async (treeItem?: any) => {
+        // Extract profile name from tree item if available
+        const profileName = treeItem?.data?.profileName || treeItem?.profile?.name;
+        return listMyDashboards(context, profileName);
+    });
+
+    const getDashboardByIdCmd = vscode.commands.registerCommand('sumologic.getDashboardById', async (dashboardId?: string) => {
+        return getDashboardById(context, dashboardId);
     });
 
     const openExportedContentCmd = vscode.commands.registerCommand('sumologic.openExportedContent', async () => {
@@ -564,6 +581,9 @@ export function activate(context: vscode.ExtensionContext) {
         extractSearchToFileCmd,
         viewUsersCmd,
         viewRolesCmd,
+        viewDashboardsCmd,
+        listMyDashboardsCmd,
+        getDashboardByIdCmd,
         openExportedContentCmd,
         openExportedContentFromPathCmd,
         createScopeCmd,

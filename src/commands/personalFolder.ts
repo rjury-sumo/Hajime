@@ -479,21 +479,24 @@ async function handleExport(
 /**
  * Command to export content by ID
  */
-export async function exportContentCommand(context: vscode.ExtensionContext): Promise<void> {
-    const contentId = await vscode.window.showInputBox({
-        prompt: 'Enter the content ID to export (folder, search, dashboard, etc.)',
-        placeHolder: '0000000000ABC123',
-        ignoreFocusOut: true,
-        validateInput: (value) => {
-            if (!value || value.trim().length === 0) {
-                return 'Content ID cannot be empty';
-            }
-            return null;
-        }
-    });
-
+export async function exportContentCommand(context: vscode.ExtensionContext, contentId?: string): Promise<void> {
+    // If contentId not provided, prompt for it
     if (!contentId) {
-        return;
+        contentId = await vscode.window.showInputBox({
+            prompt: 'Enter the content ID to export (folder, search, dashboard, etc.)',
+            placeHolder: '0000000000ABC123',
+            ignoreFocusOut: true,
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Content ID cannot be empty';
+                }
+                return null;
+            }
+        });
+
+        if (!contentId) {
+            return;
+        }
     }
 
     await handleExport(

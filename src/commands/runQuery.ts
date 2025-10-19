@@ -2744,7 +2744,7 @@ function generateChartConfigDialogHTML(
                         </select>
                         <button type="button" class="secondary-button" onclick="addValueField()">Add Field</button>
                     </div>
-                    <input type="hidden" id="${opt.id}" name="${opt.id}" value="${JSON.stringify([preSelectedKey])}">
+                    <input type="hidden" id="${opt.id}" name="${opt.id}" value="${escapeHtml(JSON.stringify([preSelectedKey]))}">
                 </div>
             `;
         } else if (opt.type === 'select') {
@@ -3286,8 +3286,9 @@ function generateChartConfigDialogHTML(
                     config[key] = collectTimeBucketSettings();
                 } else if (key === 'valueFields') {
                     // Parse JSON array for multi-field select
+                    // Read directly from element.value instead of FormData value to get the updated value
                     try {
-                        config[key] = JSON.parse(value || '[]');
+                        config[key] = JSON.parse(element.value || '[]');
                     } catch (e) {
                         config[key] = [];
                     }
@@ -3323,8 +3324,9 @@ function generateChartConfigDialogHTML(
                     config[key] = collectTimeBucketSettings();
                 } else if (key === 'valueFields') {
                     // Parse JSON array for multi-field select
+                    // Read directly from element.value instead of FormData value to get the updated value
                     try {
-                        config[key] = JSON.parse(value || '[]');
+                        config[key] = JSON.parse(element.value || '[]');
                     } catch (e) {
                         config[key] = [];
                     }

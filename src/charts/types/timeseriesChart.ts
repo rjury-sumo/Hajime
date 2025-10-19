@@ -110,7 +110,11 @@ function transformTimeseriesData(data: any[], config: ChartConfig, fieldMetadata
         .map(record => ({
             time: parseTimestamp(record[timeField]),
             values: dataFieldSpecs.reduce((acc, spec) => {
-                acc[spec.key] = parseFloat(record[spec.field]) || 0;
+                // Try to find the field in the record using the full key first (e.g., "sum(bytes)"),
+                // then fall back to just the field name (e.g., "bytes")
+                // This handles both pre-aggregated query results and raw data
+                const value = record[spec.key] !== undefined ? record[spec.key] : record[spec.field];
+                acc[spec.key] = parseFloat(value) || 0;
                 return acc;
             }, {} as Record<string, number>)
         }))

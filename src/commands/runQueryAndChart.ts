@@ -7,45 +7,78 @@ import { ProfileManager } from '../profileManager';
 
 /**
  * Parse query metadata from comments
+ * Looks for special comments like:
+ * // @name my-query-name
+ * // @from -1h
+ * // @to now
+ * // @timezone UTC
+ * // @debug true
+ * // @param query_type=copilot
+ * // @param user_name=*
  */
 function parseQueryMetadata(queryText: string): {
     name?: string;
     from?: string;
     to?: string;
     timeZone?: string;
+    debug?: boolean;
+    params?: Map<string, string>;
 } {
     const metadata: {
         name?: string;
         from?: string;
         to?: string;
         timeZone?: string;
+        debug?: boolean;
+        params?: Map<string, string>;
     } = {};
 
     const lines = queryText.split('\n');
     for (const line of lines) {
         const trimmed = line.trim();
 
+        // Match @name directive
         const nameMatch = trimmed.match(/^\/\/\s*@name\s+(.+)$/i);
         if (nameMatch) {
             metadata.name = nameMatch[1].trim();
             continue;
         }
 
+        // Match @from directive
         const fromMatch = trimmed.match(/^\/\/\s*@from\s+(.+)$/i);
         if (fromMatch) {
             metadata.from = fromMatch[1].trim();
             continue;
         }
 
+        // Match @to directive
         const toMatch = trimmed.match(/^\/\/\s*@to\s+(.+)$/i);
         if (toMatch) {
             metadata.to = toMatch[1].trim();
             continue;
         }
 
+        // Match @timezone directive
         const tzMatch = trimmed.match(/^\/\/\s*@timezone\s+(.+)$/i);
         if (tzMatch) {
             metadata.timeZone = tzMatch[1].trim();
+            continue;
+        }
+
+        // Match @debug directive
+        const debugMatch = trimmed.match(/^\/\/\s*@debug\s+(true|false)$/i);
+        if (debugMatch) {
+            metadata.debug = debugMatch[1].toLowerCase() === 'true';
+            continue;
+        }
+
+        // Match @param directive
+        const paramMatch = trimmed.match(/^\/\/\s*@param\s+(\w+)=(.+)$/i);
+        if (paramMatch) {
+            if (!metadata.params) {
+                metadata.params = new Map<string, string>();
+            }
+            metadata.params.set(paramMatch[1], paramMatch[2].trim());
             continue;
         }
     }
@@ -60,9 +93,40 @@ function cleanQuery(queryText: string): string {
     const lines = queryText.split('\n');
     const cleanedLines = lines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output)\s+/i);
+        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|debug|param)\s+/i);
     });
     return cleanedLines.join('\n').trim();
+}
+
+/**
+ * Extract parameter placeholders from query text
+ * Looks for {{paramName}} patterns
+ */
+function extractQueryParams(queryText: string): Set<string> {
+    const params = new Set<string>();
+    const regex = /\{\{(\w+)\}\}/g;
+    let match;
+
+    while ((match = regex.exec(queryText)) !== null) {
+        params.add(match[1]);
+    }
+
+    return params;
+}
+
+/**
+ * Substitute parameter values in query text
+ * Replaces {{paramName}} with actual values
+ */
+function substituteParams(queryText: string, paramValues: Map<string, string>): string {
+    let result = queryText;
+
+    for (const [key, value] of paramValues) {
+        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+        result = result.replace(regex, value);
+    }
+
+    return result;
 }
 
 /**
@@ -154,7 +218,43 @@ export async function runQueryAndChartCommand(context: vscode.ExtensionContext):
 
     // Parse metadata from comments
     const metadata = parseQueryMetadata(queryText);
-    const cleanedQuery = cleanQuery(queryText);
+    let cleanedQuery = cleanQuery(queryText);
+
+    // Handle query parameters
+    const queryParams = extractQueryParams(cleanedQuery);
+    const paramValues = metadata.params || new Map<string, string>();
+
+    // Check for missing parameters
+    const missingParams: string[] = [];
+    for (const param of queryParams) {
+        if (!paramValues.has(param)) {
+            missingParams.push(param);
+        }
+    }
+
+    // Prompt for missing parameters
+    if (missingParams.length > 0) {
+        vscode.window.showWarningMessage(
+            `Missing parameter values for: ${missingParams.join(', ')}. Using default values from @param directives or prompting.`
+        );
+
+        for (const param of missingParams) {
+            const value = await vscode.window.showInputBox({
+                prompt: `Enter value for parameter '${param}'`,
+                value: '*',
+                ignoreFocusOut: true
+            });
+
+            if (value === undefined) {
+                return; // User cancelled
+            }
+
+            paramValues.set(param, value);
+        }
+    }
+
+    // Substitute parameters
+    cleanedQuery = substituteParams(cleanedQuery, paramValues);
 
     // Prompt for time range if not specified
     let from = metadata.from;
@@ -195,6 +295,26 @@ export async function runQueryAndChartCommand(context: vscode.ExtensionContext):
         timeZone: metadata.timeZone || 'UTC'
     };
 
+    // Enable debug mode if requested
+    const debugMode = metadata.debug || false;
+    let debugChannel: vscode.OutputChannel | undefined;
+    if (debugMode) {
+        debugChannel = vscode.window.createOutputChannel('Sumo Logic Quick Chart Debug');
+        debugChannel.show(true); // Show but don't focus
+        debugChannel.appendLine('=== Sumo Logic Quick Chart Debug Log ===');
+        debugChannel.appendLine(`Time: ${new Date().toISOString()}`);
+        debugChannel.appendLine('');
+        debugChannel.appendLine(`Profile: ${activeProfile.name}`);
+        debugChannel.appendLine(`Endpoint: ${client.getEndpoint()}`);
+        debugChannel.appendLine('');
+        debugChannel.appendLine('--- Query ---');
+        debugChannel.appendLine(cleanedQuery);
+        debugChannel.appendLine('');
+        debugChannel.appendLine('--- Request Payload ---');
+        debugChannel.appendLine(JSON.stringify(request, null, 2));
+        debugChannel.appendLine('');
+    }
+
     // Execute search with progress
     let csvFilePath: string | undefined;
 
@@ -208,8 +328,20 @@ export async function runQueryAndChartCommand(context: vscode.ExtensionContext):
         // Create job
         const createResponse = await client.createSearchJob(request);
         if (createResponse.error || !createResponse.data) {
+            if (debugChannel) {
+                debugChannel.appendLine('--- Create Job Error ---');
+                debugChannel.appendLine(`Error: ${createResponse.error}`);
+                debugChannel.appendLine(`Status Code: ${createResponse.statusCode}`);
+                debugChannel.appendLine('');
+            }
             vscode.window.showErrorMessage(`Failed to create search job: ${createResponse.error}`);
             return;
+        }
+
+        if (debugChannel) {
+            debugChannel.appendLine('--- Create Job Response ---');
+            debugChannel.appendLine(JSON.stringify(createResponse.data, null, 2));
+            debugChannel.appendLine('');
         }
 
         const jobId = createResponse.data.id;

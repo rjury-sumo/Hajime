@@ -132,45 +132,72 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
     let endpoint: string | undefined;
     if (region.value === 'custom') {
         const customEndpoint = await vscode.window.showInputBox({
-            prompt: 'Enter custom API endpoint URL',
-            placeHolder: 'https://api.custom.sumologic.com',
+            prompt: existingProfile && existingProfile.endpoint
+                ? `Enter custom API endpoint URL (press Enter to keep: ${existingProfile.endpoint})`
+                : 'Enter custom API endpoint URL',
+            placeHolder: existingProfile?.endpoint || 'https://api.custom.sumologic.com',
+            value: existingProfile?.endpoint || '',
             ignoreFocusOut: true,
             validateInput: (value) => {
-                if (!value.startsWith('http://') && !value.startsWith('https://')) {
-                    return 'Endpoint must start with http:// or https://';
+                if (value && value.trim()) {
+                    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+                        return 'Endpoint must start with http:// or https://';
+                    }
                 }
                 return null;
             }
         });
 
-        if (!customEndpoint) {
+        if (customEndpoint === undefined) {
             return; // User cancelled
         }
-        endpoint = customEndpoint;
+        endpoint = customEndpoint.trim() || existingProfile?.endpoint;
     }
+
+    // Get existing credentials if updating
+    const existingCredentials = existingProfile ? await profileManager.getProfileCredentials(profileName) : null;
+    const hasCredentials = existingCredentials?.accessId && existingCredentials?.accessKey;
 
     // Prompt for Access ID
     const accessId = await vscode.window.showInputBox({
-        prompt: 'Enter your Sumo Logic Access ID',
-        placeHolder: 'suABC123...',
+        prompt: hasCredentials
+            ? 'Enter your Sumo Logic Access ID (press Enter to keep current credentials)'
+            : 'Enter your Sumo Logic Access ID',
+        placeHolder: hasCredentials ? '*****' : 'suABC123...',
+        value: '',
         ignoreFocusOut: true,
         password: false
     });
 
-    if (!accessId) {
+    if (accessId === undefined) {
         return; // User cancelled
+    }
+
+    const finalAccessId = accessId.trim() || existingCredentials?.accessId;
+    if (!finalAccessId) {
+        vscode.window.showErrorMessage('Access ID is required');
+        return;
     }
 
     // Prompt for Access Key
     const accessKey = await vscode.window.showInputBox({
-        prompt: 'Enter your Sumo Logic Access Key',
-        placeHolder: 'Your access key',
+        prompt: hasCredentials
+            ? 'Enter your Sumo Logic Access Key (press Enter to keep current credentials)'
+            : 'Enter your Sumo Logic Access Key',
+        placeHolder: hasCredentials ? '*****' : 'Your access key',
+        value: '',
         ignoreFocusOut: true,
         password: true
     });
 
-    if (!accessKey) {
+    if (accessKey === undefined) {
         return; // User cancelled
+    }
+
+    const finalAccessKey = accessKey.trim() || existingCredentials?.accessKey;
+    if (!finalAccessKey) {
+        vscode.window.showErrorMessage('Access Key is required');
+        return;
     }
 
     // Prompt for custom instance name (optional)
@@ -178,10 +205,15 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
         ? 'service.sumologic.com'
         : `service.${region.value}.sumologic.com`;
 
+    const currentInstanceName = existingProfile?.instanceName || '';
+    const displayDefault = currentInstanceName || defaultInstanceName;
+
     const instanceName = await vscode.window.showInputBox({
-        prompt: 'Enter custom instance name for web UI (optional, leave empty for default)',
-        placeHolder: defaultInstanceName,
-        value: existingProfile?.instanceName || '',
+        prompt: existingProfile
+            ? `Enter custom instance name for web UI (press Enter to keep: ${displayDefault})`
+            : 'Enter custom instance name for web UI (optional, leave empty for default)',
+        placeHolder: displayDefault,
+        value: currentInstanceName,
         ignoreFocusOut: true,
         validateInput: (value) => {
             if (value && value.trim()) {
@@ -206,10 +238,10 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
                 {
                     region: region.value === 'custom' ? 'us1' : region.value,
                     endpoint: endpoint,
-                    instanceName: instanceName.trim() || undefined
+                    instanceName: instanceName.trim() || existingProfile.instanceName
                 },
-                accessId,
-                accessKey
+                finalAccessId,
+                finalAccessKey
             );
             vscode.window.showInformationMessage(`Profile '${profileName}' updated successfully`);
         } else {
@@ -220,8 +252,8 @@ export async function authenticateCommand(context: vscode.ExtensionContext): Pro
                     endpoint: endpoint,
                     instanceName: instanceName.trim() || undefined
                 },
-                accessId,
-                accessKey
+                finalAccessId,
+                finalAccessKey
             );
             vscode.window.showInformationMessage(`Profile '${profileName}' created and set as active`);
         }
@@ -297,10 +329,13 @@ export async function editProfileCommand(context: vscode.ExtensionContext, profi
             ? 'service.sumologic.com'
             : `service.${profile.region}.sumologic.com`;
 
+        const currentValue = profile.instanceName || '';
+        const displayDefault = currentValue || defaultInstanceName;
+
         const instanceName = await vscode.window.showInputBox({
-            prompt: 'Enter custom instance name for web UI (leave empty to use default)',
-            placeHolder: defaultInstanceName,
-            value: profile.instanceName || '',
+            prompt: `Enter custom instance name for web UI (press Enter to keep current: ${displayDefault})`,
+            placeHolder: displayDefault,
+            value: currentValue,
             ignoreFocusOut: true,
             validateInput: (value) => {
                 if (value && value.trim()) {
@@ -315,7 +350,8 @@ export async function editProfileCommand(context: vscode.ExtensionContext, profi
         if (instanceName === undefined) {
             return; // User cancelled
         }
-        newInstanceName = instanceName.trim() || undefined;
+        // If empty string entered, keep current value
+        newInstanceName = instanceName.trim() || profile.instanceName;
     }
 
     // Edit region/endpoint
@@ -369,30 +405,40 @@ export async function editProfileCommand(context: vscode.ExtensionContext, profi
 
     // Edit credentials
     if (editOption.value === 'credentials' || editOption.value === 'all') {
+        const hasCredentials = credentials?.accessId && credentials?.accessKey;
+        const maskedValue = hasCredentials ? '*****' : '';
+
         const accessId = await vscode.window.showInputBox({
-            prompt: 'Enter your Sumo Logic Access ID',
-            placeHolder: 'suABC123...',
-            value: credentials?.accessId || '',
+            prompt: hasCredentials
+                ? 'Enter your Sumo Logic Access ID (press Enter to keep current credentials)'
+                : 'Enter your Sumo Logic Access ID',
+            placeHolder: hasCredentials ? '*****' : 'suABC123...',
+            value: '',
             ignoreFocusOut: true,
             password: false
         });
 
-        if (!accessId) {
+        if (accessId === undefined) {
             return; // User cancelled
         }
-        newAccessId = accessId;
+        // If empty and credentials exist, keep existing; otherwise use new value
+        newAccessId = accessId.trim() || credentials?.accessId;
 
         const accessKey = await vscode.window.showInputBox({
-            prompt: 'Enter your Sumo Logic Access Key',
-            placeHolder: 'Your access key',
+            prompt: hasCredentials
+                ? 'Enter your Sumo Logic Access Key (press Enter to keep current credentials)'
+                : 'Enter your Sumo Logic Access Key',
+            placeHolder: hasCredentials ? '*****' : 'Your access key',
+            value: '',
             ignoreFocusOut: true,
             password: true
         });
 
-        if (!accessKey) {
+        if (accessKey === undefined) {
             return; // User cancelled
         }
-        newAccessKey = accessKey;
+        // If empty and credentials exist, keep existing; otherwise use new value
+        newAccessKey = accessKey.trim() || credentials?.accessKey;
     }
 
     // Update profile

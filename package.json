@@ -72,7 +72,8 @@
                 },
                 "sumologic.instanceName": {
                     "type": "string",
-                    "description": "Custom instance name for web UI URLs (e.g., rick.au.sumologic.com). If not set, defaults to service.<endpoint>.sumologic.com or service.sumologic.com for us1/prod"
+                    "markdownDescription": "**⚠️ Deprecated:** This global setting is deprecated. Please set the instance name per profile using the 'Edit Profile' command instead.\n\n(Legacy) Custom instance name for web UI URLs (e.g., rick.au.sumologic.com). If not set, defaults to service.<endpoint>.sumologic.com or service.sumologic.com for us1/prod",
+                    "deprecationMessage": "This global setting is deprecated. Use per-profile instance name settings instead (Edit Profile command)."
                 }
             }
         },

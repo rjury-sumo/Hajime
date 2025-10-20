@@ -36,18 +36,52 @@ async function openContentFromPath(context: vscode.ExtensionContext, filePath: s
             }
         );
 
-        // Handle messages from webview (for extract search functionality)
+        // Determine profile name from file path
+        let profileName: string | undefined;
+        const pathParts = filePath.split(path.sep);
+        const sumoLogicIndex = pathParts.indexOf('.sumologic');
+        if (sumoLogicIndex !== -1 && sumoLogicIndex + 1 < pathParts.length) {
+            profileName = pathParts[sumoLogicIndex + 1];
+        }
+
+        // Handle messages from webview
         panel.webview.onDidReceiveMessage(async (message) => {
-            if (message.type === 'extractSearch') {
-                // For standalone JSON files, we don't have a profile context
-                // so we'll create a temporary file directly
-                const { extractSearchToFileCommand } = require('./extractSearchToFile');
-                await extractSearchToFileCommand(context, 'standalone', contentId, contentName, content);
+            switch (message.type) {
+                case 'extractSearch':
+                    // For standalone JSON files, we don't have a profile context
+                    // so we'll create a temporary file directly
+                    const { extractSearchToFileCommand } = require('./extractSearchToFile');
+                    await extractSearchToFileCommand(context, profileName || 'standalone', contentId, contentName, content);
+                    break;
+                case 'refreshContent':
+                    if (profileName) {
+                        const { refreshDashboardContentFromPath } = require('./viewLibraryContent');
+                        await refreshDashboardContentFromPath(context, profileName, message.dashboardId, message.contentId, panel, filePath);
+                    } else {
+                        vscode.window.showWarningMessage('Cannot refresh: unable to determine profile from file path');
+                    }
+                    break;
+                case 'openDashboardInUI':
+                    if (profileName) {
+                        const { openDashboardInUIFromPath } = require('./viewLibraryContent');
+                        await openDashboardInUIFromPath(context, profileName, message.dashboardId);
+                    } else {
+                        vscode.window.showWarningMessage('Cannot open in UI: unable to determine profile from file path');
+                    }
+                    break;
+                case 'openFolderInLibrary':
+                    if (profileName) {
+                        const { openFolderInLibraryFromPath } = require('./viewLibraryContent');
+                        await openFolderInLibraryFromPath(message.folderId, profileName, context);
+                    } else {
+                        vscode.window.showWarningMessage('Cannot open folder: unable to determine profile from file path');
+                    }
+                    break;
             }
         });
 
         // Use the existing webview generation logic
-        panel.webview.html = getWebviewContent(content, contentName, contentId, '', undefined, undefined, filePath);
+        panel.webview.html = getWebviewContent(content, contentName, contentId, '', undefined, undefined, filePath, profileName);
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

@@ -75,6 +75,9 @@ export class DashboardsWebviewProvider {
                 case 'refreshData':
                     await DashboardsWebviewProvider.loadProfileData(DashboardsWebviewProvider.currentProfileName || '');
                     break;
+                case 'addDashboardById':
+                    await DashboardsWebviewProvider.addDashboardById();
+                    break;
             }
         });
 
@@ -376,21 +379,8 @@ export class DashboardsWebviewProvider {
             return;
         }
 
-        // Get the instance name from settings or construct it from endpoint
-        const config = vscode.workspace.getConfiguration('sumologic');
-        let instanceName = config.get<string>('instanceName');
-
-        if (!instanceName) {
-            // Construct instance name from endpoint
-            // e.g., "au" -> "service.au.sumologic.com"
-            // "us1" or "prod" -> "service.sumologic.com"
-            const endpoint = profile.endpoint || 'us1';
-            if (endpoint === 'us1' || endpoint === 'prod') {
-                instanceName = 'service.sumologic.com';
-            } else {
-                instanceName = `service.${endpoint}.sumologic.com`;
-            }
-        }
+        // Get the instance name from profile (with fallback to global setting and default)
+        const instanceName = DashboardsWebviewProvider.profileManager.getInstanceName(profile);
 
         // Construct the dashboard URL
         const dashboardUrl = `https://${instanceName}/dashboard/${dashboardId}`;
@@ -398,6 +388,40 @@ export class DashboardsWebviewProvider {
         // Open in external browser
         vscode.env.openExternal(vscode.Uri.parse(dashboardUrl));
         vscode.window.showInformationMessage(`Opening dashboard "${title}" in Sumo Logic UI`);
+    }
+
+    /**
+     * Add a dashboard by ID - prompts user for ID and fetches it
+     */
+    private static async addDashboardById() {
+        if (!DashboardsWebviewProvider.profileManager) {
+            return;
+        }
+
+        const profileName = DashboardsWebviewProvider.currentProfileName;
+        if (!profileName) {
+            return;
+        }
+
+        // Use VSCode's built-in input box for the dashboard ID
+        const vscode = await import('vscode');
+        const dashboardId = await vscode.window.showInputBox({
+            prompt: 'Enter Dashboard ID',
+            placeHolder: 'e.g., B23OjNs5ZCyn5VdMwOBoLo3PjgRnJSAlNTKEDAcpuDG2CIgRe9KFXMofm2H2',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Dashboard ID cannot be empty';
+                }
+                return null;
+            }
+        });
+
+        if (!dashboardId) {
+            return;
+        }
+
+        // Use the existing getDashboard method which fetches and stores in the database
+        await DashboardsWebviewProvider.getDashboard(dashboardId.trim(), 'Dashboard');
     }
 
     /**
@@ -731,10 +755,13 @@ export class DashboardsWebviewProvider {
 <body>
     <div class="controls">
         <div class="control-row">
-            <input type="text" id="searchInput" placeholder="Search by title, ID, or description..." />
-            <button onclick="clearSearch()">Clear</button>
+            <button onclick="addDashboardById()">Add Dashboard by ID</button>
             <button onclick="exportToCSV()">Export CSV</button>
             <button onclick="refreshData()">Refresh</button>
+        </div>
+        <div class="control-row">
+            <input type="text" id="searchInput" placeholder="Search by title, ID, or description..." />
+            <button onclick="clearSearch()">Clear</button>
         </div>
         <div class="control-row">
             <label>Items per page:</label>
@@ -972,6 +999,12 @@ export class DashboardsWebviewProvider {
         function refreshData() {
             vscode.postMessage({
                 type: 'refreshData'
+            });
+        }
+
+        function addDashboardById() {
+            vscode.postMessage({
+                type: 'addDashboardById'
             });
         }
 

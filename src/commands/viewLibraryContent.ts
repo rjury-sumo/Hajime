@@ -113,18 +113,266 @@ export async function viewLibraryContentCommand(
 
     // Handle messages from webview
     panel.webview.onDidReceiveMessage(async (message) => {
-        if (message.type === 'extractSearch') {
-            await vscode.commands.executeCommand(
-                'sumologic.extractSearchToFile',
-                profileName,
-                contentId,
-                contentName,
-                content
-            );
+        switch (message.type) {
+            case 'extractSearch':
+                await vscode.commands.executeCommand(
+                    'sumologic.extractSearchToFile',
+                    profileName,
+                    contentId,
+                    contentName,
+                    content
+                );
+                break;
+            case 'refreshContent':
+                await refreshDashboardContent(context, profileName, message.dashboardId, message.contentId, panel);
+                break;
+            case 'openDashboardInUI':
+                await openDashboardInUI(context, profileName, message.dashboardId);
+                break;
+            case 'openFolderInLibrary':
+                await openFolderInLibrary(message.folderId, profileName, context);
+                break;
         }
     });
 
-    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath, createdByEmail, modifiedByEmail, filePath);
+    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath, createdByEmail, modifiedByEmail, filePath, profileName);
+}
+
+/**
+ * Refresh dashboard content by fetching from API (exported for use in openExportedContent)
+ */
+export async function refreshDashboardContentFromPath(
+    context: vscode.ExtensionContext,
+    profileName: string,
+    dashboardId: string | undefined,
+    contentId: string | undefined,
+    panel: vscode.WebviewPanel,
+    filePath: string
+): Promise<void> {
+    return refreshDashboardContent(context, profileName, dashboardId, contentId, panel);
+}
+
+/**
+ * Refresh dashboard content by fetching from API
+ */
+async function refreshDashboardContent(
+    context: vscode.ExtensionContext,
+    profileName: string,
+    dashboardId: string | undefined,
+    contentId: string | undefined,
+    panel: vscode.WebviewPanel
+): Promise<void> {
+    const profileManager = new ProfileManager(context);
+
+    // Get profile
+    const profiles = await profileManager.getProfiles();
+    const profile = profiles.find(p => p.name === profileName);
+    if (!profile) {
+        vscode.window.showErrorMessage(`Profile not found: ${profileName}`);
+        return;
+    }
+
+    // Get credentials
+    const credentials = await profileManager.getProfileCredentials(profileName);
+    if (!credentials) {
+        vscode.window.showErrorMessage(`No credentials for profile: ${profileName}`);
+        return;
+    }
+
+    try {
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Refreshing content...',
+            cancellable: false
+        }, async (progress) => {
+            // Determine if this is a dashboard ID or content ID
+            const isDashboardId = dashboardId && dashboardId.length > 40; // Dashboard IDs are ~60+ chars
+
+            if (isDashboardId && dashboardId) {
+                // Use Dashboard API
+                progress.report({ message: 'Fetching dashboard from API...' });
+                const { DashboardClient } = await import('../api/dashboards');
+                const client = new DashboardClient({
+                    accessId: credentials.accessId,
+                    accessKey: credentials.accessKey,
+                    endpoint: profileManager.getProfileEndpoint(profile)
+                });
+
+                const response = await client.getDashboard(dashboardId);
+                if (response.error || !response.data) {
+                    vscode.window.showErrorMessage(`Failed to refresh dashboard: ${response.error}`);
+                    return;
+                }
+
+                let dashboard: any = response.data;
+
+                // Dashboard API returns dashboards without an itemType field, but with properties like:
+                // title, description, panels, variables, etc.
+                // We need to add itemType: "Dashboard" so the webview can detect it properly
+                if (!dashboard.itemType && !dashboard.type) {
+                    // This is a raw dashboard from the Dashboard API - add itemType
+                    dashboard.itemType = 'Dashboard';
+
+                    // Also ensure it has a name field (uses title from Dashboard API)
+                    if (!dashboard.name && dashboard.title) {
+                        dashboard.name = dashboard.title;
+                    }
+                }
+
+                // Save to dashboards directory
+                const dashboardsDir = profileManager.getProfileDashboardsDirectory(profileName);
+                if (!fs.existsSync(dashboardsDir)) {
+                    fs.mkdirSync(dashboardsDir, { recursive: true });
+                }
+
+                const jsonFilePath = path.join(dashboardsDir, `${dashboardId}.json`);
+                fs.writeFileSync(jsonFilePath, JSON.stringify(dashboard, null, 2), 'utf-8');
+
+                vscode.window.showInformationMessage('Dashboard refreshed successfully');
+
+                // Reload the webview - dispose first, then reopen with specialized dashboard webview
+                panel.dispose();
+                await vscode.commands.executeCommand('sumologic.openExportedContentFromPath', jsonFilePath);
+            } else if (contentId) {
+                // Use Content API
+                progress.report({ message: 'Exporting content from API...' });
+                const client = new ContentClient({
+                    accessId: credentials.accessId,
+                    accessKey: credentials.accessKey,
+                    endpoint: profileManager.getProfileEndpoint(profile)
+                });
+
+                const response = await client.exportContent(contentId);
+                if (response.error || !response.data) {
+                    vscode.window.showErrorMessage(`Failed to refresh content: ${response.error}`);
+                    return;
+                }
+
+                // Save to library content directory
+                const contentDir = profileManager.getProfileLibraryContentDirectory(profileName);
+                if (!fs.existsSync(contentDir)) {
+                    fs.mkdirSync(contentDir, { recursive: true });
+                }
+
+                const jsonFilePath = path.join(contentDir, `${contentId}.json`);
+                fs.writeFileSync(jsonFilePath, JSON.stringify(response.data, null, 2), 'utf-8');
+
+                vscode.window.showInformationMessage('Content refreshed successfully');
+
+                // Reload the webview - dispose first, then reopen
+                panel.dispose();
+                await vscode.commands.executeCommand('sumologic.openExportedContentFromPath', jsonFilePath);
+            } else {
+                vscode.window.showErrorMessage('No dashboard ID or content ID available to refresh');
+            }
+        });
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to refresh content: ${error.message}`);
+    }
+}
+
+/**
+ * Open dashboard in Sumo Logic web UI (exported for use in openExportedContent)
+ */
+export async function openDashboardInUIFromPath(
+    context: vscode.ExtensionContext,
+    profileName: string,
+    dashboardId: string
+): Promise<void> {
+    return openDashboardInUI(context, profileName, dashboardId);
+}
+
+/**
+ * Open dashboard in Sumo Logic web UI
+ */
+async function openDashboardInUI(
+    context: vscode.ExtensionContext,
+    profileName: string,
+    dashboardId: string
+): Promise<void> {
+    const profileManager = new ProfileManager(context);
+
+    // Get the profile to determine the instance name
+    const profiles = await profileManager.getProfiles();
+    const profile = profiles.find(p => p.name === profileName);
+    if (!profile) {
+        vscode.window.showErrorMessage(`Profile not found: ${profileName}`);
+        return;
+    }
+
+    // Get the instance name from profile (with fallback to global setting and default)
+    const instanceName = profileManager.getInstanceName(profile);
+
+    // Construct the dashboard URL
+    const dashboardUrl = `https://${instanceName}/dashboard/${dashboardId}`;
+
+    // Open in external browser
+    vscode.env.openExternal(vscode.Uri.parse(dashboardUrl));
+    vscode.window.showInformationMessage(`Opening dashboard in Sumo Logic UI`);
+}
+
+/**
+ * Open folder in library explorer (exported for use in openExportedContent)
+ */
+export async function openFolderInLibraryFromPath(
+    folderId: string,
+    profileName: string,
+    context?: vscode.ExtensionContext
+): Promise<void> {
+    return openFolderInLibrary(folderId, profileName, context);
+}
+
+/**
+ * Open folder in library explorer
+ */
+async function openFolderInLibrary(
+    folderId: string,
+    profileName: string,
+    context?: vscode.ExtensionContext
+): Promise<void> {
+    try {
+        if (!context) {
+            vscode.window.showWarningMessage('Cannot open folder: context not available');
+            return;
+        }
+
+        const profileManager = new ProfileManager(context);
+
+        // Get the profile to determine the instance name
+        const profiles = await profileManager.getProfiles();
+        const profile = profiles.find(p => p.name === profileName);
+        if (!profile) {
+            vscode.window.showErrorMessage(`Profile not found: ${profileName}`);
+            return;
+        }
+
+        // Get the instance name from profile (with fallback to global setting and default)
+        const instanceName = profileManager.getInstanceName(profile);
+
+        // Construct the folder URL
+        const folderUrl = `https://${instanceName}/library/${folderId}`;
+
+        // Get folder name from cache if available
+        let folderName = 'folder';
+        try {
+            const profileDir = profileManager.getProfileDirectory(profileName);
+            const db = createLibraryCacheDB(profileDir, profileName);
+            const folder = db.getContentItem(folderId);
+            db.close();
+
+            if (folder) {
+                folderName = folder.name;
+            }
+        } catch (e) {
+            // Ignore cache errors, just use default name
+        }
+
+        // Open in external browser
+        vscode.env.openExternal(vscode.Uri.parse(folderUrl));
+        vscode.window.showInformationMessage(`Opening folder "${folderName}" in Sumo Logic UI`);
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to open folder: ${error.message}`);
+    }
 }
 
 /**
@@ -527,7 +775,7 @@ function getSearchWebviewContent(content: any, contentName: string, contentId: s
 /**
  * Generate specialized webview content for dashboards
  */
-function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string): string {
+function getDashboardWebviewContent(content: any, contentName: string, contentId: string, formattedId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string, profileName?: string): string {
     // Top-level string properties to display at the top
     // Include dashboard API specific properties: id, contentId, folderId, domain, isPublic
     const topLevelProps = ['name', 'description', 'title', 'id', 'contentId', 'folderId', 'domain', 'theme', 'type', 'isPublic', 'refreshInterval'];
@@ -814,12 +1062,12 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
                     currentX = panel.x;
                 }
 
-                // Extract short panel ID from key (e.g., "panelpane-03afc899b83e3b40" -> "03af...")
+                // Extract full panel ID from key (e.g., "panelpane-03afc899b83e3b40" -> "03afc899b83e3b40")
                 const keyMatch = panel.key.match(/panelpane-(.+)/i);
-                const shortId = keyMatch ? keyMatch[1].substring(0, 4) + '...' : '';
+                const panelId = keyMatch ? keyMatch[1] : '';
 
-                // Add the panel
-                const panelContent = `${escapeHtml(panel.name)}<br/><span style="font-size: 9px; opacity: 0.7;">${shortId} (${panel.width}×${panel.height})</span>`;
+                // Add the panel with name on first line, ID and dimensions on second line
+                const panelContent = `<div style="line-height: 1.3;">${escapeHtml(panel.name)}<br/><span style="font-size: 9px; opacity: 0.7;">${escapeHtml(panelId)}<br/>(${panel.width}×${panel.height})</span></div>`;
                 const panelTitle = `${escapeHtml(panel.name)}\\nID: ${escapeHtml(panel.key)}\\nPosition: (${panel.x}, ${panel.y})\\nSize: ${panel.width}×${panel.height}`;
 
                 gridHtml += `<div class="grid-cell" style="flex: ${panel.width}" title="${panelTitle}">${panelContent}</div>`;
@@ -979,9 +1227,8 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
             justify-content: center;
             text-align: center;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
             min-width: 0;
+            word-break: break-word;
         }
 
         .grid-cell.empty {
@@ -1130,6 +1377,32 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
             font-family: var(--vscode-editor-font-family);
             color: var(--vscode-textPreformat-foreground);
         }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            padding: 8px 16px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: var(--vscode-font-family);
+        }
+
+        .action-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .action-button:active {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -1142,6 +1415,12 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
         ${filePath ? `<br/><strong>File:</strong> ${escapeHtml(filePath)}` : ''}
         ${content.createdBy ? `<br/><strong>Created By:</strong> ${escapeHtml(createdByEmail || content.createdBy)}` : ''}
         ${content.modifiedBy ? ` | <strong>Modified By:</strong> ${escapeHtml(modifiedByEmail || content.modifiedBy)}` : ''}
+    </div>
+
+    <div class="action-buttons">
+        ${content.id || content.contentId ? `<button class="action-button" onclick="refreshContent()">🔄 Refresh Content</button>` : ''}
+        ${content.id && content.id.length > 40 ? `<button class="action-button" onclick="openInUI()">🌐 Open in UI</button>` : ''}
+        ${content.folderId ? `<button class="action-button" onclick="openFolder()">📁 Open Folder</button>` : ''}
     </div>
 
     <div class="top-properties">
@@ -1167,6 +1446,8 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
     </div>
 
     <script>
+        const vscode = acquireVsCodeApi();
+
         function showTab(tabName) {
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -1184,12 +1465,34 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
             // Add active class to clicked tab
             event.target.classList.add('active');
         }
+
+        function refreshContent() {
+            vscode.postMessage({
+                type: 'refreshContent',
+                dashboardId: ${content.id ? `'${escapeHtml(String(content.id))}'` : 'null'},
+                contentId: ${content.contentId ? `'${escapeHtml(String(content.contentId))}'` : 'null'}
+            });
+        }
+
+        function openInUI() {
+            vscode.postMessage({
+                type: 'openDashboardInUI',
+                dashboardId: '${content.id ? escapeHtml(String(content.id)) : ''}'
+            });
+        }
+
+        function openFolder() {
+            vscode.postMessage({
+                type: 'openFolderInLibrary',
+                folderId: '${content.folderId ? escapeHtml(String(content.folderId)) : ''}'
+            });
+        }
     </script>
 </body>
 </html>`;
 }
 
-export function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string): string {
+export function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string, profileName?: string): string {
     const formattedId = formatContentId(contentId);
 
     // Check if this is a dashboard
@@ -1211,7 +1514,7 @@ export function getWebviewContent(content: any, contentName: string, contentId: 
     console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isDashboard: ${isDashboard}, isSearch: ${isSearch}`);
 
     if (isDashboard) {
-        return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail, filePath);
+        return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail, filePath, profileName);
     }
 
     if (isSearch) {

@@ -192,9 +192,9 @@ suite('ContentId Utils Test Suite', () => {
             { hex: '00000000005E5403', decimal: '6181891', name: 'Personal Folder' },
             { hex: '0000000000000000', decimal: '0', name: 'Root' },
             { hex: '00000000005EB9EE', decimal: '6207982', name: 'Admin Recommended' },
-            { hex: '0000000001E6FB2B', decimal: '32046891', name: 'Metadata Explorer Dashboard' },
+            { hex: '0000000001E6FB2B', decimal: '31914795', name: 'Metadata Explorer Dashboard' }, // Fixed: was 32046891
             { hex: '000000000080946D', decimal: '8426605', name: 'Search Item' },
-            { hex: '00000000020E7ECB', decimal: '34635467', name: 'Log Portal Folder' }
+            { hex: '00000000020E7ECB', decimal: '34504395', name: 'Log Portal Folder' } // Fixed: was 34635467
         ];
 
         test('should convert all real-world hex IDs to decimal', () => {

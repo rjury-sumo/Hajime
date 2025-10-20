@@ -1,51 +1,6 @@
 import * as vscode from 'vscode';
 import { ProfileManager } from '../profileManager';
-
-/**
- * Parse query metadata from comments to extract @from and @to
- */
-function parseTimeMetadata(queryText: string): {
-    from?: string;
-    to?: string;
-} {
-    const metadata: {
-        from?: string;
-        to?: string;
-    } = {};
-
-    const lines = queryText.split('\n');
-    for (const line of lines) {
-        const trimmed = line.trim();
-
-        // Match @from directive
-        const fromMatch = trimmed.match(/^\/\/\s*@from\s+(.+)$/i);
-        if (fromMatch) {
-            metadata.from = fromMatch[1].trim();
-            continue;
-        }
-
-        // Match @to directive
-        const toMatch = trimmed.match(/^\/\/\s*@to\s+(.+)$/i);
-        if (toMatch) {
-            metadata.to = toMatch[1].trim();
-            continue;
-        }
-    }
-
-    return metadata;
-}
-
-/**
- * Remove metadata comments from query
- */
-function cleanQuery(queryText: string): string {
-    const lines = queryText.split('\n');
-    const cleanedLines = lines.filter(line => {
-        const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output)\s+/i);
-    });
-    return cleanedLines.join('\n').trim();
-}
+import { parseQueryMetadata, cleanQuery } from '../services/queryMetadata';
 
 /**
  * Build the web UI URL for opening a log search
@@ -95,7 +50,7 @@ export async function openSearchInWebCommand(context: vscode.ExtensionContext): 
     }
 
     // Parse metadata and clean query
-    const metadata = parseTimeMetadata(queryText);
+    const metadata = parseQueryMetadata(queryText);
     const cleanedQuery = cleanQuery(queryText);
 
     // Get instance name

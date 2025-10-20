@@ -6,7 +6,8 @@ import {
     getIntegrationTestConfig,
     setupIntegrationProfile,
     cleanupIntegrationProfile,
-    skipIfNotConfigured
+    skipIfNotConfigured,
+    respectRateLimit
 } from './testHelper';
 import { ProfileManager } from '../../profileManager';
 

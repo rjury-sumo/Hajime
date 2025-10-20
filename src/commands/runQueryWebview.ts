@@ -5,92 +5,13 @@ import { getDynamicCompletionProvider, getSumoExplorerProvider } from '../extens
 import { formatRecordsAsHTML } from './runQuery';
 import { FieldAnalyzer } from '../services/fieldAnalyzer';
 import { ProfileManager } from '../profileManager';
-
-/**
- * Parse query metadata from comments
- */
-function parseQueryMetadata(queryText: string): {
-    name?: string;
-    from?: string;
-    to?: string;
-    timeZone?: string;
-    mode?: 'records' | 'messages';
-} {
-    const metadata: {
-        name?: string;
-        from?: string;
-        to?: string;
-        timeZone?: string;
-        mode?: 'records' | 'messages';
-    } = {};
-
-    const lines = queryText.split('\n');
-    for (const line of lines) {
-        const trimmed = line.trim();
-
-        const nameMatch = trimmed.match(/^\/\/\s*@name\s+(.+)$/i);
-        if (nameMatch) {
-            metadata.name = nameMatch[1].trim();
-            continue;
-        }
-
-        const fromMatch = trimmed.match(/^\/\/\s*@from\s+(.+)$/i);
-        if (fromMatch) {
-            metadata.from = fromMatch[1].trim();
-            continue;
-        }
-
-        const toMatch = trimmed.match(/^\/\/\s*@to\s+(.+)$/i);
-        if (toMatch) {
-            metadata.to = toMatch[1].trim();
-            continue;
-        }
-
-        const tzMatch = trimmed.match(/^\/\/\s*@timezone\s+(.+)$/i);
-        if (tzMatch) {
-            metadata.timeZone = tzMatch[1].trim();
-            continue;
-        }
-
-        const modeMatch = trimmed.match(/^\/\/\s*@mode\s+(records|messages)$/i);
-        if (modeMatch) {
-            metadata.mode = modeMatch[1].toLowerCase() as 'records' | 'messages';
-            continue;
-        }
-    }
-
-    return metadata;
-}
-
-/**
- * Remove metadata comments from query
- */
-function cleanQuery(queryText: string): string {
-    const lines = queryText.split('\n');
-    const cleanedLines = lines.filter(line => {
-        const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output)\s+/i);
-    });
-    return cleanedLines.join('\n').trim();
-}
-
-/**
- * Detect if query is an aggregation (has aggregation operators)
- */
-function isAggregationQuery(query: string): boolean {
-    const aggregationOperators = [
-        'count', 'sum', 'avg', 'min', 'max', 'stddev', 'pct',
-        'first', 'last', 'most_recent', 'least_recent',
-        'count_distinct', 'count_frequent', 'fillmissing',
-        'transpose', 'timeslice', 'rollingstd'
-    ];
-
-    const lowerQuery = query.toLowerCase();
-    return aggregationOperators.some(op =>
-        lowerQuery.includes(`| ${op}`) ||
-        lowerQuery.includes(`|${op}`)
-    );
-}
+import {
+    parseQueryMetadata,
+    cleanQuery,
+    extractQueryParams,
+    substituteParams,
+    isAggregationQuery
+} from '../services/queryMetadata';
 
 /**
  * Command to run query and force webview output
@@ -144,7 +65,43 @@ export async function runQueryWebviewCommand(context: vscode.ExtensionContext): 
 
     // Parse metadata from comments (ignore @output directive)
     const metadata = parseQueryMetadata(queryText);
-    const cleanedQuery = cleanQuery(queryText);
+    let cleanedQuery = cleanQuery(queryText);
+
+    // Handle query parameters
+    const queryParams = extractQueryParams(cleanedQuery);
+    const paramValues = metadata.params || new Map<string, string>();
+
+    // Check for missing parameters
+    const missingParams: string[] = [];
+    for (const param of queryParams) {
+        if (!paramValues.has(param)) {
+            missingParams.push(param);
+        }
+    }
+
+    // Prompt for missing parameters
+    if (missingParams.length > 0) {
+        vscode.window.showWarningMessage(
+            `Missing parameter values for: ${missingParams.join(', ')}. Using default values from @param directives or prompting.`
+        );
+
+        for (const param of missingParams) {
+            const value = await vscode.window.showInputBox({
+                prompt: `Enter value for parameter '${param}'`,
+                value: '*',
+                ignoreFocusOut: true
+            });
+
+            if (value === undefined) {
+                return; // User cancelled
+            }
+
+            paramValues.set(param, value);
+        }
+    }
+
+    // Substitute parameters
+    cleanedQuery = substituteParams(cleanedQuery, paramValues);
 
     // Prompt for time range if not specified
     let from = metadata.from;

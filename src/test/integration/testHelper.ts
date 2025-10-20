@@ -153,6 +153,15 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Rate limit helper - Sumo APIs allow 4 requests/second
+ * Call this between API requests to avoid rate limiting
+ */
+export async function respectRateLimit(): Promise<void> {
+    // Wait 250ms (4 requests/sec = 1 request per 250ms)
+    await sleep(250);
+}
+
+/**
  * Generate a unique test identifier
  */
 export function generateTestId(): string {

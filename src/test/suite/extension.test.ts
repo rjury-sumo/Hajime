@@ -109,7 +109,8 @@ suite('Extension Test Suite', () => {
         const fileStoragePath = config.get<string>('fileStoragePath');
         const webviewPageSize = config.get<number>('webviewPageSize');
 
-        assert.strictEqual(fileStoragePath, '${workspaceFolder}/output', 'Default file storage path should be correct');
+        // fileStoragePath default is now empty string (which defaults to ~/.sumologic at runtime)
+        assert.strictEqual(fileStoragePath, '', 'Default file storage path should be empty (defaults to ~/.sumologic)');
         assert.strictEqual(webviewPageSize, 100, 'Default webview page size should be 100');
     });
 });

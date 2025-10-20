@@ -1,148 +1,16 @@
 import * as assert from 'assert';
+import {
+    parseQueryMetadata,
+    cleanQuery,
+    extractQueryParams,
+    substituteParams,
+    isAggregationQuery
+} from '../../services/queryMetadata';
 
 /**
  * Tests for query metadata parsing
- * These functions are exported from runQuery.ts for testing
+ * Tests the shared query metadata module used by all query execution commands
  */
-
-/**
- * Parse query metadata from comments
- */
-function parseQueryMetadata(queryText: string): {
-    name?: string;
-    from?: string;
-    to?: string;
-    timeZone?: string;
-    mode?: 'records' | 'messages';
-    output?: 'table' | 'json' | 'csv' | 'webview';
-    byReceiptTime?: boolean;
-    autoParsingMode?: 'AutoParse' | 'Manual';
-    params?: Map<string, string>;
-} {
-    const metadata: {
-        name?: string;
-        from?: string;
-        to?: string;
-        timeZone?: string;
-        mode?: 'records' | 'messages';
-        output?: 'table' | 'json' | 'csv' | 'webview';
-        byReceiptTime?: boolean;
-        autoParsingMode?: 'AutoParse' | 'Manual';
-        params?: Map<string, string>;
-    } = {};
-
-    const lines = queryText.split('\n');
-    for (const line of lines) {
-        const trimmed = line.trim();
-
-        // Match @name directive
-        const nameMatch = trimmed.match(/^\/\/\s*@name\s+(.+)$/i);
-        if (nameMatch) {
-            metadata.name = nameMatch[1].trim();
-            continue;
-        }
-
-        // Match @from directive
-        const fromMatch = trimmed.match(/^\/\/\s*@from\s+(.+)$/i);
-        if (fromMatch) {
-            metadata.from = fromMatch[1].trim();
-            continue;
-        }
-
-        // Match @to directive
-        const toMatch = trimmed.match(/^\/\/\s*@to\s+(.+)$/i);
-        if (toMatch) {
-            metadata.to = toMatch[1].trim();
-            continue;
-        }
-
-        // Match @timezone directive
-        const tzMatch = trimmed.match(/^\/\/\s*@timezone\s+(.+)$/i);
-        if (tzMatch) {
-            metadata.timeZone = tzMatch[1].trim();
-            continue;
-        }
-
-        // Match @mode directive
-        const modeMatch = trimmed.match(/^\/\/\s*@mode\s+(records|messages)$/i);
-        if (modeMatch) {
-            metadata.mode = modeMatch[1].toLowerCase() as 'records' | 'messages';
-            continue;
-        }
-
-        // Match @output directive
-        const outputMatch = trimmed.match(/^\/\/\s*@output\s+(table|json|csv|webview)$/i);
-        if (outputMatch) {
-            metadata.output = outputMatch[1].toLowerCase() as 'table' | 'json' | 'csv' | 'webview';
-            continue;
-        }
-
-        // Match @byReceiptTime directive
-        const byReceiptTimeMatch = trimmed.match(/^\/\/\s*@byReceiptTime\s+(true|false)$/i);
-        if (byReceiptTimeMatch) {
-            metadata.byReceiptTime = byReceiptTimeMatch[1].toLowerCase() === 'true';
-            continue;
-        }
-
-        // Match @autoParsingMode directive
-        const autoParsingModeMatch = trimmed.match(/^\/\/\s*@autoParsingMode\s+(AutoParse|Manual)$/i);
-        if (autoParsingModeMatch) {
-            metadata.autoParsingMode = autoParsingModeMatch[1] as 'AutoParse' | 'Manual';
-            continue;
-        }
-
-        // Match @param directive
-        const paramMatch = trimmed.match(/^\/\/\s*@param\s+(\w+)=(.+)$/i);
-        if (paramMatch) {
-            if (!metadata.params) {
-                metadata.params = new Map<string, string>();
-            }
-            metadata.params.set(paramMatch[1], paramMatch[2].trim());
-            continue;
-        }
-    }
-
-    return metadata;
-}
-
-/**
- * Remove metadata comments from query
- */
-function cleanQuery(queryText: string): string {
-    const lines = queryText.split('\n');
-    const cleanedLines = lines.filter(line => {
-        const trimmed = line.trim();
-        return !trimmed.match(/^\/\/\s*@(name|from|to|timezone|mode|output|byReceiptTime|autoParsingMode|param)\s+/i);
-    });
-    return cleanedLines.join('\n').trim();
-}
-
-/**
- * Extract parameter placeholders from query text
- */
-function extractQueryParams(queryText: string): Set<string> {
-    const params = new Set<string>();
-    const regex = /\{\{(\w+)\}\}/g;
-    let match;
-
-    while ((match = regex.exec(queryText)) !== null) {
-        params.add(match[1]);
-    }
-
-    return params;
-}
-
-/**
- * Substitute parameter values in query text
- */
-function substituteParams(queryText: string, params: Map<string, string>): string {
-    let result = queryText;
-    params.forEach((value, key) => {
-        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-        result = result.replace(regex, value);
-    });
-    return result;
-}
 
 suite('Query Metadata Parsing Test Suite', () => {
     test('should parse query name from @name directive', () => {
@@ -505,5 +373,188 @@ _sourceCategory=prod | count`;
 
         assert.strictEqual(metadata.from, '-1d');
         assert.strictEqual(metadata.to, '2024-01-15T23:59:59');
+    });
+});
+
+suite('Aggregation Query Detection Test Suite', () => {
+    test('should detect count aggregation', () => {
+        const query = `_sourceCategory=* | count`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+
+    test('should detect sum aggregation', () => {
+        const query = `_sourceCategory=* | sum(_size) as total_bytes`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+
+    test('should detect multiple aggregations', () => {
+        const query = `_sourceCategory=* | count by _sourceHost | avg(count)`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+
+    test('should detect timeslice aggregation', () => {
+        const query = `_sourceCategory=* | timeslice 1m | count by _timeslice`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+
+    test('should not detect aggregation in raw search', () => {
+        const query = `_sourceCategory=* | where status=500`;
+        assert.strictEqual(isAggregationQuery(query), false);
+    });
+
+    test('should handle aggregation without spaces', () => {
+        const query = `_sourceCategory=*|count`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+
+    test('should detect count_distinct', () => {
+        const query = `_sourceCategory=* | count_distinct(user_id)`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+
+    test('should be case-insensitive', () => {
+        const query = `_sourceCategory=* | COUNT by status`;
+        assert.strictEqual(isAggregationQuery(query), true);
+    });
+});
+
+suite('Query Metadata Debug Directive Tests', () => {
+    test('should parse debug directive as true', () => {
+        const query = `// @debug true
+_sourceCategory=* | count`;
+        const metadata = parseQueryMetadata(query);
+        assert.strictEqual(metadata.debug, true);
+    });
+
+    test('should parse debug directive as false', () => {
+        const query = `// @debug false
+_sourceCategory=* | count`;
+        const metadata = parseQueryMetadata(query);
+        assert.strictEqual(metadata.debug, false);
+    });
+
+    test('should handle case-insensitive debug values', () => {
+        const query = `// @debug TRUE
+_sourceCategory=* | count`;
+        const metadata = parseQueryMetadata(query);
+        assert.strictEqual(metadata.debug, true);
+    });
+});
+
+suite('Parameter Edge Cases Tests', () => {
+    test('should handle parameters with special regex characters in values', () => {
+        const query = `_sourceCategory={{category}}`;
+        const params = new Map([['category', 'prod/app*[test]']]);
+        const result = substituteParams(query, params);
+        assert.strictEqual(result, '_sourceCategory=prod/app*[test]');
+    });
+
+    test('should handle empty parameter values', () => {
+        const query = `_sourceCategory={{category}}`;
+        const params = new Map([['category', '']]);
+        const result = substituteParams(query, params);
+        assert.strictEqual(result, '_sourceCategory=');
+    });
+
+    test('should handle parameter values with quotes', () => {
+        const query = `where field="{{value}}"`;
+        const params = new Map([['value', 'test "quoted" value']]);
+        const result = substituteParams(query, params);
+        assert.strictEqual(result, 'where field="test "quoted" value"');
+    });
+
+    test('should handle whitespace in parameter names', () => {
+        const query = `{{ param }}`;
+        const params = extractQueryParams(query);
+        // Should not match due to spaces
+        assert.strictEqual(params.size, 0);
+    });
+
+    test('should extract parameters from metadata comments', () => {
+        const query = `// @param category=production/logs
+// @param time_range=-24h
+_sourceCategory={{category}}`;
+
+        const metadata = parseQueryMetadata(query);
+        assert.ok(metadata.params);
+        assert.strictEqual(metadata.params!.get('category'), 'production/logs');
+        assert.strictEqual(metadata.params!.get('time_range'), '-24h');
+    });
+});
+
+suite('Real-World Query Tests', () => {
+    test('should handle production analytics query with params', () => {
+        const query = `// @name Source Category Analysis
+// @from -24h
+// @to now
+// @param category=*
+// @mode records
+// @output webview
+
+_sourcecategory = {{category}}
+| sum(_size) as bytes, count by _sourcecategory, _sourcehost, _collector`;
+
+        const metadata = parseQueryMetadata(query);
+        assert.strictEqual(metadata.name, 'Source Category Analysis');
+        assert.strictEqual(metadata.from, '-24h');
+        assert.strictEqual(metadata.to, 'now');
+        assert.strictEqual(metadata.mode, 'records');
+        assert.strictEqual(metadata.output, 'webview');
+        assert.ok(metadata.params);
+        assert.strictEqual(metadata.params!.get('category'), '*');
+
+        const cleanedQuery = cleanQuery(query);
+        assert.ok(!cleanedQuery.includes('@name'));
+        assert.ok(cleanedQuery.includes('_sourcecategory'));
+
+        const params = extractQueryParams(cleanedQuery);
+        assert.strictEqual(params.size, 1);
+        assert.ok(params.has('category'));
+
+        const finalQuery = substituteParams(cleanedQuery, metadata.params!);
+        assert.ok(finalQuery.includes('_sourcecategory = *'));
+    });
+
+    test('should handle error analysis query with multiple params', () => {
+        const query = `// @name Error Analysis
+// @from -1h
+// @to now
+// @param env=production
+// @param severity=error
+// @param app=webapp
+
+_sourceCategory={{env}}/{{app}}
+| where severity="{{severity}}"
+| parse "error=*" as error_msg
+| count by error_msg, _sourceHost`;
+
+        const metadata = parseQueryMetadata(query);
+        assert.strictEqual(metadata.params!.size, 3);
+
+        const cleanedQuery = cleanQuery(query);
+        const params = extractQueryParams(cleanedQuery);
+        assert.strictEqual(params.size, 3);
+
+        const finalQuery = substituteParams(cleanedQuery, metadata.params!);
+        assert.ok(finalQuery.includes('_sourceCategory=production/webapp'));
+        assert.ok(finalQuery.includes('where severity="error"'));
+    });
+
+    test('should handle raw message search without aggregation', () => {
+        const query = `// @name Raw Error Logs
+// @from -15m
+// @to now
+// @mode messages
+// @output webview
+
+error OR exception
+| fields _raw, _messagetime, _sourcehost`;
+
+        const metadata = parseQueryMetadata(query);
+        assert.strictEqual(metadata.mode, 'messages');
+        assert.strictEqual(metadata.output, 'webview');
+
+        const cleanedQuery = cleanQuery(query);
+        assert.strictEqual(isAggregationQuery(cleanedQuery), false);
     });
 });

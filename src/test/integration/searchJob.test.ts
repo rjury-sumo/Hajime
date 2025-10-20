@@ -8,6 +8,7 @@ import {
     cleanupIntegrationProfile,
     waitFor,
     sleep,
+    respectRateLimit,
     skipIfNotConfigured
 } from './testHelper';
 import { ProfileManager } from '../../profileManager';
@@ -69,6 +70,7 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const response = await client.createSearchJob(request);
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(response.data!.id, 'Response should have job ID');
@@ -79,6 +81,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Cleanup: Delete the job
         await client.deleteSearchJob(response.data!.id);
+        await respectRateLimit();
     });
 
     test('should get search job status', async () => {
@@ -91,12 +94,14 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const createResponse = await client.createSearchJob(request);
+        await respectRateLimit();
         assert.ok(createResponse.data?.id, 'Job should be created');
 
         const jobId = createResponse.data!.id;
 
         // Get status
         const statusResponse = await client.getSearchJobStatus(jobId);
+        await respectRateLimit();
 
         assert.ok(statusResponse.data, 'Status response should have data');
         assert.ok(statusResponse.data!.state, 'Status should have state');
@@ -109,6 +114,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Cleanup
         await client.deleteSearchJob(jobId);
+        await respectRateLimit();
     });
 
     test('should wait for search job completion and get messages', async () => {
@@ -120,6 +126,7 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const createResponse = await client.createSearchJob(request);
+        await respectRateLimit();
         assert.ok(createResponse.data?.id, 'Job should be created');
 
         const jobId = createResponse.data!.id;
@@ -130,6 +137,7 @@ suite('Search Job API Integration Tests', function() {
         await waitFor(
             async () => {
                 const status = await client.getSearchJobStatus(jobId);
+                await respectRateLimit();
                 return status.data?.state === 'DONE GATHERING RESULTS';
             },
             {
@@ -143,6 +151,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Get messages
         const messagesResponse = await client.getMessages(jobId, 0, 5);
+        await respectRateLimit();
 
         assert.ok(messagesResponse.data, 'Messages response should have data');
         assert.ok(Array.isArray(messagesResponse.data!.messages), 'Should have messages array');
@@ -157,6 +166,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Cleanup
         await client.deleteSearchJob(jobId);
+        await respectRateLimit();
     });
 
     test('should wait for aggregation job and get records', async () => {
@@ -168,6 +178,7 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const createResponse = await client.createSearchJob(request);
+        await respectRateLimit();
         assert.ok(createResponse.data?.id, 'Job should be created');
 
         const jobId = createResponse.data!.id;
@@ -178,6 +189,7 @@ suite('Search Job API Integration Tests', function() {
         await waitFor(
             async () => {
                 const status = await client.getSearchJobStatus(jobId);
+                await respectRateLimit();
                 return status.data?.state === 'DONE GATHERING RESULTS';
             },
             {
@@ -191,6 +203,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Get records
         const recordsResponse = await client.getRecords(jobId, 0, 10);
+        await respectRateLimit();
 
         assert.ok(recordsResponse.data, 'Records response should have data');
         assert.ok(Array.isArray(recordsResponse.data!.records), 'Should have records array');
@@ -210,6 +223,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Cleanup
         await client.deleteSearchJob(jobId);
+        await respectRateLimit();
     });
 
     test('should delete a search job', async () => {
@@ -221,12 +235,14 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const createResponse = await client.createSearchJob(request);
+        await respectRateLimit();
         assert.ok(createResponse.data?.id, 'Job should be created');
 
         const jobId = createResponse.data!.id;
 
         // Delete the job
         const deleteResponse = await client.deleteSearchJob(jobId);
+        await respectRateLimit();
 
         assert.strictEqual(deleteResponse.statusCode, 200, 'Delete should return 200');
 
@@ -234,6 +250,7 @@ suite('Search Job API Integration Tests', function() {
 
         // Verify it's deleted (should return error)
         const statusResponse = await client.getSearchJobStatus(jobId);
+        await respectRateLimit();
         assert.ok(statusResponse.error, 'Getting deleted job status should return error');
     });
 
@@ -245,6 +262,7 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const response = await client.createSearchJob(request);
+        await respectRateLimit();
 
         // Should return an error
         assert.ok(response.error || response.statusCode !== 202, 'Invalid query should return error');
@@ -260,6 +278,7 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const createResponse = await client.createSearchJob(request);
+        await respectRateLimit();
         assert.ok(createResponse.data?.id, 'Job should be created');
 
         const jobId = createResponse.data!.id;
@@ -268,6 +287,7 @@ suite('Search Job API Integration Tests', function() {
         await waitFor(
             async () => {
                 const status = await client.getSearchJobStatus(jobId);
+                await respectRateLimit();
                 return status.data?.state === 'DONE GATHERING RESULTS';
             },
             { timeout: 45000, interval: 2000 }
@@ -275,16 +295,19 @@ suite('Search Job API Integration Tests', function() {
 
         // Get first page
         const page1 = await client.getMessages(jobId, 0, 10);
+        await respectRateLimit();
         assert.ok(page1.data, 'First page should have data');
 
         // Get second page
         const page2 = await client.getMessages(jobId, 10, 10);
+        await respectRateLimit();
         assert.ok(page2.data, 'Second page should have data');
 
         console.log(`✅ Pagination working - Page 1: ${page1.data!.messages.length}, Page 2: ${page2.data!.messages.length}`);
 
         // Cleanup
         await client.deleteSearchJob(jobId);
+        await respectRateLimit();
     });
 
     test('should respect time range in query', async () => {
@@ -297,6 +320,7 @@ suite('Search Job API Integration Tests', function() {
         };
 
         const createResponse = await client.createSearchJob(request);
+        await respectRateLimit();
         assert.ok(createResponse.data?.id, 'Job should be created');
 
         const jobId = createResponse.data!.id;
@@ -305,15 +329,18 @@ suite('Search Job API Integration Tests', function() {
         await waitFor(
             async () => {
                 const status = await client.getSearchJobStatus(jobId);
+                await respectRateLimit();
                 return status.data?.state === 'DONE GATHERING RESULTS';
             },
             { timeout: 45000, interval: 2000 }
         );
 
         const status = await client.getSearchJobStatus(jobId);
+        await respectRateLimit();
         console.log(`✅ Time range query completed - Message count: ${status.data?.messageCount || 0}`);
 
         // Cleanup
         await client.deleteSearchJob(jobId);
+        await respectRateLimit();
     });
 });

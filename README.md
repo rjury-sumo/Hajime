@@ -61,10 +61,14 @@ A comprehensive Visual Studio Code extension that provides a complete IDE experi
 
 ### 🎯 Tree View Sidebar for Easy Navigation
 Dedicated sidebar in the activity bar provides one-click access to:
+
+**Root Level Sections:**
 - **Active Profile** - See current connection at a glance
-- **Quick Actions** - Common commands (New Query, Test Connection, Fetch Metadata)
-- **Profiles** - Switch between deployments with a single click
+- **Quick Actions** - Common commands (New Query, Run Query, Open Exported Content)
+- **Profiles** - Expandable list of all configured profiles
 - **Recent Queries** - Recently opened .sumo files with intelligent tracking across profiles
+- **Recent Content** - Recently viewed library items (dashboards, searches, etc.)
+- **Recent Results** - Recently executed query results for quick re-opening
 - **Scopes** - Define and manage log analysis scopes for efficient data exploration
   - Create scopes with search filters (e.g., `_sourceCategory=prod/app`)
   - Profile logs with facets analysis showing field distributions
@@ -72,25 +76,35 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - Cache metadata for autocomplete
   - Generate queries from scopes with field lists
   - Auto-create scopes from partitions
-- **Library Explorer** - Full hierarchical navigation of your content library with caching and lazy loading
+- **Storage Explorer** - Browse profile-specific cached files and directories
+
+**Under Each Profile (Expandable):**
+- **Test Connection** - Quick connectivity check
+- **Autocomplete Data** - Manage cached autocomplete data
+  - View cached fields, partitions, and metadata
+  - Clear autocomplete cache
+- **Collectors** - Quick access to collector management
+- **Library Explorer** - Full hierarchical navigation of content library
   - Browse Personal, Global, Admin Recommended, and Installed Apps folders
   - Recursive folder fetching for bulk content downloads
   - Click items to view in specialized webviews (dashboards, searches, generic)
   - Right-click context menu with 7+ actions
-- **Users & Roles Management** - View and search organization users and roles
-  - Expandable tree nodes under each profile
-  - Dedicated webviews with filtering, sorting, and pagination
-  - User email enrichment in library content metadata (Created By, Modified By)
-  - Searchable by ID, name, email, or description
-- **Account Management** - View and manage account information
-  - Account owner, status, and subdomain information
+  - Database Viewer for exploring library cache with user enrichment
+- **Users** - View and search organization users
+  - Dedicated webview with filtering, sorting, and pagination
+  - User email enrichment in library content metadata
+  - Export to CSV
+- **Roles** - View and search organization roles
+  - Dedicated webview with capabilities and user counts
+  - Export to CSV
+- **Dashboards** - Dashboard management and viewing
+  - List dashboards from library with filtering
+  - View dashboard properties and panels
+- **Account** - Account information and usage reporting
+  - View account owner, status, and subdomain
   - Usage forecast with configurable time periods (7, 28, 90, or custom days)
-  - Credits usage reports with job polling and CSV export
+  - Generate credits usage reports with job polling and CSV export
   - All data cached to `<profile>/account/` folder
-- **Content Export** - Quick export of system folders (Global, Admin Recommended, Installed Apps)
-- **Collectors** - Quick access to collector management
-- **Storage Explorer** - Browse profile-specific cached files and directories
-- **Database Viewer** - SQLite browser for exploring library cache database with user enrichment
 
 ### 🎯 IDE Experience for Query Development
 Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:

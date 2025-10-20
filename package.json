@@ -333,6 +333,11 @@
             {
                 "command": "sumologic.cacheScopeMetadata",
                 "title": "Cache Scope Metadata"
+            },
+            {
+                "command": "sumologic.viewAccount",
+                "title": "Sumo Logic: View Account Management",
+                "icon": "$(organization)"
             }
         ],
         "menus": {

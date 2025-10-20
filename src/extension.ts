@@ -36,6 +36,7 @@ import { DatabaseWebviewProvider } from './views/databaseWebviewProvider';
 import { UsersWebviewProvider } from './views/usersWebviewProvider';
 import { RolesWebviewProvider } from './views/rolesWebviewProvider';
 import { DashboardsWebviewProvider } from './views/dashboardsWebviewProvider';
+import { AccountWebviewProvider } from './views/accountWebviewProvider';
 import { registerUsersRolesCommands } from './commands/usersRoles';
 import { listMyDashboards, viewDashboards, getDashboardById } from './commands/dashboardCommands';
 
@@ -430,10 +431,11 @@ export function activate(context: vscode.ExtensionContext) {
     // Register users and roles commands
     registerUsersRolesCommands(context);
 
-    // Create webview providers for users and roles
+    // Create webview providers for users, roles, dashboards, and account
     const usersWebviewProvider = new UsersWebviewProvider(context.extensionUri, context);
     const rolesWebviewProvider = new RolesWebviewProvider(context.extensionUri, context);
     const dashboardsWebviewProvider = new DashboardsWebviewProvider(context.extensionUri, context);
+    const accountWebviewProvider = new AccountWebviewProvider(context.extensionUri, context);
 
     const viewUsersCmd = vscode.commands.registerCommand('sumologic.viewUsers', async (profileName?: string) => {
         return usersWebviewProvider.show(profileName);
@@ -451,6 +453,10 @@ export function activate(context: vscode.ExtensionContext) {
         // Extract profile name from tree item if available
         const profileName = treeItem?.data?.profileName || treeItem?.profile?.name;
         return listMyDashboards(context, profileName);
+    });
+
+    const viewAccountCmd = vscode.commands.registerCommand('sumologic.viewAccount', async (profileName?: string) => {
+        return accountWebviewProvider.show(profileName);
     });
 
     const getDashboardByIdCmd = vscode.commands.registerCommand('sumologic.getDashboardById', async (dashboardId?: string) => {
@@ -583,6 +589,7 @@ export function activate(context: vscode.ExtensionContext) {
         viewRolesCmd,
         viewDashboardsCmd,
         listMyDashboardsCmd,
+        viewAccountCmd,
         getDashboardByIdCmd,
         openExportedContentCmd,
         openExportedContentFromPathCmd,

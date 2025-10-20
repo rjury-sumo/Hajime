@@ -26,6 +26,7 @@ export enum TreeItemType {
     RolesSection = 'rolesSection',
     ScopesSection = 'scopesSection',
     DashboardsSection = 'dashboardsSection',
+    AccountSection = 'accountSection',
     Scope = 'scope',
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
@@ -211,6 +212,15 @@ export class SumoTreeItem extends vscode.TreeItem {
                     command: 'sumologic.viewScopesOverview',
                     title: 'View Scopes Overview',
                     arguments: [this.profile?.name]
+                };
+                break;
+            case TreeItemType.AccountSection:
+                this.iconPath = new vscode.ThemeIcon('organization');
+                this.tooltip = 'Account Management';
+                this.command = {
+                    command: 'sumologic.viewAccount',
+                    title: 'View Account',
+                    arguments: [this.data?.profileName]
                 };
                 break;
             case TreeItemType.AutocompleteDataSection:
@@ -530,6 +540,15 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Dashboards',
             TreeItemType.DashboardsSection,
+            vscode.TreeItemCollapsibleState.None,
+            profile,
+            { profileName: profile.name }
+        ));
+
+        // Account section
+        items.push(new SumoTreeItem(
+            'Account',
+            TreeItemType.AccountSection,
             vscode.TreeItemCollapsibleState.None,
             profile,
             { profileName: profile.name }

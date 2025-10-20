@@ -199,4 +199,103 @@ export class SumoLogicClient {
     getEndpoint(): string {
         return this.endpoint;
     }
+
+    /**
+     * Make HTTP request and return raw response (for CSV downloads, etc.)
+     */
+    protected async makeRawRequest(
+        path: string,
+        method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+        body?: any,
+        additionalHeaders?: { [key: string]: string },
+        maxRedirects: number = 5,
+        skipAuth: boolean = false
+    ): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const url = new URL(path, this.endpoint);
+            const isHttps = url.protocol === 'https:';
+            const client = isHttps ? https : http;
+
+            const headers: { [key: string]: string } = {
+                ...additionalHeaders
+            };
+
+            // Only add Authorization header if not skipped (e.g., for pre-signed S3 URLs)
+            if (!skipAuth) {
+                headers['Authorization'] = this.authHeader;
+            }
+
+            // Add cookies if we have any stored
+            if (this.cookies.length > 0) {
+                headers['Cookie'] = this.cookies.join('; ');
+            }
+
+            const options: https.RequestOptions = {
+                hostname: url.hostname,
+                port: url.port || (isHttps ? 443 : 80),
+                path: url.pathname + url.search,
+                method: method,
+                headers
+            };
+
+            const req = client.request(options, (res) => {
+                let data = '';
+
+                // Capture cookies from response
+                const setCookieHeaders = res.headers['set-cookie'];
+                if (setCookieHeaders) {
+                    for (const cookieHeader of setCookieHeaders) {
+                        const cookieValue = cookieHeader.split(';')[0];
+                        const cookieName = cookieValue.split('=')[0];
+                        const existingIndex = this.cookies.findIndex(c => c.startsWith(cookieName + '='));
+                        if (existingIndex >= 0) {
+                            this.cookies[existingIndex] = cookieValue;
+                        } else {
+                            this.cookies.push(cookieValue);
+                        }
+                    }
+                }
+
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                res.on('end', () => {
+                    const statusCode = res.statusCode || 500;
+
+                    // Handle redirects (301, 302, 307, 308)
+                    if (statusCode >= 301 && statusCode <= 308 && res.headers.location) {
+                        if (maxRedirects <= 0) {
+                            reject(new Error('Too many redirects'));
+                            return;
+                        }
+
+                        // Follow the redirect
+                        const redirectUrl = res.headers.location;
+                        this.makeRawRequest(redirectUrl, method, body, additionalHeaders, maxRedirects - 1, skipAuth)
+                            .then(resolve)
+                            .catch(reject);
+                        return;
+                    }
+
+                    if (statusCode >= 200 && statusCode < 300) {
+                        resolve(data);
+                    } else {
+                        reject(new Error(`HTTP ${statusCode}: ${data || res.statusMessage}`));
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                reject(error);
+            });
+
+            if (body) {
+                const jsonData = JSON.stringify(body);
+                req.write(jsonData);
+            }
+
+            req.end();
+        });
+    }
 }

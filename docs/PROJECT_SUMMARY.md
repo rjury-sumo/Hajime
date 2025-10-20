@@ -86,6 +86,12 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
   - Export content with async job polling (folders, dashboards, searches, etc.)
   - Export special system folders (Admin Recommended, Global, Installed Apps)
   - Dual output: full JSON export + formatted markdown summary
+- **Account Management API**: Full account management integration
+  - Get account owner, status, and subdomain information
+  - Fetch usage forecasts with configurable time periods
+  - Generate credits usage reports with async job polling
+  - Download CSV reports with pre-signed S3 URLs (no auth header)
+  - All data cached to `<profile>/account/` folder
 - **Custom Fields API**: Fetch custom field schemas from deployment
 - **Partitions API**: Fetch partition definitions for autocomplete
 - **Collectors API**: Full Collector Management API integration
@@ -118,12 +124,18 @@ Hajime is a comprehensive Visual Studio Code extension that provides language su
 
 #### API Clients (`src/api/`)
 - **`client.ts`**: Base `SumoLogicClient` with authentication and request handling
+  - Added `makeRawRequest` method with optional `skipAuth` for pre-signed URLs
 - **`searchJob.ts`**: `SearchJobClient` for query execution
 - **`content.ts`**: `ContentClient` for folder/library operations
   - Get content by path or ID
   - Export content with async job polling
   - Export special folders (Admin Recommended, Global, Installed Apps)
   - Format export summaries as markdown with tables
+- **`account.ts`**: `AccountClient` for account management operations
+  - Get account owner, status, subdomain
+  - Get usage forecast with configurable days
+  - Generate credits usage report with job polling
+  - Download CSV reports without auth headers (S3 pre-signed URLs)
 - **`customFields.ts`**: `CustomFieldsClient` for custom field schema fetching
 - **`partitions.ts`**: `PartitionsClient` for partition definition fetching
 - **`collectors.ts`**: `CollectorsClient` for collector and source management
@@ -756,4 +768,78 @@ npm run lint          # Run ESLint
 - Enhanced query control with new directives
 - Seamless support for legacy dashboard formats
 - Complete workflow from library browsing to query execution
+
+### Session 10 (Account Management - Current)
+1. **Account Management API Integration**: Full account management functionality
+   - **Account Information**: Fetch account owner, status, and subdomain
+   - **Usage Forecast**: Configurable time periods (7, 28, 90, or custom days)
+   - **Credits Usage Reports**: Generate reports with async job polling
+     - Group by: day, week, or month
+     - Report type: standard, detailed, or child detailed
+     - Include deployment charge option
+   - **CSV Export**: Download usage reports with save location prompt
+   - **File Caching**: All data saved to `<profile>/account/` folder
+
+2. **Tree Explorer Integration**: New "Account" node under each profile
+   - Organization icon for visual identification
+   - Opens dedicated account management webview
+   - Click to access all account features
+
+3. **Account Webview Provider**: Interactive webview for account operations
+   - **Sections**: Account Owner, Account Status, Subdomain, Usage Forecast, Credits Usage Report
+   - **Buttons**: Fetch buttons for each data type
+   - **Cached Display**: Shows previously fetched data on load
+   - **Auto-refresh**: Reloads cached data after each fetch
+   - **Form Controls**: Dropdowns for usage forecast days and report parameters
+
+4. **API Client Enhancements**: Support for pre-signed S3 URLs
+   - Added `skipAuth` parameter to `makeRawRequest()` method
+   - Downloads CSV reports from S3 without Authorization header
+   - Handles redirect URLs properly while preserving skip auth flag
+   - Fixes "Only one auth mechanism allowed" S3 error
+
+5. **Usage Report Job Polling**: Robust async job handling
+   - Creates export job via `/v1/account/usage/report` endpoint
+   - Polls job status every 2 seconds via `/v1/account/usage/report/{jobId}/status`
+   - Extracts `reportDownloadURL` from completed job
+   - Downloads CSV data from S3 pre-signed URL
+   - Default save location: `<profile>/usage/usage_<timestamp>.csv`
+   - Opens CSV file in editor after download
+
+**Architecture Components:**
+- `src/api/account.ts` - AccountClient with all account management endpoints
+- `src/views/accountWebviewProvider.ts` - Webview provider for account management UI
+- `src/views/sumoExplorer.ts` - Added AccountSection tree item type
+- `src/extension.ts` - Registered account command and webview
+- `src/api/client.ts` - Enhanced makeRawRequest with skipAuth parameter
+
+**Files Modified:**
+- `package.json` - Added sumologic.viewAccount command
+- `src/api/client.ts` - Added skipAuth parameter to makeRawRequest
+- `src/api/account.ts` - New file with AccountClient class
+- `src/views/accountWebviewProvider.ts` - New file with webview provider
+- `src/views/sumoExplorer.ts` - Added Account node to tree
+- `src/extension.ts` - Registered account command
+- `README.md` - Added Account Management section
+- `docs/PROJECT_SUMMARY.md` - This session documentation
+
+**Technical Details:**
+- Response uses `jobId` field (not `id`) for job identification
+- S3 pre-signed URLs have authentication in query parameters
+- Must skip Authorization header when downloading from S3
+- All account data endpoints return standard JSON responses
+- Usage forecast supports query parameter `numberOfDays`
+- Credits report endpoints:
+  - POST `/v1/account/usage/report` - Start job
+  - GET `/v1/account/usage/report/{jobId}/status` - Poll status
+  - GET `{reportDownloadURL}` - Download CSV (S3 URL)
+
+**User Benefits:**
+- View organization account information at a glance
+- Forecast future usage trends with flexible time periods
+- Generate detailed usage reports for billing and capacity planning
+- Export reports as CSV for analysis in Excel or other tools
+- All data cached locally for quick reference
+- Automatic job polling removes manual status checking
+- Seamless integration with existing profile system
 

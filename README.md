@@ -80,6 +80,11 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - Dedicated webviews with filtering, sorting, and pagination
   - User email enrichment in library content metadata (Created By, Modified By)
   - Searchable by ID, name, email, or description
+- **Account Management** - View and manage account information
+  - Account owner, status, and subdomain information
+  - Usage forecast with configurable time periods (7, 28, 90, or custom days)
+  - Credits usage reports with job polling and CSV export
+  - All data cached to `<profile>/account/` folder
 - **Content Export** - Quick export of system folders (Global, Admin Recommended, Installed Apps)
 - **Collectors** - Quick access to collector management
 - **Storage Explorer** - Browse profile-specific cached files and directories
@@ -164,6 +169,7 @@ Full hierarchical tree view of your Sumo Logic content library with intelligent 
 Fetch and manage configuration from your Sumo Logic deployment:
 - **Users & Roles** - fetch and cache organization users and roles with dedicated webviews
 - **User Enrichment** - automatic mapping of user IDs to emails in library metadata
+- **Account Management** - view account owner, status, subdomain, usage forecasts, and generate credits usage reports
 - **Collectors & Sources** - list, inspect, and export collector/source configurations
 - **Custom Fields** - fetch field schemas for accurate autocomplete
 - **Partitions** - retrieve partition definitions for `_index` and `_view` usage
@@ -434,6 +440,37 @@ View and manage users and roles in your Sumo Logic organization:
    - Library Content Details shows enriched creator/modifier information
    - All library views automatically enrich user IDs with emails when available
 
+### Account Management
+
+View account information and generate usage reports:
+
+1. **Open Account Management**:
+   - Expand a profile in the sidebar → click "Account"
+   - Opens interactive webview with account management features
+
+2. **View Account Information**:
+   - **Account Owner** - View organization owner details
+   - **Account Status** - Check account capabilities and settings
+   - **Subdomain** - View organization subdomain and URL
+   - All data fetched from API and cached to `<profile>/account/` folder
+
+3. **Usage Forecast**:
+   - Select time period: 7, 28, 90, or custom days
+   - Click "Fetch Usage Forecast" to retrieve forecast data
+   - View daily usage predictions
+   - Data cached as JSON for reference
+
+4. **Generate Credits Usage Report**:
+   - Configure report parameters:
+     - **Group By**: day, week, or month
+     - **Report Type**: standard, detailed, or child detailed
+     - **Include Deployment Charge**: optional checkbox
+   - Click "Generate Report" to start export job
+   - Extension polls job status automatically
+   - When complete, prompted to save CSV file
+   - Default location: `<profile>/usage/usage_<timestamp>.csv`
+   - File opens automatically after download
+
 ### Content Library Export
 
 Export content items and special folders from the Sumo Logic Content Library as JSON with markdown summaries.
@@ -672,7 +709,23 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ### Latest Updates
 
-#### Current Session: Scopes Feature + Query Improvements
+#### Current Session: Account Management + Dashboards Feature
+
+- **Account Management**:
+  - New "Account" node under each profile in explorer tree
+  - Dedicated webview for account management operations
+  - Fetch and view account owner, status, and subdomain information
+  - Usage forecast with configurable days (7, 28, 90, or custom)
+  - Credits usage report generation with async job polling
+  - CSV export with user-selectable location and automatic file opening
+  - All data cached to `<profile>/account/` folder
+- **Dashboards Enhancement**:
+  - New "Dashboards" node with dedicated webview
+  - List dashboards from library with filtering and search
+  - View dashboard properties and panel information
+  - Quick access to dashboard management
+
+#### Previous Session: Scopes Feature + Query Improvements
 - **Scopes Management**:
   - Create, edit, and delete log analysis scopes
   - Multi-profile scope support (apply to specific profiles or all)

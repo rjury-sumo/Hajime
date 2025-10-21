@@ -6,7 +6,8 @@ import {
     getIntegrationTestConfig,
     setupIntegrationProfile,
     cleanupIntegrationProfile,
-    skipIfNotConfigured
+    skipIfNotConfigured,
+    respectRateLimit
 } from './testHelper';
 import { ProfileManager } from '../../profileManager';
 
@@ -52,6 +53,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should list partitions', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(Array.isArray(response.data!.data), 'Data should be an array');
@@ -71,6 +73,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should verify partition structure', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         if (partitions.length === 0) {
@@ -98,6 +101,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should extract partition names', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitionNames = PartitionsClient.extractPartitionNames(response.data!);
 
         assert.ok(Array.isArray(partitionNames), 'Partition names should be an array');
@@ -115,6 +119,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should format partitions as table', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         const table = PartitionsClient.formatPartitionsAsTable(partitions);
@@ -128,6 +133,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should filter active partitions', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         const activePartitions = partitions.filter(p => p.isActive);
@@ -146,6 +152,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should verify partition routing expressions', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         if (partitions.length === 0) {
@@ -165,6 +172,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should verify partition retention periods', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         if (partitions.length === 0) {
@@ -188,6 +196,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should verify partition sizes', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         if (partitions.length === 0) {
@@ -222,6 +231,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should verify partition analytics tiers', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         if (partitions.length === 0) {
@@ -240,6 +250,7 @@ suite('Partitions API Integration Tests', function() {
 
     test('should verify default search inclusion', async () => {
         const response = await client.listPartitions();
+        await respectRateLimit();
         const partitions = response.data!.data;
 
         if (partitions.length === 0) {

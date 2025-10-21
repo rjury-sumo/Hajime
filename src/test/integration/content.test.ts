@@ -53,6 +53,7 @@ suite('Content/Folders API Integration Tests', function() {
 
     test('should get personal folder', async () => {
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(response.data!.id, 'Personal folder should have ID');
@@ -67,12 +68,14 @@ suite('Content/Folders API Integration Tests', function() {
     test('should get folder by ID', async () => {
         // First get personal folder to get a valid folder ID
         const personalResponse = await client.getPersonalFolder();
+        await respectRateLimit();
         assert.ok(personalResponse.data?.id, 'Should have personal folder ID');
 
         const folderId = personalResponse.data!.id;
 
         // Get folder by ID
         const response = await client.getFolder(folderId);
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.strictEqual(response.data!.id, folderId, 'Folder ID should match');
@@ -86,6 +89,7 @@ suite('Content/Folders API Integration Tests', function() {
         const fakeId = '0000000000000000'; // Invalid folder ID
 
         const response = await client.getFolder(fakeId);
+        await respectRateLimit();
 
         assert.ok(response.error, 'Should return error for non-existent folder');
         assert.ok(response.statusCode === 404 || response.statusCode === 400, 'Should return 404 or 400');
@@ -95,6 +99,7 @@ suite('Content/Folders API Integration Tests', function() {
 
     test('should verify personal folder structure', async () => {
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
         const personalFolder = response.data!;
 
         // Verify required fields
@@ -115,6 +120,7 @@ suite('Content/Folders API Integration Tests', function() {
 
     test('should list child items in personal folder', async () => {
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
         const children = response.data!.children;
 
         console.log(`✅ Personal folder contains ${children.length} items:`);
@@ -138,6 +144,7 @@ suite('Content/Folders API Integration Tests', function() {
 
     test('should handle permissions field', async () => {
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
         const permissions = response.data!.permissions;
 
         assert.ok(Array.isArray(permissions), 'Permissions should be an array');
@@ -154,6 +161,7 @@ suite('Content/Folders API Integration Tests', function() {
 
     test('should verify folder metadata timestamps', async () => {
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
         const folder = response.data!;
 
         // Parse timestamps
@@ -171,6 +179,7 @@ suite('Content/Folders API Integration Tests', function() {
 
     test('should verify child item types', async () => {
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
         const children = response.data!.children;
 
         if (children.length === 0) {
@@ -197,6 +206,7 @@ suite('Content/Folders API Integration Tests', function() {
     test('should get content by path', async () => {
         // First get personal folder to construct a valid path
         const personalResponse = await client.getPersonalFolder();
+        await respectRateLimit();
         assert.ok(personalResponse.data, 'Should have personal folder data');
 
         const personalFolder = personalResponse.data!;
@@ -208,6 +218,7 @@ suite('Content/Folders API Integration Tests', function() {
         console.log(`Testing with path: ${personalPath}`);
 
         const response = await client.getContent(personalPath);
+        await respectRateLimit();
 
         // Personal path might not exist, so check both success and 404
         if (response.error && response.statusCode === 404) {
@@ -229,12 +240,14 @@ suite('Content/Folders API Integration Tests', function() {
     test('should get content path by ID', async () => {
         // Get personal folder to get a valid content ID
         const personalResponse = await client.getPersonalFolder();
+        await respectRateLimit();
         assert.ok(personalResponse.data?.id, 'Should have personal folder ID');
 
         const contentId = personalResponse.data!.id;
 
         // Get the path for this content ID
         const response = await client.getContentPath(contentId);
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(response.data!.path, 'Response should have path property');
@@ -248,6 +261,7 @@ suite('Content/Folders API Integration Tests', function() {
         const invalidPath = '/Library/Users/nonexistent@example.com/InvalidFolder';
 
         const response = await client.getContent(invalidPath);
+        await respectRateLimit();
 
         assert.ok(response.error, 'Should return error for invalid path');
         assert.strictEqual(response.statusCode, 404, 'Should return 404 for non-existent path');
@@ -259,6 +273,7 @@ suite('Content/Folders API Integration Tests', function() {
         const fakeId = '0000000000000000'; // Invalid content ID
 
         const response = await client.getContentPath(fakeId);
+        await respectRateLimit();
 
         assert.ok(response.error, 'Should return error for invalid ID');
         assert.ok(response.statusCode === 404 || response.statusCode === 400, 'Should return 404 or 400');
@@ -269,12 +284,14 @@ suite('Content/Folders API Integration Tests', function() {
     test('should get content with children', async () => {
         // Get personal folder (which should have children property)
         const personalResponse = await client.getPersonalFolder();
+        await respectRateLimit();
         assert.ok(personalResponse.data, 'Should have personal folder');
 
         const folderId = personalResponse.data!.id;
 
         // Use getFolder to get content with children
         const response = await client.getFolder(folderId);
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(Array.isArray(response.data!.children), 'Should have children array');
@@ -295,6 +312,7 @@ suite('Content/Folders API Integration Tests', function() {
     test('should verify content item structure', async () => {
         // Get personal folder as test content
         const response = await client.getPersonalFolder();
+        await respectRateLimit();
         const content = response.data!;
 
         // Verify all required ContentItem/PersonalFolderResponse fields
@@ -314,10 +332,12 @@ suite('Content/Folders API Integration Tests', function() {
     test('should get content by path and verify path roundtrip', async () => {
         // Get personal folder ID
         const personalResponse = await client.getPersonalFolder();
+        await respectRateLimit();
         const folderId = personalResponse.data!.id;
 
         // Get the path for this ID
         const pathResponse = await client.getContentPath(folderId);
+        await respectRateLimit();
         assert.ok(pathResponse.data?.path, 'Should get path for folder ID');
 
         const contentPath = pathResponse.data!.path;
@@ -325,6 +345,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Get content using the path
         const contentResponse = await client.getContent(contentPath);
+        await respectRateLimit();
 
         assert.ok(contentResponse.data, 'Should get content by path');
         assert.strictEqual(contentResponse.data!.id, folderId, 'Content ID should match original folder ID');
@@ -336,6 +357,7 @@ suite('Content/Folders API Integration Tests', function() {
         const folderId = '00000000008F59B0'; // Known folder ID
 
         const response = await client.getFolder(folderId);
+        await respectRateLimit();
 
         if (response.error) {
             if (response.statusCode === 403 || response.statusCode === 401) {
@@ -364,6 +386,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Get the path for this search
         const pathResponse = await client.getContentPath(searchId);
+        await respectRateLimit();
 
         if (pathResponse.error) {
             if (pathResponse.statusCode === 403 || pathResponse.statusCode === 401) {
@@ -385,6 +408,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Now get the content using the path
         const contentResponse = await client.getContent(pathResponse.data!.path);
+        await respectRateLimit();
 
         if (contentResponse.error) {
             console.log(`⚠️  Could not retrieve content by path: ${contentResponse.error}`);
@@ -405,9 +429,11 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Get folder
         const folderResponse = await client.getFolder(folderId);
+        await respectRateLimit();
 
         // Get search path
         const searchPathResponse = await client.getContentPath(searchId);
+        await respectRateLimit();
 
         // Check if we have access to both
         const folderAccessible = !folderResponse.error || folderResponse.statusCode === 404;
@@ -427,6 +453,7 @@ suite('Content/Folders API Integration Tests', function() {
         if (searchPathResponse.data) {
             const searchPath = searchPathResponse.data.path;
             const searchResponse = await client.getContent(searchPath);
+            await respectRateLimit();
 
             if (searchResponse.data) {
                 assert.ok(['Search', 'SavedSearch'].includes(searchResponse.data.itemType),
@@ -446,6 +473,7 @@ suite('Content/Folders API Integration Tests', function() {
         const folderId = '00000000008F59B0'; // Known folder ID
 
         const response = await client.getFolder(folderId);
+        await respectRateLimit();
 
         if (response.error) {
             if (response.statusCode === 403 || response.statusCode === 401) {
@@ -496,6 +524,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Get path for search
         const pathResponse = await client.getContentPath(searchId);
+        await respectRateLimit();
 
         if (pathResponse.error) {
             if (pathResponse.statusCode === 403 || pathResponse.statusCode === 401) {
@@ -512,6 +541,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Get content by path
         const contentResponse = await client.getContent(searchPath);
+        await respectRateLimit();
 
         if (contentResponse.error) {
             console.log(`⚠️  Could not retrieve search content: ${contentResponse.error}`);
@@ -543,6 +573,7 @@ suite('Content/Folders API Integration Tests', function() {
         console.log(`Starting export for search ${searchId}...`);
 
         const response = await client.exportContent(searchId, undefined, 60); // 60 second timeout
+        await respectRateLimit();
 
         if (response.error) {
             if (response.statusCode === 403 || response.statusCode === 401) {
@@ -583,6 +614,7 @@ suite('Content/Folders API Integration Tests', function() {
         console.log(`Starting export for folder ${folderId}...`);
 
         const response = await client.exportContent(folderId, undefined, 120); // 120 second timeout
+        await respectRateLimit();
 
         if (response.error) {
             if (response.statusCode === 403 || response.statusCode === 401) {
@@ -637,6 +669,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Start export
         const exportJobResponse = await client.beginAsyncExport(searchId);
+        await respectRateLimit();
 
         if (exportJobResponse.error) {
             if (exportJobResponse.statusCode === 403 || exportJobResponse.statusCode === 401) {
@@ -657,6 +690,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Check status
         const statusResponse = await client.getAsyncExportStatus(searchId, jobId);
+        await respectRateLimit();
 
         assert.ok(statusResponse.data, 'Should have status response');
         assert.ok(statusResponse.data!.status, 'Status should have status property');
@@ -668,6 +702,7 @@ suite('Content/Folders API Integration Tests', function() {
         // If success, try to get result
         if (statusResponse.data!.status === 'Success') {
             const resultResponse = await client.getAsyncExportResult(searchId, jobId);
+            await respectRateLimit();
 
             if (!resultResponse.error) {
                 assert.ok(resultResponse.data, 'Should have result data');
@@ -680,6 +715,7 @@ suite('Content/Folders API Integration Tests', function() {
         const fakeId = '0000000000000000'; // Invalid content ID
 
         const response = await client.exportContent(fakeId, undefined, 10); // Short timeout
+        await respectRateLimit();
 
         assert.ok(response.error, 'Should return error for non-existent content');
         assert.ok(response.statusCode === 404 || response.statusCode === 400, 'Should return 404 or 400');
@@ -692,9 +728,11 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Use personal folder as test content
         const personalResponse = await client.getPersonalFolder();
+        await respectRateLimit();
         const folderId = personalResponse.data!.id;
 
         const exportResponse = await client.exportContent(folderId, undefined, 60);
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 408) {
@@ -723,6 +761,7 @@ suite('Content/Folders API Integration Tests', function() {
         const searchId = '0000000000852F21'; // Known search ID
 
         const exportResponse = await client.exportContent(searchId, undefined, 60);
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
@@ -763,6 +802,7 @@ suite('Content/Folders API Integration Tests', function() {
         const dashboardId = '00000000008D3FED'; // Known dashboard ID
 
         const exportResponse = await client.exportContent(dashboardId, undefined, 60);
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
@@ -806,6 +846,7 @@ suite('Content/Folders API Integration Tests', function() {
         const folderId = '00000000008F59B0'; // Known folder ID
 
         const exportResponse = await client.exportContent(folderId, undefined, 120);
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
@@ -863,6 +904,7 @@ suite('Content/Folders API Integration Tests', function() {
         console.log('Result: /api/v2/content/folders/adminRecommended/{jobId}/result');
 
         const exportResponse = await client.exportAdminRecommendedFolder();
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
@@ -908,6 +950,7 @@ suite('Content/Folders API Integration Tests', function() {
         console.log('Result: /api/v2/content/folders/global/{jobId}/result');
 
         const exportResponse = await client.exportGlobalFolder();
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
@@ -953,6 +996,7 @@ suite('Content/Folders API Integration Tests', function() {
         console.log('Result: /api/v2/content/folders/installedApps/{jobId}/result');
 
         const exportResponse = await client.exportInstalledAppsFolder();
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {
@@ -997,6 +1041,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         // Export with isAdminMode=true
         const exportResponse = await client.exportContent(searchId, true);
+        await respectRateLimit();
 
         if (exportResponse.error) {
             if (exportResponse.statusCode === 403 || exportResponse.statusCode === 401) {

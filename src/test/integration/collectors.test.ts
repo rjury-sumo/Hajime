@@ -6,7 +6,8 @@ import {
     getIntegrationTestConfig,
     setupIntegrationProfile,
     cleanupIntegrationProfile,
-    skipIfNotConfigured
+    skipIfNotConfigured,
+    respectRateLimit
 } from './testHelper';
 import { ProfileManager } from '../../profileManager';
 
@@ -52,6 +53,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should list collectors with default limit', async () => {
         const response = await client.listCollectors();
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(Array.isArray(response.data!.collectors), 'Data should contain collectors array');
@@ -71,6 +73,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should list collectors with custom limit', async () => {
         const response = await client.listCollectors({ limit: 10 });
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(Array.isArray(response.data!.collectors), 'Data should contain collectors array');
@@ -83,6 +86,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should fetch all collectors with automatic pagination', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(Array.isArray(response.data!.collectors), 'Data should contain collectors array');
@@ -98,6 +102,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should verify collector structure', async () => {
         const response = await client.listCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         if (collectors.length === 0) {
@@ -125,6 +130,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should format collectors as table', async () => {
         const response = await client.listCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         const table = CollectorsClient.formatCollectorsAsTable(collectors);
@@ -138,6 +144,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should get collector statistics', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         const stats = CollectorsClient.getCollectorStats(collectors);
@@ -164,6 +171,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should filter alive collectors', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         const aliveCollectors = collectors.filter(c => c.alive);
@@ -189,6 +197,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should verify collector types', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         if (collectors.length === 0) {
@@ -213,6 +222,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should verify ephemeral collectors', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         if (collectors.length === 0) {
@@ -237,6 +247,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should verify collector versions', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         if (collectors.length === 0) {
@@ -260,6 +271,7 @@ suite('Collectors API Integration Tests', function() {
 
     test('should verify last seen timestamps', async () => {
         const response = await client.fetchAllCollectors();
+        await respectRateLimit();
         const collectors = response.data!.collectors;
 
         if (collectors.length === 0) {

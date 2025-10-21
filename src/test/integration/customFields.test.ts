@@ -6,7 +6,8 @@ import {
     getIntegrationTestConfig,
     setupIntegrationProfile,
     cleanupIntegrationProfile,
-    skipIfNotConfigured
+    skipIfNotConfigured,
+    respectRateLimit
 } from './testHelper';
 import { ProfileManager } from '../../profileManager';
 
@@ -52,6 +53,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should list custom fields', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
 
         assert.ok(response.data, 'Response should have data');
         assert.ok(Array.isArray(response.data!.data), 'Data should be an array');
@@ -73,6 +75,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should verify custom field structure', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         if (fields.length === 0) {
@@ -97,6 +100,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should extract field names', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fieldNames = CustomFieldsClient.extractFieldNames(response.data!);
 
         assert.ok(Array.isArray(fieldNames), 'Field names should be an array');
@@ -117,6 +121,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should format custom fields as table', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         const table = CustomFieldsClient.formatCustomFieldsAsTable(fields);
@@ -130,6 +135,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should group fields by data type', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         if (fields.length === 0) {
@@ -156,6 +162,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should group fields by state', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         if (fields.length === 0) {
@@ -174,6 +181,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should verify field names are unique', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         if (fields.length === 0) {
@@ -195,6 +203,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should verify field IDs are unique', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         if (fields.length === 0) {
@@ -216,6 +225,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should verify field naming conventions', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
         const fields = response.data!.data;
 
         if (fields.length === 0) {
@@ -247,6 +257,7 @@ suite('Custom Fields API Integration Tests', function() {
 
     test('should handle empty response gracefully', async () => {
         const response = await client.listCustomFields();
+        await respectRateLimit();
 
         // Should always return valid structure even if empty
         assert.ok(response.data, 'Response should have data');

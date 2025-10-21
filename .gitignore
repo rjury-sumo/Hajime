@@ -4,7 +4,9 @@ out/*
 .DS_Store
 output/*
 .vscode-test/*
-.vscode/launch.json
 .claude/*
-out/*
 test-results/*
+
+# Keep workspace settings but allow personal overrides
+# The workspace files (settings.json, extensions.json, launch.json) are committed
+# Users can create settings.local.json for personal preferences

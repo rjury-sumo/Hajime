@@ -1,0 +1,26 @@
+// @from -24h
+// @to now
+// @param type=*
+// @param user_name=*
+// defaults to records output
+
+_view=sumologic_search_usage_per_query 
+query_type={{type}}
+// not user_name=*sumosupport*
+user_name={{user_name}} 
+
+| ((query_end_time - query_start_time ) /1000 / 60 ) as time_range_m
+//| sort execution_duration_ms
+| json field=scanned_bytes_breakdown "Infrequent" as inf_bytes nodrop
+| json field=scanned_bytes_breakdown "Flex" as flex_bytes nodrop
+| if (isnull(inf_bytes),0,inf_bytes) as inf_bytes
+| if (isnull(flex_bytes),0,flex_bytes) as flex_bytes
+
+| round((data_scanned_bytes /1024/1024/1024) * 10 )/10 as scan_gbytes
+| round((inf_bytes/1024/1024/1024) * 10) / 10 as inf_scan_gb
+| round((flex_bytes/1024/1024/1024) * 10) / 10 as flex_scan_gb
+| execution_duration_ms / ( 1000 * 60) as runtime_minutes
+
+| time_range_m/60 as time_range_h
+| count as searches, sum(scan_gbytes) as scan_gb, sum(inf_scan_gb) as inf_scan_gb, sum(flex_scan_gb) as flex_scan_gb, sum(retrieved_message_count) as results, avg(scanned_partition_count) as avg_partitions,
+ avg(time_range_h) as avg_range_h, sum(runtime_minutes) as sum_runtime_minutes, avg(runtime_minutes) as avg_runtime_minutes by user_name, query, query_type,content_name, content_identifier | sort query asc

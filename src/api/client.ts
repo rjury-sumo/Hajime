@@ -73,7 +73,7 @@ export class SumoLogicClient {
     protected async makeRequest<T>(
         path: string,
         method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-        body?: any,
+        body?: Record<string, unknown>,
         additionalHeaders?: { [key: string]: string },
         maxRedirects: number = 5
     ): Promise<ApiResponse<T>> {
@@ -187,7 +187,7 @@ export class SumoLogicClient {
      * Test connection to Sumo Logic API
      * Uses the personal folder endpoint to verify credentials and region
      */
-    async testConnection(): Promise<ApiResponse<any>> {
+    async testConnection(): Promise<ApiResponse<Record<string, unknown>>> {
         // Use the personal folder endpoint to verify credentials, connectivity, and correct region
         // This is a real endpoint that confirms the user has proper access
         return this.makeRequest('/api/v2/content/folders/personal', 'GET');
@@ -206,7 +206,7 @@ export class SumoLogicClient {
     protected async makeRawRequest(
         path: string,
         method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-        body?: any,
+        body?: Record<string, unknown>,
         additionalHeaders?: { [key: string]: string },
         maxRedirects: number = 5,
         skipAuth: boolean = false

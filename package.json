@@ -2,20 +2,35 @@
     "name": "sumo-query-language",
     "displayName": "Sumo Logic Query Language",
     "description": "Language support for Sumo Logic search queries with syntax highlighting, snippets, and autocomplete",
-    "version": "0.0.3",
-    "publisher": "tba",
+    "version": "0.1.0",
+    "publisher": "RickJury",
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/yourusername/hajime"
+        "url": "https://github.com/rjury-sumo/Hajime"
+    },
+    "bugs": {
+        "url": "https://github.com/rjury-sumo/Hajime/issues"
+    },
+    "homepage": "https://github.com/rjury-sumo/Hajime#readme",
+    "icon": "resources/icon.png",
+    "galleryBanner": {
+        "color": "#1e1e1e",
+        "theme": "dark"
     },
     "keywords": [
         "sumo",
         "sumo logic",
         "query",
         "log analytics",
-        "search"
+        "search",
+        "observability",
+        "monitoring",
+        "logs",
+        "SIEM",
+        "security"
     ],
+    "qna": "marketplace",
     "engines": {
         "vscode": "^1.100.0"
     },

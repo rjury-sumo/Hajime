@@ -1,0 +1,29 @@
+{
+    // Recommended extensions for Hajime extension development
+    "recommendations": [
+        // Core Development
+        "dbaeumer.vscode-eslint",
+        "ms-vscode.vscode-typescript-next",
+
+        // Testing
+        "hbenl.vscode-mocha-test-adapter",
+        "hbenl.vscode-test-explorer",
+
+        // Debugging & Code Quality
+        "usernamehw.errorlens",
+        "streetsidesoftware.code-spell-checker",
+
+        // Git
+        "eamodio.gitlens",
+
+        // Markdown
+        "yzhang.markdown-all-in-one",
+
+        // JSON/YAML
+        "redhat.vscode-yaml"
+    ],
+    "unwantedRecommendations": [
+        // Avoid conflicts with built-in TypeScript support
+        "ms-vscode.vscode-typescript-tslint-plugin"
+    ]
+}

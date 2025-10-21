@@ -827,7 +827,7 @@ suite('Content/Folders API Integration Tests', function() {
 
         assert.ok(summary, 'Should have summary text');
 
-        if (exportData.panels && exportData.panels.length > 0) {
+        if (exportData.panels && Array.isArray(exportData.panels) && exportData.panels.length > 0) {
             assert.ok(summary.includes('## Panels'), 'Summary should have panels section');
             assert.ok(summary.includes(`${exportData.panels.length} items`), 'Summary should show panel count');
             assert.ok(summary.includes('| Name | Type | Key | Properties |'), 'Summary should have markdown table');

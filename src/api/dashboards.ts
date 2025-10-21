@@ -7,18 +7,18 @@ export interface Dashboard {
     title: string;
     description?: string;
     folderId?: string;
-    topologyLabelMap?: any;
+    topologyLabelMap?: Record<string, unknown>;
     domain?: string;
     hierarchies?: string[];
     refreshInterval?: number;
-    timeRange?: any;
-    panels?: any[];
-    layout?: any;
-    variables?: any[];
+    timeRange?: Record<string, unknown>;
+    panels?: Record<string, unknown>[];
+    layout?: Record<string, unknown>;
+    variables?: Record<string, unknown>[];
     theme?: string;
     isPublic?: boolean;
     highlightViolations?: boolean;
-    organizations?: any;
+    organizations?: Record<string, unknown>;
     id: string;                  // Dashboard ID (not content ID)
     contentId?: string;          // Content ID
     scheduleId?: string;

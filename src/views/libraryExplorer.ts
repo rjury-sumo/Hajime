@@ -348,7 +348,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
 
                 const exported = response.data;
                 this.cacheGlobalFolderFlat(exported, 'global', profileName, db, now);
-                await this.saveContentJSON(profileName, exported.id || 'global', exported);
+                await this.saveContentJSON(profileName, String(exported.id || 'global'), exported);
                 break;
             }
 
@@ -360,7 +360,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
 
                 const exported = response.data;
                 this.cacheGlobalFolderFlat(exported, 'global_admin', profileName, db, now);
-                await this.saveContentJSON(profileName, exported.id || 'global_admin', exported);
+                await this.saveContentJSON(profileName, String(exported.id || 'global_admin'), exported);
                 break;
             }
 
@@ -372,7 +372,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
 
                 const exported = response.data;
                 this.cacheExportedContent(exported, '0000000000000000', profileName, db, now, 'children');
-                await this.saveContentJSON(profileName, exported.id || 'adminRecommended', exported);
+                await this.saveContentJSON(profileName, String(exported.id || 'adminRecommended'), exported);
                 break;
             }
 
@@ -384,7 +384,7 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
 
                 const exported = response.data;
                 this.cacheExportedContent(exported, '0000000000000000', profileName, db, now, 'children');
-                await this.saveContentJSON(profileName, exported.id || 'installedApps', exported);
+                await this.saveContentJSON(profileName, String(exported.id || 'installedApps'), exported);
                 break;
             }
         }

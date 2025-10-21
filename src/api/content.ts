@@ -59,9 +59,9 @@ export interface ExportResultResponse {
     description?: string;
     children?: ExportResultResponse[];
     data?: ExportResultResponse[]; // Global folder uses 'data' instead of 'children'
-    search?: any;
-    searchSchedule?: any;
-    [key: string]: any; // Allow other properties depending on content type
+    search?: Record<string, unknown>;
+    searchSchedule?: Record<string, unknown>;
+    [key: string]: unknown; // Allow other properties depending on content type
 }
 
 /**
@@ -267,7 +267,7 @@ export class ContentClient extends SumoLogicClient {
             const statusResponse = await getStatus();
 
             if (statusResponse.error) {
-                return statusResponse as any;
+                return { error: statusResponse.error, statusCode: statusResponse.statusCode };
             }
 
             const status = statusResponse.data!.status;
@@ -279,7 +279,7 @@ export class ContentClient extends SumoLogicClient {
                 return {
                     error: statusResponse.data!.error || statusResponse.data!.statusMessage || 'Export job failed',
                     statusCode: 500
-                } as any;
+                };
             }
 
             // Status is 'InProgress', continue polling
@@ -289,7 +289,7 @@ export class ContentClient extends SumoLogicClient {
         return {
             error: `Export job timed out after ${maxWaitSeconds} seconds`,
             statusCode: 408
-        } as any;
+        };
     }
 
     /**
@@ -304,7 +304,7 @@ export class ContentClient extends SumoLogicClient {
         const exportJobResponse = await this.beginAsyncExport(contentId, isAdminMode);
 
         if (exportJobResponse.error) {
-            return exportJobResponse as any;
+            return { error: exportJobResponse.error, statusCode: exportJobResponse.statusCode };
         }
 
         const jobId = exportJobResponse.data!.id;
@@ -325,7 +325,7 @@ export class ContentClient extends SumoLogicClient {
         const exportJobResponse = await this.beginAdminRecommendedExport(isAdminMode);
 
         if (exportJobResponse.error) {
-            return exportJobResponse as any;
+            return { error: exportJobResponse.error, statusCode: exportJobResponse.statusCode };
         }
 
         const jobId = exportJobResponse.data!.id;
@@ -346,7 +346,7 @@ export class ContentClient extends SumoLogicClient {
         const exportJobResponse = await this.beginGlobalFolderExport(isAdminMode);
 
         if (exportJobResponse.error) {
-            return exportJobResponse as any;
+            return { error: exportJobResponse.error, statusCode: exportJobResponse.statusCode };
         }
 
         const jobId = exportJobResponse.data!.id;
@@ -401,7 +401,7 @@ export class ContentClient extends SumoLogicClient {
         const exportJobResponse = await this.beginInstalledAppsExport(isAdminMode);
 
         if (exportJobResponse.error) {
-            return exportJobResponse as any;
+            return { error: exportJobResponse.error, statusCode: exportJobResponse.statusCode };
         }
 
         const jobId = exportJobResponse.data!.id;
@@ -541,7 +541,7 @@ export class ContentClient extends SumoLogicClient {
             }
             if (search.queryParameters && Array.isArray(search.queryParameters)) {
                 output += `\n**Query Parameters (${search.queryParameters.length}):**\n\n`;
-                search.queryParameters.forEach((param: any) => {
+                search.queryParameters.forEach((param: Record<string, unknown>) => {
                     output += `- **${param.name}:** ${param.value}\n`;
                 });
             }
@@ -579,7 +579,7 @@ export class ContentClient extends SumoLogicClient {
     /**
      * Format export children as a markdown table (one level only)
      */
-    static formatExportChildrenTable(children: any[]): string {
+    static formatExportChildrenTable(children: ExportResultResponse[]): string {
         if (children.length === 0) {
             return '*(no children)*\n\n';
         }
@@ -597,10 +597,10 @@ export class ContentClient extends SumoLogicClient {
 
         // Create rows
         sorted.forEach(child => {
-            const id = child.id || '';
-            const name = child.name || '';
-            const type = child.type || '';
-            const desc = (child.description || '').substring(0, 60); // Truncate long descriptions
+            const id = String(child.id || '');
+            const name = String(child.name || '');
+            const type = String(child.type || '');
+            const desc = String(child.description || '').substring(0, 60); // Truncate long descriptions
             const hasChildren = child.children && Array.isArray(child.children) && child.children.length > 0
                 ? `Yes (${child.children.length})`
                 : 'No';
@@ -617,7 +617,7 @@ export class ContentClient extends SumoLogicClient {
     /**
      * Format dashboard panels as a markdown table
      */
-    static formatPanelsTable(panels: any[]): string {
+    static formatPanelsTable(panels: Record<string, unknown>[]): string {
         if (panels.length === 0) {
             return '*(no panels)*\n\n';
         }
@@ -628,9 +628,9 @@ export class ContentClient extends SumoLogicClient {
 
         // Create rows
         panels.forEach(panel => {
-            const name = panel.name || '';
-            const type = panel.panelType || '';
-            const key = panel.key || '';
+            const name = String(panel.name || '');
+            const type = String(panel.panelType || '');
+            const key = String(panel.key || '');
 
             // Collect interesting properties
             const props: string[] = [];

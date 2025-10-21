@@ -60,7 +60,7 @@ export interface Source {
         code: string;
         message: string;
     };
-    [key: string]: any; // Allow additional source-specific properties
+    [key: string]: unknown; // Allow additional source-specific properties
 }
 
 /**
@@ -265,24 +265,26 @@ export class CollectorsClient extends SumoLogicClient {
             return 'No collectors found';
         }
 
-        // Helper to format timestamp
-        const formatTimestamp = (ts?: number): string => {
-            if (!ts) return 'N/A';
-            return new Date(ts).toISOString();
-        };
-
         // Helper to format last seen
         const formatLastSeen = (ts?: number): string => {
-            if (!ts) return 'N/A';
+            if (!ts) {
+                return 'N/A';
+            }
             const now = Date.now();
             const diff = now - ts;
             const minutes = Math.floor(diff / 60000);
             const hours = Math.floor(minutes / 60);
             const days = Math.floor(hours / 24);
 
-            if (days > 0) return `${days}d ago`;
-            if (hours > 0) return `${hours}h ago`;
-            if (minutes > 0) return `${minutes}m ago`;
+            if (days > 0) {
+                return `${days}d ago`;
+            }
+            if (hours > 0) {
+                return `${hours}h ago`;
+            }
+            if (minutes > 0) {
+                return `${minutes}m ago`;
+            }
             return 'Just now';
         };
 

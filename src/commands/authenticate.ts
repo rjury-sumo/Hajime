@@ -536,6 +536,111 @@ export async function listProfilesCommand(context: vscode.ExtensionContext): Pro
 }
 
 /**
+ * Command to repair/check profile credentials
+ */
+export async function repairProfileCredentialsCommand(context: vscode.ExtensionContext): Promise<void> {
+    const profileManager = new ProfileManager(context);
+    const profiles = await profileManager.getProfiles();
+
+    if (profiles.length === 0) {
+        vscode.window.showInformationMessage('No profiles configured.');
+        return;
+    }
+
+    // Check all profiles for missing credentials
+    const profilesNeedingRepair: { name: string; missingAccessId: boolean; missingAccessKey: boolean }[] = [];
+
+    for (const profile of profiles) {
+        const credStatus = await profileManager.hasCompleteCredentials(profile.name);
+        if (!credStatus.hasAccessId || !credStatus.hasAccessKey) {
+            profilesNeedingRepair.push({
+                name: profile.name,
+                missingAccessId: !credStatus.hasAccessId,
+                missingAccessKey: !credStatus.hasAccessKey
+            });
+        }
+    }
+
+    if (profilesNeedingRepair.length === 0) {
+        vscode.window.showInformationMessage('All profiles have complete credentials.');
+        return;
+    }
+
+    // Show which profiles need repair
+    const message = `Found ${profilesNeedingRepair.length} profile(s) with missing credentials:\n\n` +
+        profilesNeedingRepair.map(p => {
+            const missing = [];
+            if (p.missingAccessId) {missing.push('Access ID');}
+            if (p.missingAccessKey) {missing.push('Access Key');}
+            return `• ${p.name}: Missing ${missing.join(' and ')}`;
+        }).join('\n');
+
+    const repair = await vscode.window.showWarningMessage(
+        message,
+        { modal: true },
+        'Repair All',
+        'Cancel'
+    );
+
+    if (repair !== 'Repair All') {
+        return;
+    }
+
+    // Repair each profile
+    for (const profileInfo of profilesNeedingRepair) {
+        const profile = profiles.find(p => p.name === profileInfo.name);
+        if (!profile) {continue;}
+
+        vscode.window.showInformationMessage(`Repairing credentials for profile: ${profileInfo.name}`);
+
+        // Get existing credentials (may be partial)
+        const existing = await profileManager.getProfileCredentials(profileInfo.name);
+
+        // Prompt for Access ID if missing
+        let accessId = existing?.accessId;
+        if (profileInfo.missingAccessId) {
+            const input = await vscode.window.showInputBox({
+                prompt: `Enter Access ID for profile '${profileInfo.name}'`,
+                placeHolder: 'suABC123...',
+                ignoreFocusOut: true,
+                password: false
+            });
+
+            if (!input) {
+                vscode.window.showWarningMessage(`Skipped repairing ${profileInfo.name}`);
+                continue;
+            }
+            accessId = input.trim();
+        }
+
+        // Prompt for Access Key if missing
+        let accessKey = existing?.accessKey;
+        if (profileInfo.missingAccessKey) {
+            const input = await vscode.window.showInputBox({
+                prompt: `Enter Access Key for profile '${profileInfo.name}'`,
+                placeHolder: 'Your access key',
+                ignoreFocusOut: true,
+                password: true
+            });
+
+            if (!input) {
+                vscode.window.showWarningMessage(`Skipped repairing ${profileInfo.name}`);
+                continue;
+            }
+            accessKey = input.trim();
+        }
+
+        // Store the credentials
+        if (accessId && accessKey) {
+            await profileManager.updateProfile(profileInfo.name, {}, accessId, accessKey);
+            vscode.window.showInformationMessage(`✓ Repaired credentials for ${profileInfo.name}`);
+        }
+    }
+
+    vscode.window.showInformationMessage('Profile credential repair complete!');
+}
+
+/**
  * Command to delete a profile
  */
 export async function deleteProfileCommand(context: vscode.ExtensionContext): Promise<void> {
@@ -588,47 +693,61 @@ export async function deleteProfileCommand(context: vscode.ExtensionContext): Pr
 /**
  * Command to test connection to Sumo Logic
  */
-export async function testConnectionCommand(context: vscode.ExtensionContext): Promise<void> {
+export async function testConnectionCommand(context: vscode.ExtensionContext, profileName?: string): Promise<void> {
     const profileManager = new ProfileManager(context);
-    const activeProfile = await profileManager.getActiveProfile();
 
-    if (!activeProfile) {
-        vscode.window.showErrorMessage('No active profile. Please create a profile first.');
-        return;
+    // Get client for specified or active profile
+    let client: SumoLogicClient | null;
+    let targetProfileName: string;
+
+    if (profileName) {
+        client = await createClientForProfile(context, profileName);
+        targetProfileName = profileName;
+    } else {
+        client = await createClient(context);
+        const activeProfile = await profileManager.getActiveProfile();
+        if (!activeProfile) {
+            vscode.window.showErrorMessage('No active profile. Please create a profile first.');
+            return;
+        }
+        targetProfileName = activeProfile.name;
     }
 
-    const client = await createClient(context);
-
     if (!client) {
-        vscode.window.showErrorMessage(`No credentials found for profile '${activeProfile.name}'.`);
-        // Update status bar
-        const { getStatusBarManager } = await import('../extension');
-        const statusBar = getStatusBarManager();
-        if (statusBar) {
-            statusBar.setConnectionStatus('disconnected');
+        // Error message already shown by createClient/createClientForProfile
+        // Update status bar only if this is the active profile
+        const activeProfile = await profileManager.getActiveProfile();
+        if (!profileName || profileName === activeProfile?.name) {
+            const { getStatusBarManager } = await import('../extension');
+            const statusBar = getStatusBarManager();
+            if (statusBar) {
+                statusBar.setConnectionStatus('disconnected');
+            }
         }
         return;
     }
 
     vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: `Testing connection to Sumo Logic (${activeProfile.name})...`,
+        title: `Testing connection to Sumo Logic (${targetProfileName})...`,
         cancellable: false
     }, async () => {
-        const response = await client.testConnection();
+        const response = await client!.testConnection();
 
-        // Update status bar
+        // Update status bar only if this is the active profile
+        const activeProfile = await profileManager.getActiveProfile();
+        const isActiveProfile = !profileName || profileName === activeProfile?.name;
         const { getStatusBarManager } = await import('../extension');
         const statusBar = getStatusBarManager();
 
         if (response.error) {
-            vscode.window.showErrorMessage(`Connection failed for '${activeProfile.name}': ${response.error}`);
-            if (statusBar) {
+            vscode.window.showErrorMessage(`Connection failed for '${targetProfileName}': ${response.error}`);
+            if (statusBar && isActiveProfile) {
                 statusBar.setConnectionStatus('disconnected');
             }
         } else {
-            vscode.window.showInformationMessage(`Successfully connected to '${activeProfile.name}' at ${client.getEndpoint()}`);
-            if (statusBar) {
+            vscode.window.showInformationMessage(`Successfully connected to '${targetProfileName}' at ${client!.getEndpoint()}`);
+            if (statusBar && isActiveProfile) {
                 statusBar.setConnectionStatus('connected');
             }
         }

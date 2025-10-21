@@ -6,35 +6,40 @@ import { OutputWriter } from '../outputWriter';
 
 /**
  * Command to fetch partitions, display them, and add to autocomplete
+ * @param context Extension context
+ * @param profileName Optional profile name. If not provided, uses active profile
  */
-export async function fetchPartitionsCommand(context: vscode.ExtensionContext): Promise<void> {
-    const baseClient = await createClient(context);
-
-    if (!baseClient) {
-        vscode.window.showErrorMessage('No active profile. Please create a profile first.');
-        return;
-    }
-
-    // Get credentials from the active profile
+export async function fetchPartitionsCommand(context: vscode.ExtensionContext, profileName?: string): Promise<void> {
+    // Get credentials from the specified or active profile
     const profileManager = await import('../profileManager');
     const pm = new profileManager.ProfileManager(context);
-    const activeProfile = await pm.getActiveProfile();
 
-    if (!activeProfile) {
-        vscode.window.showErrorMessage('No active profile found.');
-        return;
+    let targetProfile;
+    if (profileName) {
+        const profiles = await pm.getProfiles();
+        targetProfile = profiles.find(p => p.name === profileName);
+        if (!targetProfile) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return;
+        }
+    } else {
+        targetProfile = await pm.getActiveProfile();
+        if (!targetProfile) {
+            vscode.window.showErrorMessage('No active profile. Please create a profile first.');
+            return;
+        }
     }
 
-    const credentials = await pm.getProfileCredentials(activeProfile.name);
+    const credentials = await pm.getProfileCredentials(targetProfile.name);
     if (!credentials) {
-        vscode.window.showErrorMessage('No credentials found for active profile.');
+        vscode.window.showErrorMessage(`No credentials found for profile '${targetProfile.name}'.`);
         return;
     }
 
     const client = new PartitionsClient({
         accessId: credentials.accessId,
         accessKey: credentials.accessKey,
-        endpoint: pm.getProfileEndpoint(activeProfile)
+        endpoint: pm.getProfileEndpoint(targetProfile)
     });
 
     await vscode.window.withProgress({
@@ -86,7 +91,7 @@ export async function fetchPartitionsCommand(context: vscode.ExtensionContext): 
         // Format as table
         const tableText = PartitionsClient.formatPartitionsAsTable(partitions);
 
-        const outputText = `Sumo Logic Partitions (${activeProfile.name})\n` +
+        const outputText = `Sumo Logic Partitions (${targetProfile.name})\n` +
                           `=========================================\n` +
                           `Total: ${partitions.length} partitions\n` +
                           `\n` +
@@ -98,7 +103,7 @@ export async function fetchPartitionsCommand(context: vscode.ExtensionContext): 
 
         // Write to file
         const outputWriter = new OutputWriter(context);
-        const filename = `partitions_${activeProfile.name}`;
+        const filename = `partitions_${targetProfile.name}`;
 
         try {
             await outputWriter.writeAndOpen('partitions', filename, outputText, 'txt');

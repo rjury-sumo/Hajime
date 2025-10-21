@@ -1,6 +1,6 @@
 # Sumo Logic Query Language Support
 
-A comprehensive Visual Studio Code extension that provides a complete IDE experience for working with Sumo Logic. Write, execute, and visualize queries, manage multiple deployment connections, and interact with Sumo Logic APIs - all from within VS Code.
+Hajime Sumo Logic Query extension for visual studio code provides a rich IDE experience for working with Sumo Logic searches as .sumo files, and and explorer interface for browsing library content and accessing administrative functions. Write, execute, and visualize queries, manage multiple deployment connections, and interact with Sumo Logic APIs - all from within VS Code!
 
 - [Sumo Logic Query Language Support](#sumo-logic-query-language-support)
   - [Overview](#overview)
@@ -71,9 +71,9 @@ Dedicated sidebar in the activity bar provides one-click access to:
 - **Recent Results** - Recently executed query results for quick re-opening
 - **Scopes** - Define and manage log analysis scopes for efficient data exploration
   - Create scopes with search filters (e.g., `_sourceCategory=prod/app`)
-  - Profile logs with facets analysis showing field distributions
+  - Profile logs fields showing field distributions
   - Sample logs to preview data within scope
-  - Cache metadata for autocomplete
+  - Cache metadata for autocomplete in .sumo editor windows
   - Generate queries from scopes with field lists
   - Auto-create scopes from partitions
 - **Storage Explorer** - Browse profile-specific cached files and directories
@@ -107,12 +107,15 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - All data cached to `<profile>/account/` folder
 
 ### 🎯 IDE Experience for Query Development
-Rich language support for `.sumo` files with intelligent autocomplete that goes beyond basic syntax:
-- **Hundreds of Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list
+Rich language support for `.sumo` files with intelligent autocomplete for all log search operators and built in fields. Additional advanced auto complete experience:
+- **Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list
 - **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
 - **Context-Aware Suggestions** - metadata field values suggested as you type (e.g., `_sourceCategory=` shows your actual categories)
 - **Syntax Highlighting** with full support for operators, functions, comments, and regex patterns
-- **Smart Snippets** for common query patterns
+- **Smart Snippets** for common query patterns like timeslice / transpose
+- **cache key metadata values** for _sourcecategory, _collector etc, using a query to pull recent live values
+- **retreive partitions** for _index auto complete
+- **pull all custom fields** for improved auto completion suggestions
 
 ### 🔌 Multi-Profile Connection Management
 Connect to multiple Sumo Logic deployments and easily switch between them:

@@ -115,6 +115,10 @@
                 "icon": "$(edit)"
             },
             {
+                "command": "sumologic.repairProfileCredentials",
+                "title": "Sumo Logic: Repair Profile Credentials"
+            },
+            {
                 "command": "sumologic.runQuery",
                 "title": "Sumo Logic: Run Query",
                 "icon": "$(play)"

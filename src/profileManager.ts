@@ -322,6 +322,19 @@ export class ProfileManager {
     }
 
     /**
+     * Check if profile has complete credentials
+     */
+    async hasCompleteCredentials(profileName: string): Promise<{ hasAccessId: boolean; hasAccessKey: boolean }> {
+        const accessId = await this.context.secrets.get(getProfileAccessIdKey(profileName));
+        const accessKey = await this.context.secrets.get(getProfileAccessKeyKey(profileName));
+
+        return {
+            hasAccessId: !!accessId,
+            hasAccessKey: !!accessKey
+        };
+    }
+
+    /**
      * Get endpoint for a profile
      */
     getProfileEndpoint(profile: SumoLogicProfile): string {

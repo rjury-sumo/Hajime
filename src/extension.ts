@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand, editProfileCommand } from './commands/authenticate';
+import { authenticateCommand, testConnectionCommand, switchProfileCommand, listProfilesCommand, deleteProfileCommand, editProfileCommand, repairProfileCredentialsCommand } from './commands/authenticate';
 import { runQueryCommand } from './commands/runQuery';
 import { fetchCustomFieldsCommand } from './commands/customFields';
 import { fetchPartitionsCommand } from './commands/partitions';
@@ -263,32 +263,38 @@ export function activate(context: vscode.ExtensionContext) {
         sumoExplorerProvider.refresh();
     });
 
-    const testConnectionCmd = vscode.commands.registerCommand('sumologic.testConnection', () => {
-        return testConnectionCommand(context);
+    const repairProfileCredentialsCmd = vscode.commands.registerCommand('sumologic.repairProfileCredentials', async () => {
+        await repairProfileCredentialsCommand(context);
+        await statusBar.refresh();
+        sumoExplorerProvider.refresh();
+    });
+
+    const testConnectionCmd = vscode.commands.registerCommand('sumologic.testConnection', (profileName?: string) => {
+        return testConnectionCommand(context, profileName);
     });
 
     const runQueryCmd = vscode.commands.registerCommand('sumologic.runQuery', () => {
         return runQueryCommand(context);
     });
 
-    const fetchCustomFieldsCmd = vscode.commands.registerCommand('sumologic.fetchCustomFields', () => {
-        return fetchCustomFieldsCommand(context);
+    const fetchCustomFieldsCmd = vscode.commands.registerCommand('sumologic.fetchCustomFields', (profileName?: string) => {
+        return fetchCustomFieldsCommand(context, profileName);
     });
 
-    const fetchPartitionsCmd = vscode.commands.registerCommand('sumologic.fetchPartitions', () => {
-        return fetchPartitionsCommand(context);
+    const fetchPartitionsCmd = vscode.commands.registerCommand('sumologic.fetchPartitions', (profileName?: string) => {
+        return fetchPartitionsCommand(context, profileName);
     });
 
-    const fetchCollectorsCmd = vscode.commands.registerCommand('sumologic.fetchCollectors', () => {
-        return fetchCollectorsCommand(context);
+    const fetchCollectorsCmd = vscode.commands.registerCommand('sumologic.fetchCollectors', (profileName?: string) => {
+        return fetchCollectorsCommand(context, profileName);
     });
 
-    const getCollectorCmd = vscode.commands.registerCommand('sumologic.getCollector', () => {
-        return getCollectorCommand(context);
+    const getCollectorCmd = vscode.commands.registerCommand('sumologic.getCollector', (profileName?: string) => {
+        return getCollectorCommand(context, profileName);
     });
 
-    const getSourcesCmd = vscode.commands.registerCommand('sumologic.getSources', () => {
-        return getSourcesCommand(context);
+    const getSourcesCmd = vscode.commands.registerCommand('sumologic.getSources', (collectorIdParam?: number, collectorNameParam?: string, outputType?: 'file' | 'webview', profileName?: string) => {
+        return getSourcesCommand(context, collectorIdParam, collectorNameParam, outputType, profileName);
     });
 
     const viewAutocompleteCmd = vscode.commands.registerCommand('sumologic.viewAutocomplete', () => {
@@ -347,8 +353,8 @@ export function activate(context: vscode.ExtensionContext) {
         return cleanupOldFilesCommand(context);
     });
 
-    const cacheKeyMetadataCmd = vscode.commands.registerCommand('sumologic.cacheKeyMetadata', () => {
-        return cacheKeyMetadataCommand(context, metadataCompletionProvider);
+    const cacheKeyMetadataCmd = vscode.commands.registerCommand('sumologic.cacheKeyMetadata', (profileName?: string) => {
+        return cacheKeyMetadataCommand(context, metadataCompletionProvider, profileName);
     });
 
     const newSumoFileCmd = vscode.commands.registerCommand('sumologic.newSumoFile', () => {
@@ -544,6 +550,7 @@ export function activate(context: vscode.ExtensionContext) {
         listProfilesCmd,
         deleteProfileCmd,
         editProfileCmd,
+        repairProfileCredentialsCmd,
         testConnectionCmd,
         runQueryCmd,
         fetchCustomFieldsCmd,

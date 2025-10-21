@@ -89,7 +89,7 @@ export class SumoTreeItem extends vscode.TreeItem {
                     this.command = {
                         command: 'sumologic.fetchCollectors',
                         title: 'Fetch Collectors',
-                        arguments: []
+                        arguments: [this.profile.name]
                     };
                 }
                 break;
@@ -486,13 +486,19 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         const items: SumoTreeItem[] = [];
 
         // Test Connection
-        items.push(new SumoTreeItem(
+        const testConnectionItem = new SumoTreeItem(
             'Test Connection',
             TreeItemType.QuickAction,
             vscode.TreeItemCollapsibleState.None,
             profile,
             { command: 'sumologic.testConnection', icon: 'plug' }
-        ));
+        );
+        testConnectionItem.command = {
+            command: 'sumologic.testConnection',
+            title: 'Test Connection',
+            arguments: [profile.name]
+        };
+        items.push(testConnectionItem);
 
         // Autocomplete Data section
         items.push(new SumoTreeItem(
@@ -587,21 +593,28 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         }
 
         const actions = [
-            { label: 'Fetch Custom Fields', command: 'sumologic.fetchCustomFields', icon: 'refresh' },
-            { label: 'Fetch Partitions', command: 'sumologic.fetchPartitions', icon: 'refresh' },
-            { label: 'Cache Key Metadata', command: 'sumologic.cacheKeyMetadata', icon: 'database' },
-            { label: 'View Autocomplete Data', command: 'sumologic.viewAutocomplete', icon: 'list-tree' }
+            { label: 'Fetch Custom Fields', command: 'sumologic.fetchCustomFields', icon: 'refresh', args: [profile.name] },
+            { label: 'Fetch Partitions', command: 'sumologic.fetchPartitions', icon: 'refresh', args: [profile.name] },
+            { label: 'Cache Key Metadata', command: 'sumologic.cacheKeyMetadata', icon: 'database', args: [profile.name] },
+            { label: 'View Autocomplete Data', command: 'sumologic.viewAutocomplete', icon: 'list-tree', args: [] }
         ];
 
-        return actions.map(action =>
-            new SumoTreeItem(
+        return actions.map(action => {
+            const item = new SumoTreeItem(
                 action.label,
                 TreeItemType.QuickAction,
                 vscode.TreeItemCollapsibleState.None,
                 profile,
-                { command: action.command, icon: action.icon }
-            )
-        );
+                { command: action.command, icon: action.icon, args: action.args }
+            );
+            // Override the command to include arguments
+            item.command = {
+                command: action.command,
+                title: action.label,
+                arguments: action.args
+            };
+            return item;
+        });
     }
 
     /**

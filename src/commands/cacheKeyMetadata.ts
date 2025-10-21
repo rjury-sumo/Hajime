@@ -25,19 +25,33 @@ type SamplingOption =
 
 /**
  * Cache key metadata from Sumo Logic and populate autocomplete
+ * @param context Extension context
+ * @param metadataProvider Metadata completion provider
+ * @param profileName Optional profile name. If not provided, uses active profile
  */
 export async function cacheKeyMetadataCommand(
     context: vscode.ExtensionContext,
-    metadataProvider?: MetadataCompletionProvider
+    metadataProvider?: MetadataCompletionProvider,
+    profileName?: string
 ): Promise<void> {
     try {
-        // Get profile manager and check active profile
+        // Get profile manager and check for target profile
         const profileManager = new ProfileManager(context);
-        const activeProfile = await profileManager.getActiveProfile();
 
-        if (!activeProfile) {
-            vscode.window.showWarningMessage('No active profile. Please create or select a profile first.');
-            return;
+        let targetProfile;
+        if (profileName) {
+            const profiles = await profileManager.getProfiles();
+            targetProfile = profiles.find(p => p.name === profileName);
+            if (!targetProfile) {
+                vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+                return;
+            }
+        } else {
+            targetProfile = await profileManager.getActiveProfile();
+            if (!targetProfile) {
+                vscode.window.showWarningMessage('No active profile. Please create or select a profile first.');
+                return;
+            }
         }
 
         // Ask user for scope
@@ -130,19 +144,13 @@ export async function cacheKeyMetadataCommand(
         // Show progress
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: `Caching metadata for profile '${activeProfile.name}'`,
+            title: `Caching metadata for profile '${targetProfile.name}'`,
             cancellable: false
         }, async (progress) => {
             progress.report({ message: 'Creating search job...' });
 
-            // Create client
-            const client = await createClient(context);
-            if (!client) {
-                throw new Error('Failed to create API client');
-            }
-
             // Get profile credentials for SearchJobClient
-            const credentials = await profileManager.getProfileCredentials(activeProfile.name);
+            const credentials = await profileManager.getProfileCredentials(targetProfile.name);
             if (!credentials) {
                 throw new Error('Failed to get profile credentials');
             }
@@ -150,7 +158,7 @@ export async function cacheKeyMetadataCommand(
             const config = {
                 accessId: credentials.accessId,
                 accessKey: credentials.accessKey,
-                endpoint: profileManager.getProfileEndpoint(activeProfile)
+                endpoint: profileManager.getProfileEndpoint(targetProfile)
             };
 
             const searchClient = new SearchJobClient(config);
@@ -221,7 +229,7 @@ export async function cacheKeyMetadataCommand(
             progress.report({ message: `Processing ${records.length} records...` });
 
             // Save raw results to metadata directory with timestamp
-            const metadataDir = profileManager.getProfileMetadataDirectory(activeProfile.name);
+            const metadataDir = profileManager.getProfileMetadataDirectory(targetProfile.name);
             const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '.');
             const resultsFile = path.join(metadataDir, `key_metadata_results.${timestamp}.json`);
 

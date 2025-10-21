@@ -4,35 +4,47 @@ import { createClient } from './authenticate';
 import { OutputWriter } from '../outputWriter';
 
 /**
- * Helper to create and configure a CollectorsClient for the active profile
+ * Helper to create and configure a CollectorsClient for the specified or active profile
+ * @param context Extension context
+ * @param profileName Optional profile name. If not provided, uses active profile
+ * @returns CollectorsClient and profile info, or null if profile not found
  */
-async function createCollectorsClient(context: vscode.ExtensionContext): Promise<CollectorsClient | null> {
-    const baseClient = await createClient(context);
-    if (!baseClient) {
-        vscode.window.showErrorMessage('No active profile. Please create a profile first.');
-        return null;
-    }
-
+async function createCollectorsClient(
+    context: vscode.ExtensionContext,
+    profileName?: string
+): Promise<{ client: CollectorsClient; profile: any } | null> {
     const profileManager = await import('../profileManager');
     const pm = new profileManager.ProfileManager(context);
-    const activeProfile = await pm.getActiveProfile();
 
-    if (!activeProfile) {
-        vscode.window.showErrorMessage('No active profile found.');
-        return null;
+    let targetProfile;
+    if (profileName) {
+        const profiles = await pm.getProfiles();
+        targetProfile = profiles.find(p => p.name === profileName);
+        if (!targetProfile) {
+            vscode.window.showErrorMessage(`Profile '${profileName}' not found.`);
+            return null;
+        }
+    } else {
+        targetProfile = await pm.getActiveProfile();
+        if (!targetProfile) {
+            vscode.window.showErrorMessage('No active profile. Please create a profile first.');
+            return null;
+        }
     }
 
-    const credentials = await pm.getProfileCredentials(activeProfile.name);
+    const credentials = await pm.getProfileCredentials(targetProfile.name);
     if (!credentials) {
-        vscode.window.showErrorMessage('No credentials found for active profile.');
+        vscode.window.showErrorMessage(`No credentials found for profile '${targetProfile.name}'.`);
         return null;
     }
 
-    return new CollectorsClient({
+    const client = new CollectorsClient({
         accessId: credentials.accessId,
         accessKey: credentials.accessKey,
-        endpoint: pm.getProfileEndpoint(activeProfile)
+        endpoint: pm.getProfileEndpoint(targetProfile)
     });
+
+    return { client, profile: targetProfile };
 }
 
 /**
@@ -822,21 +834,16 @@ function formatSourcesAsHTML(sources: any[], collectorId: number, collectorName:
  * Command to fetch collectors and save to file
  */
 export async function fetchCollectorsCommand(context: vscode.ExtensionContext, profileName?: string, outputType: 'file' | 'webview' = 'webview'): Promise<void> {
-    const client = await createCollectorsClient(context);
-    if (!client) {
+    const result = await createCollectorsClient(context, profileName);
+    if (!result) {
         return;
     }
 
-    const profileManager = await import('../profileManager');
-    const pm = new profileManager.ProfileManager(context);
-    const activeProfile = await pm.getActiveProfile();
-    if (!activeProfile) {
-        return;
-    }
+    const { client, profile } = result;
 
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: `Fetching collectors from Sumo Logic (${profileName || activeProfile.name})...`,
+        title: `Fetching collectors from Sumo Logic (${profile.name})...`,
         cancellable: false
     }, async (progress) => {
         // Fetch all collectors with automatic pagination
@@ -881,7 +888,7 @@ export async function fetchCollectorsCommand(context: vscode.ExtensionContext, p
             // Create webview panel
             const panel = vscode.window.createWebviewPanel(
                 'sumoCollectors',
-                `Collectors - ${profileName || activeProfile.name}`,
+                `Collectors - ${profile.name}`,
                 vscode.ViewColumn.One,
                 {
                     enableScripts: true,
@@ -889,7 +896,7 @@ export async function fetchCollectorsCommand(context: vscode.ExtensionContext, p
                 }
             );
 
-            const htmlContent = formatCollectorsAsHTML(collectors, profileName || activeProfile.name);
+            const htmlContent = formatCollectorsAsHTML(collectors, profile.name);
             panel.webview.html = htmlContent;
 
             // Handle messages from webview
@@ -959,7 +966,7 @@ export async function fetchCollectorsCommand(context: vscode.ExtensionContext, p
                 statsText += `    ${type}: ${count}\n`;
             });
 
-            const outputText = `Sumo Logic Collectors (${activeProfile.name})\n` +
+            const outputText = `Sumo Logic Collectors (${profile.name})\n` +
                               `=========================================\n` +
                               `Total: ${collectors.length} collectors\n` +
                               `\n` +
@@ -968,7 +975,7 @@ export async function fetchCollectorsCommand(context: vscode.ExtensionContext, p
 
             // Write to file
             const outputWriter = new OutputWriter(context);
-            const filename = `collectors_${activeProfile.name}`;
+            const filename = `collectors_${profile.name}`;
 
             try {
                 await outputWriter.writeAndOpen('collectors', filename, outputText, 'txt');
@@ -985,18 +992,13 @@ export async function fetchCollectorsCommand(context: vscode.ExtensionContext, p
 /**
  * Command to get a collector by ID
  */
-export async function getCollectorCommand(context: vscode.ExtensionContext): Promise<void> {
-    const client = await createCollectorsClient(context);
-    if (!client) {
+export async function getCollectorCommand(context: vscode.ExtensionContext, profileName?: string): Promise<void> {
+    const result = await createCollectorsClient(context, profileName);
+    if (!result) {
         return;
     }
 
-    const profileManager = await import('../profileManager');
-    const pm = new profileManager.ProfileManager(context);
-    const activeProfile = await pm.getActiveProfile();
-    if (!activeProfile) {
-        return;
-    }
+    const { client, profile } = result;
 
     // Prompt user for collector ID
     const collectorIdInput = await vscode.window.showInputBox({
@@ -1050,7 +1052,7 @@ export async function getCollectorCommand(context: vscode.ExtensionContext): Pro
 
         // Write to file
         const outputWriter = new OutputWriter(context);
-        const filename = `collector_${collectorId}_${activeProfile.name}`;
+        const filename = `collector_${collectorId}_${profile.name}`;
 
         try {
             await outputWriter.writeAndOpen('collectors', filename, outputText, 'json');
@@ -1066,18 +1068,13 @@ export async function getCollectorCommand(context: vscode.ExtensionContext): Pro
 /**
  * Command to get sources for a collector
  */
-export async function getSourcesCommand(context: vscode.ExtensionContext, collectorIdParam?: number, collectorNameParam?: string, outputType: 'file' | 'webview' = 'webview'): Promise<void> {
-    const client = await createCollectorsClient(context);
-    if (!client) {
+export async function getSourcesCommand(context: vscode.ExtensionContext, collectorIdParam?: number, collectorNameParam?: string, outputType: 'file' | 'webview' = 'webview', profileName?: string): Promise<void> {
+    const result = await createCollectorsClient(context, profileName);
+    if (!result) {
         return;
     }
 
-    const profileManager = await import('../profileManager');
-    const pm = new profileManager.ProfileManager(context);
-    const activeProfile = await pm.getActiveProfile();
-    if (!activeProfile) {
-        return;
-    }
+    const { client, profile } = result;
 
     let collectorId: number;
     let collectorName: string = 'Unknown';
@@ -1152,7 +1149,7 @@ export async function getSourcesCommand(context: vscode.ExtensionContext, collec
 
         // Always save to file first
         const outputWriter = new OutputWriter(context);
-        const filename = `collector_${collectorId}_sources_${activeProfile.name}`;
+        const filename = `collector_${collectorId}_sources_${profile.name}`;
         const outputText = JSON.stringify(sources, null, 2);
 
         let savedFilePath: string | undefined;
@@ -1175,7 +1172,7 @@ export async function getSourcesCommand(context: vscode.ExtensionContext, collec
                 }
             );
 
-            const htmlContent = formatSourcesAsHTML(sources, collectorId, collectorName, activeProfile.name, savedFilePath);
+            const htmlContent = formatSourcesAsHTML(sources, collectorId, collectorName, profile.name, savedFilePath);
             panel.webview.html = htmlContent;
 
             // Handle messages from webview

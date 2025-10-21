@@ -1,40 +1,58 @@
 import * as vscode from 'vscode';
 import { CustomFieldsClient } from '../api/customFields';
-import { createClient } from './authenticate';
+import { createClient, createClientForProfile } from './authenticate';
 import { getDynamicCompletionProvider } from '../extension';
 import { OutputWriter } from '../outputWriter';
+import { ProfileManager } from '../profileManager';
 
 /**
  * Command to fetch custom fields and add to autocomplete
+ * @param context Extension context
+ * @param profileName Optional profile name. If not provided, uses active profile
  */
-export async function fetchCustomFieldsCommand(context: vscode.ExtensionContext): Promise<void> {
-    const baseClient = await createClient(context);
+export async function fetchCustomFieldsCommand(context: vscode.ExtensionContext, profileName?: string): Promise<void> {
+    const profileManager = new ProfileManager(context);
+
+    // Get base client for specified or active profile
+    let baseClient;
+    let targetProfileName: string;
+
+    if (profileName) {
+        baseClient = await createClientForProfile(context, profileName);
+        targetProfileName = profileName;
+    } else {
+        baseClient = await createClient(context);
+        const activeProfile = await profileManager.getActiveProfile();
+        if (!activeProfile) {
+            vscode.window.showErrorMessage('No active profile. Please create a profile first.');
+            return;
+        }
+        targetProfileName = activeProfile.name;
+    }
 
     if (!baseClient) {
-        vscode.window.showErrorMessage('No active profile. Please create a profile first.');
+        // Error message already shown by createClient/createClientForProfile
         return;
     }
 
-    // Get credentials from the active profile
-    const profileManager = await import('../profileManager');
-    const pm = new profileManager.ProfileManager(context);
-    const activeProfile = await pm.getActiveProfile();
-
-    if (!activeProfile) {
-        vscode.window.showErrorMessage('No active profile found.');
+    // Get the profile details
+    const profiles = await profileManager.getProfiles();
+    const targetProfile = profiles.find(p => p.name === targetProfileName);
+    if (!targetProfile) {
+        vscode.window.showErrorMessage(`Profile '${targetProfileName}' not found.`);
         return;
     }
 
-    const credentials = await pm.getProfileCredentials(activeProfile.name);
+    const credentials = await profileManager.getProfileCredentials(targetProfileName);
     if (!credentials) {
-        vscode.window.showErrorMessage('No credentials found for active profile.');
+        vscode.window.showErrorMessage(`No credentials found for profile '${targetProfileName}'.`);
         return;
     }
 
     const client = new CustomFieldsClient({
         accessId: credentials.accessId,
         accessKey: credentials.accessKey,
-        endpoint: pm.getProfileEndpoint(activeProfile)
+        endpoint: profileManager.getProfileEndpoint(targetProfile)
     });
 
     await vscode.window.withProgress({
@@ -86,7 +104,7 @@ export async function fetchCustomFieldsCommand(context: vscode.ExtensionContext)
         // Format as table
         const tableText = CustomFieldsClient.formatCustomFieldsAsTable(customFields);
 
-        const outputText = `Sumo Logic Custom Fields (${activeProfile.name})\n` +
+        const outputText = `Sumo Logic Custom Fields (${targetProfile.name})\n` +
                           `==========================================\n` +
                           `Total: ${customFields.length} fields\n` +
                           `\n` +
@@ -96,7 +114,7 @@ export async function fetchCustomFieldsCommand(context: vscode.ExtensionContext)
 
         // Write to file
         const outputWriter = new OutputWriter(context);
-        const filename = `customfields_${activeProfile.name}`;
+        const filename = `customfields_${targetProfile.name}`;
 
         try {
             await outputWriter.writeAndOpen('customfields', filename, outputText, 'txt');

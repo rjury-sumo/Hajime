@@ -123,7 +123,7 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
     const fieldMetadataJson = JSON.stringify(fieldAnalysis.fields);
 
     // Build HTML table
-    let html = `
+    const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -734,6 +734,90 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         .json-null {
             color: #569cd6;
         }
+        /* Timestamp Format Dialog */
+        .timestamp-dialog-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+        }
+        .timestamp-dialog-overlay.show {
+            display: flex;
+        }
+        .timestamp-dialog {
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 6px;
+            padding: 20px;
+            min-width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .timestamp-dialog-header {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .timestamp-dialog-body {
+            margin-bottom: 20px;
+        }
+        .timestamp-dialog-label {
+            display: block;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 5px;
+        }
+        .timestamp-dialog-input {
+            width: 100%;
+            padding: 6px 10px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 12px;
+            font-family: var(--vscode-editor-font-family);
+            box-sizing: border-box;
+        }
+        .timestamp-dialog-input:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+        .timestamp-dialog-hint {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 5px;
+        }
+        .timestamp-dialog-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .timestamp-dialog-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .timestamp-dialog-btn.primary {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+        .timestamp-dialog-btn.primary:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .timestamp-dialog-btn.secondary {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        .timestamp-dialog-btn.secondary:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
     </style>
 </head>
 <body>
@@ -803,15 +887,11 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         <div class="toolbar-section">
             <div class="column-toggle">
                 <button class="toolbar-button secondary" onclick="toggleColumnMenu()">Columns ▾</button>
-                <div class="column-menu" id="columnMenu">
-                    ${keys.map((key, idx) => `
-                        <div class="column-menu-item">
-                            <input type="checkbox" id="col-toggle-${idx}" checked onchange="toggleColumn(${idx})">
-                            <label for="col-toggle-${idx}">${escapeHtml(key)}</label>
-                        </div>
-                    `).join('')}
-                </div>
+                <div class="column-menu" id="columnMenu"></div>
             </div>
+            <button class="toolbar-button secondary" id="toggleTimestampBtn" onclick="toggleTimestampFormat()" title="Toggle timestamp format">
+                <span id="timestampBtnText">Format Timestamps</span>
+            </button>
             <button class="toolbar-button" onclick="exportToCSV()">Export CSV</button>
             <button class="toolbar-button" onclick="exportToJSON()">Export JSON</button>
             <button class="toolbar-button secondary" onclick="copyVisible()">Copy Visible</button>
@@ -906,6 +986,26 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         </div>
     </div>
 
+    <!-- Timestamp Format Dialog -->
+    <div class="timestamp-dialog-overlay" id="timestampDialog">
+        <div class="timestamp-dialog">
+            <div class="timestamp-dialog-header">Timestamp Format Configuration</div>
+            <div class="timestamp-dialog-body">
+                <label class="timestamp-dialog-label">
+                    Date Format String:
+                </label>
+                <input type="text" class="timestamp-dialog-input" id="timestampFormatInput" value="yyyy/MM/dd HH:mm:ss.SSS ZZZ">
+                <div class="timestamp-dialog-hint">
+                    Format tokens: yyyy=year, MM=month, dd=day, HH=hour (24h), mm=minute, ss=second, SSS=millisecond, ZZZ=timezone
+                </div>
+            </div>
+            <div class="timestamp-dialog-actions">
+                <button class="timestamp-dialog-btn secondary" onclick="closeTimestampDialog()">Cancel</button>
+                <button class="timestamp-dialog-btn primary" onclick="applyTimestampFormat()">Apply</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Acquire VS Code API first
         const vscode = acquireVsCodeApi();
@@ -914,17 +1014,45 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
         const pageSize = ${queryInfo.pageSize};
         const columns = ${keysJson};
         const fieldMetadata = ${fieldMetadataJson};
+        const queryMode = '${queryInfo.mode}';
         let sortColumn = -1;
         let sortAscending = true;
         let currentPage = 1;
         let totalPages = 1;
         let filteredData = [];
+
+        // Default hidden columns for Messages mode
+        const defaultHiddenColumnsForMessages = ['_blockid', '_collectorid', '_format', '_messagecount', '_messageid', '_receipttime', '_searchabletime', '_size', '_sourceid'];
         let hiddenColumns = new Set();
+
+        // Initialize hidden columns based on mode
+        if (queryMode === 'messages') {
+            columns.forEach((col, idx) => {
+                if (defaultHiddenColumnsForMessages.includes(col)) {
+                    hiddenColumns.add(idx);
+                }
+            });
+        }
 
         // Field browser state
         let fieldSortColumn = 'name';
         let fieldSortAscending = true;
         let fieldFilterText = '';
+
+        // Timestamp formatting state
+        let timestampsFormatted = true;
+        let timestampFormatString = 'yyyy/MM/dd HH:mm:ss.SSS ZZZ';
+        const timestampColumns = new Set();
+
+        // Identify timestamp columns from field metadata
+        fieldMetadata.forEach((field, idx) => {
+            if (field.isTimeField) {
+                const colIdx = columns.indexOf(field.name);
+                if (colIdx !== -1) {
+                    timestampColumns.add(colIdx);
+                }
+            }
+        });
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -1144,6 +1272,130 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             });
         }
 
+        // Timestamp formatting functions
+        function formatTimestamp(epochMs, formatString) {
+            const date = new Date(parseInt(epochMs));
+
+            // Simple format string replacement
+            let formatted = formatString;
+
+            // Year
+            formatted = formatted.replace('yyyy', date.getFullYear().toString());
+            formatted = formatted.replace('yy', date.getFullYear().toString().slice(-2));
+
+            // Month
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            formatted = formatted.replace('MM', month);
+            formatted = formatted.replace('M', (date.getMonth() + 1).toString());
+
+            // Day
+            const day = date.getDate().toString().padStart(2, '0');
+            formatted = formatted.replace('dd', day);
+            formatted = formatted.replace('d', date.getDate().toString());
+
+            // Hour (24h)
+            const hour = date.getHours().toString().padStart(2, '0');
+            formatted = formatted.replace('HH', hour);
+            formatted = formatted.replace('H', date.getHours().toString());
+
+            // Minute
+            const minute = date.getMinutes().toString().padStart(2, '0');
+            formatted = formatted.replace('mm', minute);
+
+            // Second
+            const second = date.getSeconds().toString().padStart(2, '0');
+            formatted = formatted.replace('ss', second);
+
+            // Millisecond
+            const ms = date.getMilliseconds().toString().padStart(3, '0');
+            formatted = formatted.replace('SSS', ms);
+
+            // Timezone
+            const tzOffset = -date.getTimezoneOffset();
+            const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0');
+            const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0');
+            const tzString = (tzOffset >= 0 ? '+' : '-') + tzHours + ':' + tzMinutes;
+            formatted = formatted.replace('ZZZ', tzString);
+            formatted = formatted.replace('ZZ', tzString);
+            formatted = formatted.replace('Z', tzString);
+
+            return formatted;
+        }
+
+        function toggleTimestampFormat() {
+            if (!timestampsFormatted) {
+                // Show dialog first time
+                document.getElementById('timestampDialog').classList.add('show');
+            } else {
+                // Toggle back to raw
+                timestampsFormatted = false;
+                updateTimestampDisplay();
+            }
+        }
+
+        function closeTimestampDialog() {
+            document.getElementById('timestampDialog').classList.remove('show');
+        }
+
+        function applyTimestampFormat() {
+            const formatInput = document.getElementById('timestampFormatInput');
+            timestampFormatString = formatInput.value || 'yyyy/MM/dd HH:mm:ss.SSS ZZZ';
+            timestampsFormatted = true;
+            closeTimestampDialog();
+            updateTimestampDisplay();
+        }
+
+        function updateTimestampDisplay() {
+            const tbody = document.getElementById('tableBody');
+            const rows = tbody.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const rowIdx = parseInt(row.dataset.row);
+                const cells = row.querySelectorAll('td');
+
+                cells.forEach((cell, colIdx) => {
+                    if (timestampColumns.has(colIdx)) {
+                        const rawValue = allData[rowIdx][columns[colIdx]];
+
+                        if (rawValue && rawValue !== '') {
+                            if (timestampsFormatted) {
+                                // Format the timestamp
+                                const formatted = formatTimestamp(rawValue, timestampFormatString);
+                                cell.textContent = formatted;
+                                cell.title = 'Raw: ' + rawValue; // Show raw value in tooltip
+                            } else {
+                                // Show raw value
+                                cell.textContent = rawValue;
+                                cell.title = '';
+                            }
+                        }
+                    }
+                });
+            });
+
+            // Update button text
+            const btnText = document.getElementById('timestampBtnText');
+            btnText.textContent = timestampsFormatted ? 'Show Raw Timestamps' : 'Format Timestamps';
+        }
+
+        // Close dialog when clicking outside
+        document.addEventListener('click', (e) => {
+            const dialog = document.getElementById('timestampDialog');
+            if (e.target === dialog) {
+                closeTimestampDialog();
+            }
+        });
+
+        // Handle escape key for timestamp dialog
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const dialog = document.getElementById('timestampDialog');
+                if (dialog.classList.contains('show')) {
+                    closeTimestampDialog();
+                }
+            }
+        });
+
         function sortTable(columnIndex) {
             const tbody = document.getElementById('tableBody');
             const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -1270,10 +1522,14 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
             }
         }
 
-        // Initialize pagination
+        // Initialize column menu and pagination
+        initializeColumnMenu();
         filteredData = allData.map((_, idx) => idx);
         updatePagination();
         renderPage();
+
+        // Initialize timestamp formatting (default to formatted state)
+        updateTimestampDisplay();
 
         // Global search functionality
         function globalSearch() {
@@ -1384,6 +1640,41 @@ export function formatRecordsAsHTML(records: any[], queryInfo: { query: string; 
                 } else {
                     cell.style.display = '';
                 }
+            });
+        }
+
+        // Initialize column menu
+        function initializeColumnMenu() {
+            const columnMenu = document.getElementById('columnMenu');
+            columnMenu.innerHTML = columns.map((key, idx) => {
+                const isChecked = !hiddenColumns.has(idx);
+                return \`
+                    <div class="column-menu-item">
+                        <input type="checkbox" id="col-toggle-\${idx}" \${isChecked ? 'checked' : ''} onchange="toggleColumn(\${idx})">
+                        <label for="col-toggle-\${idx}">\${escapeHtml(key)}</label>
+                    </div>
+                \`;
+            }).join('');
+
+            // Apply initial hidden state to table columns
+            hiddenColumns.forEach(columnIndex => {
+                // Update header cells
+                const headerCells = document.querySelectorAll(\`th[data-column="\${columnIndex}"]\`);
+                headerCells.forEach(cell => {
+                    cell.style.display = 'none';
+                });
+
+                // Update filter row cells
+                const filterCells = document.querySelectorAll(\`.filter-row th:nth-child(\${columnIndex + 1})\`);
+                filterCells.forEach(cell => {
+                    cell.style.display = 'none';
+                });
+
+                // Update data cells
+                const dataCells = document.querySelectorAll(\`td:nth-child(\${columnIndex + 1})\`);
+                dataCells.forEach(cell => {
+                    cell.style.display = 'none';
+                });
             });
         }
 

@@ -2,6 +2,9 @@
 
 Hajime Sumo Logic Query extension for visual studio code provides a rich IDE experience for working with Sumo Logic searches as .sumo files, and and explorer interface for browsing library content and accessing administrative functions. Write, execute, and visualize queries, manage multiple deployment connections, and interact with Sumo Logic APIs - all from within VS Code!
 
+To see pages version with video goto: https://rjury-sumo.github.io/Hajime/
+
+
 - [Sumo Logic Query Language Support](#sumo-logic-query-language-support)
   - [Overview](#overview)
     - [🎯 Tree View Sidebar for Easy Navigation](#-tree-view-sidebar-for-easy-navigation)

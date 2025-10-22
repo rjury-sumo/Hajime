@@ -113,7 +113,7 @@ Dedicated sidebar in the activity bar provides one-click access to:
 ### 🎯 IDE Experience for Query Development
 
 Rich language support for `.sumo` files with intelligent autocomplete for all log search operators and built in fields. Additional advanced auto complete experience:
-- **Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list
+- **Parser Snippets** Over 10000 query parser snippets from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser<filter>` to trigger parser autocomplete. For example ```parsernginx```
 - **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
 - **Context-Aware Suggestions** - metadata field values suggested as you type (e.g., `_sourceCategory=` shows your actual categories)
 - **Syntax Highlighting** with full support for operators, functions, comments, and regex patterns
@@ -233,7 +233,9 @@ code --uninstall-extension publisher.sumo-query-language
 - **IntelliSense/Autocomplete**: Intelligent code completion for:
   - 100+ Sumo Logic operators and functions
   - Built-in metadata fields
-  - Hundreds of parser snippets from Sumo Logic apps (filterable by app name) type 'parser' to trigger then type part of app to search.
+  - 10000+ parser snippets from Sumo Logic apps (filterable by app name) type 'parser' to trigger then type part of app to search.  For example ```parsernginx```
+![alt text](images/parser_snippet.png)  
+
   - Dynamic fields from query results 
   - Custom fields from API (Fetch Custom Fields action)
   - Partition names for _index and _view (Fetch Partitons action)

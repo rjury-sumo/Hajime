@@ -16,6 +16,8 @@ To see pages version with video goto: https://rjury-sumo.github.io/Hajime/
     - [🔧 API Integration \& Metadata Management Under a Profile Node](#-api-integration--metadata-management-under-a-profile-node)
     - [📚 Library Explorer - Navigate Your Content Library](#-library-explorer---navigate-your-content-library)
   - [Quick Start](#quick-start)
+    - [Install the Extension](#install-the-extension)
+    - [Create a profile and your first query](#create-a-profile-and-your-first-query)
   - [Detailed Features](#detailed-features)
     - [Language Support](#language-support)
   - [Usage Guide](#usage-guide)
@@ -193,8 +195,9 @@ Full hierarchical tree view of your Sumo Logic content library with intelligent 
 
 ## Quick Start
 
-1. **Install the Extension** - Search for "Sumo Logic Query Language" in VS Code extensions (once it's published!) For now the local instructions are:
-2. 
+### Install the Extension 
+Not yet published on store. For now the local instructions are:
+
 ```bash
 # Package extension locally
 npx @vscode/vsce package
@@ -209,11 +212,12 @@ code --install-extension sumo-query-language-0.1.0.vsix
 code --uninstall-extension publisher.sumo-query-language
 ```
 
-2. **Open Sumo Logic Sidebar** - Click the Sumo Logic icon in the activity bar (left sidebar)
-3. **Create a Profile** - Click "Create your first profile" in the sidebar or run `Sumo Logic: Create/Update Connection Profile`
-4. **Create a Query** - Click "New Query" in Quick Actions or create a file with `.sumo` extension
-5. **Write Your Query** - Use autocomplete (`Ctrl+Space`) to discover operators, functions, and parsers
-6. **Execute** - Click the inline ▶ Run Query button above your query, use toolbar buttons, or press `Ctrl+Enter` (Windows/Linux) or `Cmd+Enter` (Mac)
+### Create a profile and your first query
+1. **Open Sumo Logic Sidebar** - Click the Sumo Logic icon in the activity bar (left sidebar)
+2. **Create a Profile** - Click "Create your first profile" in the sidebar or run `Sumo Logic: Create/Update Connection Profile`
+3. **Create a Query** - Click "New Query" in Quick Actions or create a file with `.sumo` extension
+4. **Write Your Query** - Use autocomplete (`Ctrl+Space`) to discover operators, functions, and parsers
+5. **Execute** - Click the inline ▶ Run Query button above your query, use toolbar buttons, or press `Ctrl+Enter` (Windows/Linux) or `Cmd+Enter` (Mac)
 
 ## Detailed Features
 

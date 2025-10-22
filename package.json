@@ -2,7 +2,7 @@
     "name": "sumo-query-language",
     "displayName": "Sumo Logic Query Language",
     "description": "Language support for Sumo Logic search queries with syntax highlighting, snippets, and autocomplete. Includes Sumo Logic Explorer for managing connection profiles, running queries, and browsing Sumo Logic content directly from VS Code.",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "publisher": "RickJury",
     "license": "MIT",
     "repository": {

@@ -53,8 +53,13 @@ Hajime Sumo Logic Query extension for visual studio code provides a rich IDE exp
 
 **Hajime** transforms VS Code into a powerful development environment for Sumo Logic, offering:
 
+<video controls src="images/query.edit.webview.chart.mp4" title="Title"></video>
+
+
 ### 🎯 Tree View Sidebar for Easy Navigation
 Dedicated sidebar in the activity bar provides one-click access to:
+
+<video controls src="images/explorer.tree.functions.mp4" title=""></video>
 
 **Root Level Sections:**
 - **Active Profile** - See current connection at a glance
@@ -70,7 +75,7 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - Cache metadata for autocomplete in .sumo editor windows
   - Generate queries from scopes with field lists
   - Auto-create scopes from partitions
-- **Storage Explorer** - Browse profile-specific cached files and directories
+- **Storage Explorer** - Browse profile-specific cached files and directories used by the extension. This defaults to ~/.sumologic/<profile>
 
 **Under Each Profile (Expandable):**
 - **Test Connection** - Quick connectivity check
@@ -101,6 +106,7 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - All data cached to `<profile>/account/` folder
 
 ### 🎯 IDE Experience for Query Development
+
 Rich language support for `.sumo` files with intelligent autocomplete for all log search operators and built in fields. Additional advanced auto complete experience:
 - **Parser Snippets** from Sumo Logic apps (AWS, Azure, GCP, security tools, etc.) Type `parser` to trigger list
 - **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
@@ -128,10 +134,6 @@ Execute queries directly from VS Code with flexible output options:
 - **Context Menus** - Right-click in .sumo files or file explorer for quick actions
 - **Multiple Outputs** - formatted tables, JSON, or CSV files, or option to open in a webview
 - **Quick-Charting** - Quick visualization with Apache ECharts (line, bar, pie, scatter charts) from a shortcut action in .sumo file that produces a csv format file for charting visualize using apache echart
-![Query Buttons](docs/images/sumo%20buttons.png)
-![Query Webview Output](docs/images/query.webview.output.png)
-![Category Chart](docs/images/category.echart.png)
-![Timeseries Chart](docs/images/timeseries.transpose.echart.png)
 
 ### Interactive Webview For Query Message or Records Results
 Open a JSON query result file in a paginated, sortable, filterable table for exploring large result sets with:
@@ -241,6 +243,8 @@ code --uninstall-extension publisher.sumo-query-language
 ### Working with Scopes
 
 Scopes help you organize and explore log data by defining reusable search contexts:
+
+<video controls src="images/scopes.mp4" title="Title"></video>
 
 1. **Create a Scope**:
    - Click "Scopes" in the sidebar, then click "Create Scope" button

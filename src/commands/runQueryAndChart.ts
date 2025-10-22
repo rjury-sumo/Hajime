@@ -174,7 +174,9 @@ export async function runQueryAndChartCommand(context: vscode.ExtensionContext):
         query: cleanedQuery,
         from: fromTime,
         to: toTime,
-        timeZone: metadata.timeZone || 'UTC'
+        timeZone: metadata.timeZone || 'UTC',
+        byReceiptTime: metadata.byReceiptTime,
+        autoParsingMode: metadata.autoParsingMode
     };
 
     // Enable debug mode if requested

@@ -67,7 +67,12 @@ function formatRecordsAsCSV(records: any[]): string {
         Object.keys(record.map).forEach(key => allKeys.add(key));
     });
 
-    const keys = Array.from(allKeys);
+    // Sort keys to ensure _timeslice comes first (for time series charts)
+    const keys = Array.from(allKeys).sort((a, b) => {
+        if (a === '_timeslice') return -1;
+        if (b === '_timeslice') return 1;
+        return a.localeCompare(b);
+    });
 
     // Helper to escape CSV values
     const escapeCSV = (value: any): string => {
@@ -97,6 +102,335 @@ function formatRecordsAsCSV(records: any[]): string {
 function formatResultsAsJSON(results: any[]): string {
     return JSON.stringify(results, null, 2);
 }
+
+// ============================================================================
+// SHARED QUERY EXECUTION FUNCTIONS
+// Used by runQuery, runQueryAndChart, and runQueryWebview commands
+// ============================================================================
+
+/**
+ * Get active profile and create authenticated SearchJobClient
+ */
+export async function getActiveProfileClient(context: vscode.ExtensionContext): Promise<{
+    client: SearchJobClient;
+    profileName: string;
+} | null> {
+    const baseClient = await createClient(context);
+    if (!baseClient) {
+        vscode.window.showErrorMessage('No credentials configured. Please run "Sumo Logic: Configure Credentials" first.');
+        return null;
+    }
+
+    const profileManager = new ProfileManager(context);
+    const activeProfile = await profileManager.getActiveProfile();
+    if (!activeProfile) {
+        vscode.window.showErrorMessage('No active profile found. Please select a profile first.');
+        return null;
+    }
+
+    const credentials = await profileManager.getProfileCredentials(activeProfile.name);
+    if (!credentials) {
+        vscode.window.showErrorMessage(`No credentials found for profile '${activeProfile.name}'`);
+        return null;
+    }
+
+    const client = new SearchJobClient({
+        accessId: credentials.accessId,
+        accessKey: credentials.accessKey,
+        endpoint: baseClient.getEndpoint()
+    });
+
+    return {
+        client,
+        profileName: activeProfile.name
+    };
+}
+
+/**
+ * Process query metadata, handle parameters, and clean query
+ */
+export async function processQueryMetadata(queryText: string): Promise<{
+    metadata: ReturnType<typeof parseQueryMetadata>;
+    cleanedQuery: string;
+} | null> {
+    const metadata = parseQueryMetadata(queryText);
+    let cleanedQuery = cleanQuery(queryText);
+
+    // Handle query parameters
+    const queryParams = extractQueryParams(cleanedQuery);
+    const paramValues = metadata.params || new Map<string, string>();
+
+    // Check for missing parameters
+    const missingParams: string[] = [];
+    for (const param of queryParams) {
+        if (!paramValues.has(param)) {
+            missingParams.push(param);
+        }
+    }
+
+    // Prompt for missing parameters
+    if (missingParams.length > 0) {
+        vscode.window.showWarningMessage(
+            `Missing parameter values for: ${missingParams.join(', ')}. Using default values from @param directives or prompting.`
+        );
+
+        for (const param of missingParams) {
+            const value = await vscode.window.showInputBox({
+                prompt: `Enter value for parameter '${param}'`,
+                value: '*',
+                ignoreFocusOut: true
+            });
+
+            if (value === undefined) {
+                return null; // User cancelled
+            }
+
+            paramValues.set(param, value);
+        }
+    }
+
+    // Substitute parameters
+    cleanedQuery = substituteParams(cleanedQuery, paramValues);
+
+    return { metadata, cleanedQuery };
+}
+
+/**
+ * Prompt for time range if not specified in metadata
+ */
+export async function promptForTimeRange(metadata: ReturnType<typeof parseQueryMetadata>): Promise<{
+    from: string;
+    to: string;
+} | null> {
+    let from = metadata.from;
+    let to = metadata.to;
+
+    if (!from) {
+        from = await vscode.window.showInputBox({
+            prompt: 'Enter start time (e.g., -1h, -30m, -1d, or ISO timestamp)',
+            value: '-1h',
+            ignoreFocusOut: true
+        });
+
+        if (!from) {
+            return null; // User cancelled
+        }
+    }
+
+    if (!to) {
+        to = await vscode.window.showInputBox({
+            prompt: 'Enter end time (e.g., now, -30m, or ISO timestamp)',
+            value: 'now',
+            ignoreFocusOut: true
+        });
+
+        if (!to) {
+            return null; // User cancelled
+        }
+    }
+
+    return { from, to };
+}
+
+/**
+ * Determine query mode (records vs messages)
+ */
+export async function determineQueryMode(
+    metadata: ReturnType<typeof parseQueryMetadata>,
+    cleanedQuery: string,
+    forceMode?: 'records' | 'messages'
+): Promise<'records' | 'messages' | null> {
+    if (forceMode) {
+        return forceMode;
+    }
+
+    let mode: 'records' | 'messages' = metadata.mode || 'records';
+
+    // If no explicit mode and query doesn't look like aggregation, prompt user
+    if (!metadata.mode && !isAggregationQuery(cleanedQuery)) {
+        const modeChoice = await vscode.window.showQuickPick(
+            [
+                { label: 'Messages (Raw Events)', value: 'messages', description: 'Return raw log messages' },
+                { label: 'Records (Aggregated)', value: 'records', description: 'Return aggregated results' }
+            ],
+            {
+                placeHolder: 'This appears to be a raw search. Select result type:',
+                ignoreFocusOut: true
+            }
+        );
+
+        if (!modeChoice) {
+            return null;
+        }
+        mode = modeChoice.value as 'records' | 'messages';
+    }
+
+    return mode;
+}
+
+/**
+ * Execute search job and return results
+ */
+export async function executeSearchJob(
+    client: SearchJobClient,
+    request: SearchJobRequest,
+    mode: 'records' | 'messages',
+    options?: {
+        progressTitle?: string;
+        debugChannel?: vscode.OutputChannel;
+    }
+): Promise<{
+    results: any[];
+    jobStats?: any;
+    executionTime: number;
+} | null> {
+    const startTime = Date.now();
+    let finalJobStats: any;
+
+    return await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: options?.progressTitle || 'Running Sumo Logic query...',
+        cancellable: false
+    }, async (progress) => {
+        progress.report({ message: 'Creating search job...' });
+
+        if (options?.debugChannel) {
+            options.debugChannel.appendLine('--- Request Payload ---');
+            options.debugChannel.appendLine(JSON.stringify(request, null, 2));
+            options.debugChannel.appendLine('');
+        }
+
+        // Create job
+        const createResponse = await client.createSearchJob(request);
+        if (createResponse.error || !createResponse.data) {
+            if (options?.debugChannel) {
+                options.debugChannel.appendLine('--- Create Job Error ---');
+                options.debugChannel.appendLine(`Error: ${createResponse.error}`);
+                options.debugChannel.appendLine(`Status Code: ${createResponse.statusCode}`);
+                options.debugChannel.appendLine('');
+            }
+            vscode.window.showErrorMessage(`Failed to create search job: ${createResponse.error}`);
+            return null;
+        }
+
+        const jobId = createResponse.data.id;
+        progress.report({ message: `Job created: ${jobId}` });
+
+        if (options?.debugChannel) {
+            options.debugChannel.appendLine('--- Job Created ---');
+            options.debugChannel.appendLine(`Job ID: ${jobId}`);
+            options.debugChannel.appendLine('');
+        }
+
+        // Poll for completion
+        const pollResponse = await client.pollForCompletion(jobId, (status: SearchJobStatus) => {
+            finalJobStats = status;
+            progress.report({
+                message: `State: ${status.state}, Records: ${status.recordCount}, Messages: ${status.messageCount}`
+            });
+            if (options?.debugChannel) {
+                options.debugChannel.appendLine(`Status: ${status.state}, Records: ${status.recordCount}, Messages: ${status.messageCount}`);
+            }
+        });
+
+        if (pollResponse.error) {
+            if (options?.debugChannel) {
+                options.debugChannel.appendLine('--- Poll Error ---');
+                options.debugChannel.appendLine(`Error: ${pollResponse.error}`);
+            }
+            vscode.window.showErrorMessage(`Search job failed: ${pollResponse.error}`);
+            return null;
+        }
+
+        progress.report({ message: 'Fetching results...' });
+
+        // Fetch results based on mode
+        let results: any[];
+        if (mode === 'messages') {
+            const messagesResponse = await client.getMessages(jobId);
+            if (messagesResponse.error || !messagesResponse.data) {
+                vscode.window.showErrorMessage(`Failed to fetch messages: ${messagesResponse.error}`);
+                await client.deleteSearchJob(jobId);
+                return null;
+            }
+            results = messagesResponse.data.messages;
+        } else {
+            const recordsResponse = await client.getRecords(jobId);
+            if (recordsResponse.error || !recordsResponse.data) {
+                vscode.window.showErrorMessage(`Failed to fetch records: ${recordsResponse.error}`);
+                await client.deleteSearchJob(jobId);
+                return null;
+            }
+            results = recordsResponse.data.records;
+        }
+
+        // Clean up job
+        await client.deleteSearchJob(jobId);
+
+        const executionTime = Date.now() - startTime;
+
+        return {
+            results,
+            jobStats: finalJobStats,
+            executionTime
+        };
+    });
+}
+
+/**
+ * Save query results to file and update recent results menu
+ */
+export async function saveQueryResults(
+    context: vscode.ExtensionContext,
+    results: any[],
+    options: {
+        queryIdentifier: string;
+        mode: 'records' | 'messages';
+        from: string;
+        to: string;
+        format: 'json' | 'csv' | 'txt';
+        content: string;
+    }
+): Promise<string | undefined> {
+    const outputWriter = new OutputWriter(context);
+    const filename = `query_${options.queryIdentifier}_${options.mode}_${options.from}_to_${options.to}`;
+
+    try {
+        const filePath = await outputWriter.writeOutput('queries', filename, options.content, options.format);
+
+        // Track the result file in recent results
+        const explorerProvider = getSumoExplorerProvider();
+        if (explorerProvider && filePath) {
+            const recentResultsManager = explorerProvider.getRecentResultsManager();
+            recentResultsManager.addResult(filePath);
+            explorerProvider.refresh();
+        }
+
+        return filePath;
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to write results: ${error}`);
+        return undefined;
+    }
+}
+
+/**
+ * Update dynamic field autocomplete from results
+ */
+export function updateDynamicFieldAutocomplete(results: any[]): void {
+    const dynamicProvider = getDynamicCompletionProvider();
+    if (dynamicProvider) {
+        dynamicProvider.addFieldsFromResults(results);
+    }
+}
+
+/**
+ * Format records as CSV (exported for use by other commands)
+ */
+export { formatRecordsAsCSV };
+
+// ============================================================================
+// END SHARED QUERY EXECUTION FUNCTIONS
+// ============================================================================
 
 /**
  * Format records as HTML for webview display with sorting, filtering, and pagination

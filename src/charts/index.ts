@@ -7,6 +7,7 @@ import { ChartRegistry } from './chartRegistry';
 import { categoryChartType } from './types/categoryChart';
 import { timeseriesChartType } from './types/timeseriesChart';
 import { timeseriesSeriesChartType } from './types/timeseriesSeriesChart';
+import { timesliceTransposeChartType } from './types/timesliceTransposeChart';
 
 /**
  * Initialize chart registry with built-in chart types
@@ -18,6 +19,7 @@ export function initializeChartRegistry(): ChartRegistry {
     registry.registerChartType(categoryChartType);
     registry.registerChartType(timeseriesChartType);
     registry.registerChartType(timeseriesSeriesChartType);
+    registry.registerChartType(timesliceTransposeChartType);
 
     return registry;
 }
@@ -28,3 +30,4 @@ export * from './chartTypes';
 export { categoryChartType } from './types/categoryChart';
 export { timeseriesChartType } from './types/timeseriesChart';
 export { timeseriesSeriesChartType } from './types/timeseriesSeriesChart';
+export { timesliceTransposeChartType } from './types/timesliceTransposeChart';

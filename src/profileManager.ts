@@ -193,6 +193,14 @@ export class ProfileManager {
     }
 
     /**
+     * Get the search audit directory path for a specific profile
+     * This is where search audit query results are stored
+     */
+    getProfileSearchAuditDirectory(profileName: string): string {
+        return path.join(this.getProfileDirectory(profileName), 'search_audit');
+    }
+
+    /**
      * Get the output directory path for a specific profile
      * This is where exported/generated files are stored
      */
@@ -233,6 +241,12 @@ export class ProfileManager {
         const dashboardsDir = this.getProfileDashboardsDirectory(profileName);
         if (!fs.existsSync(dashboardsDir)) {
             fs.mkdirSync(dashboardsDir, { recursive: true });
+        }
+
+        // Create search_audit subdirectory
+        const searchAuditDir = this.getProfileSearchAuditDirectory(profileName);
+        if (!fs.existsSync(searchAuditDir)) {
+            fs.mkdirSync(searchAuditDir, { recursive: true });
         }
     }
 

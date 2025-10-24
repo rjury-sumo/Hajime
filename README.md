@@ -109,6 +109,12 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - Usage forecast with configurable time periods (7, 28, 90, or custom days)
   - Generate credits usage reports with job polling and CSV export
   - All data cached to `<profile>/account/` folder
+- **Search Audit** - Analyze search usage patterns and performance
+  - Query search audit index with customizable filters (time range, user, query type, content name)
+  - Advanced filtering with keyword expressions and regex patterns
+  - Interactive results table with expand/collapse query view, sorting, and filtering
+  - One-click query launching from results to new .sumo files
+  - Historical results stored in `<profile>/search_audit/` folder
 
 ### 🎯 IDE Experience for Query Development
 

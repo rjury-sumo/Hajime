@@ -5,6 +5,26 @@ All notable changes to the "Sumo Logic Query Language" extension will be documen
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-10-24
+
+### Added
+- **Search Audit Explorer**: New comprehensive search audit analysis feature under each profile
+  - Query search audit index (`_view=sumologic_search_usage_per_query`) with customizable filters
+  - Time range selection (from/to) with relative time support (-24h, -7d, etc.)
+  - Filter by user name, query type, content name using keyword expressions
+  - Filter by query text using keyword expressions (*, ?, quoted strings)
+  - Advanced regex filtering with Google RE2 format for granular query pattern matching
+  - Interactive webview form with inline help and keyword expression documentation links
+  - Performance warnings for regex filters vs keyword filters
+- **Search Audit Results Viewer**: Dedicated webview for analyzing search audit results
+  - Sortable, filterable table with key metrics (searches, scan GB, runtime, results)
+  - Expandable/collapsible query display with proper line breaks and monospace font
+  - Wide query column (600-800px) for better readability of complex queries
+  - One-click "Open" button to launch queries in new .sumo editor windows
+  - Summary statistics showing total searches, scan volume, and runtime
+  - Results automatically saved to `<profile>/search_audit/` with timestamped filenames
+  - Click Search Audit node to open query form and view previous results
+
 ## [0.2.1] - 2025-10-24
 
 ### Fixed

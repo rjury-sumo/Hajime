@@ -39,6 +39,8 @@ import { DashboardsWebviewProvider } from './views/dashboardsWebviewProvider';
 import { AccountWebviewProvider } from './views/accountWebviewProvider';
 import { registerUsersRolesCommands } from './commands/usersRoles';
 import { listMyDashboards, viewDashboards, getDashboardById } from './commands/dashboardCommands';
+import { SearchAuditWebviewProvider } from './views/searchAuditWebviewProvider';
+import { runSearchAuditQuery, openSearchAuditResult, viewSearchAudit } from './commands/searchAudit';
 
 // Global completion providers
 let dynamicCompletionProvider: DynamicCompletionProvider;
@@ -437,11 +439,12 @@ export function activate(context: vscode.ExtensionContext) {
     // Register users and roles commands
     registerUsersRolesCommands(context);
 
-    // Create webview providers for users, roles, dashboards, and account
+    // Create webview providers for users, roles, dashboards, account, and search audit
     const usersWebviewProvider = new UsersWebviewProvider(context.extensionUri, context);
     const rolesWebviewProvider = new RolesWebviewProvider(context.extensionUri, context);
     const dashboardsWebviewProvider = new DashboardsWebviewProvider(context.extensionUri, context);
     const accountWebviewProvider = new AccountWebviewProvider(context.extensionUri, context);
+    const searchAuditWebviewProvider = new SearchAuditWebviewProvider(context.extensionUri, context);
 
     const viewUsersCmd = vscode.commands.registerCommand('sumologic.viewUsers', async (profileName?: string) => {
         return usersWebviewProvider.show(profileName);
@@ -540,6 +543,19 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Register search audit commands
+    const runSearchAuditQueryCmd = vscode.commands.registerCommand('sumologic.runSearchAuditQuery', async (from?: string, to?: string, type?: string, userName?: string, contentName?: string, queryFilter?: string, queryRegex?: string) => {
+        return runSearchAuditQuery(context, from, to, type, userName, contentName, queryFilter, queryRegex);
+    });
+
+    const openSearchAuditResultCmd = vscode.commands.registerCommand('sumologic.openSearchAuditResult', async (filePath: string) => {
+        return openSearchAuditResult(context, filePath);
+    });
+
+    const viewSearchAuditCmd = vscode.commands.registerCommand('sumologic.viewSearchAudit', async (profileName?: string) => {
+        return searchAuditWebviewProvider.show(profileName);
+    });
+
     context.subscriptions.push(
         treeView,
         codeLensDisposable,
@@ -608,7 +624,10 @@ export function activate(context: vscode.ExtensionContext) {
         viewScopeCmd,
         profileScopeCmd,
         sampleScopeLogsCmd,
-        cacheScopeMetadataCmd
+        cacheScopeMetadataCmd,
+        runSearchAuditQueryCmd,
+        openSearchAuditResultCmd,
+        viewSearchAuditCmd
     );
 
     // Export context for tests

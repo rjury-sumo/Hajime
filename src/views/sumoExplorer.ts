@@ -27,6 +27,8 @@ export enum TreeItemType {
     ScopesSection = 'scopesSection',
     DashboardsSection = 'dashboardsSection',
     AccountSection = 'accountSection',
+    SearchAuditSection = 'searchAuditSection',
+    SearchAuditFile = 'searchAuditFile',
     Scope = 'scope',
     QuickAction = 'quickAction',
     RecentQuery = 'recentQuery',
@@ -249,6 +251,24 @@ export class SumoTreeItem extends vscode.TreeItem {
                     command: 'vscode.open',
                     title: 'Open File',
                     arguments: [vscode.Uri.file(this.data?.path)]
+                };
+                break;
+            case TreeItemType.SearchAuditSection:
+                this.iconPath = new vscode.ThemeIcon('search');
+                this.tooltip = 'Search Audit';
+                this.command = {
+                    command: 'sumologic.viewSearchAudit',
+                    title: 'View Search Audit',
+                    arguments: [this.profile?.name]
+                };
+                break;
+            case TreeItemType.SearchAuditFile:
+                this.iconPath = new vscode.ThemeIcon('file-code');
+                this.tooltip = this.data?.tooltip || this.label;
+                this.command = {
+                    command: 'sumologic.openSearchAuditResult',
+                    title: 'Open Search Audit Result',
+                    arguments: [this.data?.filePath]
                 };
                 break;
         }
@@ -555,6 +575,15 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
         items.push(new SumoTreeItem(
             'Account',
             TreeItemType.AccountSection,
+            vscode.TreeItemCollapsibleState.None,
+            profile,
+            { profileName: profile.name }
+        ));
+
+        // Search Audit section
+        items.push(new SumoTreeItem(
+            'Search Audit',
+            TreeItemType.SearchAuditSection,
             vscode.TreeItemCollapsibleState.None,
             profile,
             { profileName: profile.name }

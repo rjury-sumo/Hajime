@@ -10,12 +10,14 @@ export class DashboardsWebviewProvider {
     private static profileManager?: ProfileManager;
     private static currentProfileName?: string;
     private static currentDb?: DashboardsCacheDB;
+    private static currentContext?: vscode.ExtensionContext;
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly context: vscode.ExtensionContext
     ) {
         DashboardsWebviewProvider.profileManager = new ProfileManager(context);
+        DashboardsWebviewProvider.currentContext = context;
     }
 
     /**
@@ -224,28 +226,17 @@ export class DashboardsWebviewProvider {
             return;
         }
 
-        // Read the dashboard JSON to ensure it has the itemType field for proper detection
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
-        let dashboardContent = JSON.parse(fileContent);
-
-        // Dashboard API returns dashboards without an itemType field, but with properties like:
-        // title, description, panels, variables, etc.
-        // We need to add itemType: "Dashboard" so the webview can detect it properly
-        if (!dashboardContent.itemType && !dashboardContent.type) {
-            // This is a raw dashboard from the Dashboard API - add itemType
-            dashboardContent.itemType = 'Dashboard';
-
-            // Also ensure it has a name field (uses title from Dashboard API)
-            if (!dashboardContent.name && dashboardContent.title) {
-                dashboardContent.name = dashboardContent.title;
-            }
-
-            // Save the updated JSON back to the file so it has the correct structure
-            fs.writeFileSync(filePath, JSON.stringify(dashboardContent, null, 2), 'utf-8');
+        // Use the shared content opener which handles dashboard detection, recent tracking, and webview creation
+        const { openContentWebview } = await import('../utils/contentOpener');
+        if (!DashboardsWebviewProvider.currentContext) {
+            vscode.window.showErrorMessage('Extension context not available');
+            return;
         }
-
-        // Use openExportedContentFromPath which handles dashboard detection and shows the specialized webview
-        vscode.commands.executeCommand('sumologic.openExportedContentFromPath', filePath);
+        await openContentWebview(DashboardsWebviewProvider.currentContext, filePath, {
+            profileName,
+            contentId: dashboardId,
+            contentName: title
+        });
     }
 
     /**

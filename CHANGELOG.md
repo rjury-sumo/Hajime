@@ -5,6 +5,41 @@ All notable changes to the "Sumo Logic Query Language" extension will be documen
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-10-24
+
+### Fixed
+- **Recent Items Persistence**: Recent queries, content, and results now stored in `~/.sumologic/_global/recent/` directory instead of VSCode extension storage
+  - Recent items now persist across extension reloads and reinstalls
+  - Uses configured `sumologic.fileStoragePath` setting (defaults to `~/.sumologic`)
+  - More reliable storage location that's independent of VSCode
+- **Library Explorer Node Operations**: Fixed multiple issues with special top-level library nodes (Personal, Global, Admin Recommended, Installed Apps)
+  - Fixed "NOT NULL constraint" errors when refreshing special nodes
+  - Special nodes can now be properly refreshed using context menu
+  - Clicking on expanded special nodes now shows folder-specific webview with children table
+  - Fixed file path resolution for special nodes (now saves JSON with alias IDs)
+  - Added `itemType: 'Folder'` to exported folder objects for proper detection
+  - Children items now properly display in tree after expansion
+- **Content Opening Workflow**: Refactored content opening to use shared utility function
+  - Consolidated duplicate code from `openExportedContent.ts`, `viewLibraryContent.ts`, and `dashboardsWebviewProvider.ts`
+  - Dashboard API responses now properly normalized with `itemType` field
+  - Recent content tracking works consistently across all content sources
+
+### Added
+- **Folder Webview**: New dedicated webview for viewing folder contents
+  - Shows folder metadata (ID, path, description, created/modified info)
+  - Displays children in formatted table with Name, Type, Description columns
+  - "View" button for each child item to open them directly
+  - Used for Personal, Global, Admin Recommended, and Installed Apps folders
+- **Enhanced Logging**: Added comprehensive logging throughout library operations
+  - Logs for content fetch operations, caching, and file saves
+  - Easier debugging of library node expansion and content viewing
+  - All logs tagged with `[LibraryExplorer]`, `[libraryCommands]`, or `[viewLibraryContent]` prefixes
+
+### Changed
+- Recent content managers (`RecentContentManager`, `RecentQueriesManager`, `RecentResultsManager`) now require `ProfileManager` parameter
+- Library tree items for special nodes become clickable after being fetched
+- Special top-level nodes now save JSON files with both alias IDs and actual IDs for compatibility
+
 ## [0.2.0] - 2025-10-24
 
 ### Added

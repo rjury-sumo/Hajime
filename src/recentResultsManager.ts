@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { ProfileManager } from './profileManager';
 
 /**
  * Recent result entry
@@ -22,8 +23,8 @@ export class RecentResultsManager {
     private recentResultsFile: string;
     private results: RecentResult[] = [];
 
-    constructor(private context: vscode.ExtensionContext) {
-        const storagePath = context.globalStorageUri.fsPath;
+    constructor(private context: vscode.ExtensionContext, private profileManager: ProfileManager) {
+        const storagePath = profileManager.getGlobalRecentsPath();
         if (!fs.existsSync(storagePath)) {
             fs.mkdirSync(storagePath, { recursive: true });
         }

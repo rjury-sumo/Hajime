@@ -91,6 +91,14 @@ export async function refreshLibraryNodeCommand(
     context: vscode.ExtensionContext,
     treeItem: LibraryTreeItem
 ): Promise<void> {
+    // Check for special top-level nodes that need special handling
+    const specialNodes = ['personal', 'global', 'global_admin', 'adminRecommended', 'installedApps'];
+    if (specialNodes.includes(treeItem.contentId)) {
+        // For special nodes, clear the cache and refresh the tree
+        await refreshSpecialTopLevelNode(context, treeItem);
+        return;
+    }
+
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: `Refreshing ${treeItem.label}...`,
@@ -109,24 +117,66 @@ export async function refreshLibraryNodeCommand(
 }
 
 /**
+ * Refresh special top-level nodes (Personal, Global, etc.)
+ */
+async function refreshSpecialTopLevelNode(
+    context: vscode.ExtensionContext,
+    treeItem: LibraryTreeItem
+): Promise<void> {
+    const profileManager = new ProfileManager(context);
+    const profileDir = profileManager.getProfileDirectory(treeItem.profile);
+    const db = createLibraryCacheDB(profileDir, treeItem.profile);
+
+    try {
+        // Mark the node as not fetched so it will re-fetch on next expand
+        const item = db.getContentItem(treeItem.contentId);
+        if (item) {
+            item.childrenFetched = false;
+            db.upsertContentItem(item);
+            console.log(`[libraryCommands] Marked ${treeItem.contentId} as not fetched`);
+        }
+
+        // Trigger tree refresh
+        vscode.commands.executeCommand('sumologic.refreshExplorer');
+        vscode.window.showInformationMessage(`${treeItem.label} will be refreshed on next expand`);
+    } finally {
+        db.close();
+    }
+}
+
+/**
  * Fetch node from API and update cache
  */
 async function fetchAndUpdateNode(
     context: vscode.ExtensionContext,
     treeItem: LibraryTreeItem
 ): Promise<{ success: boolean; error?: string }> {
+    console.log(`[libraryCommands] fetchAndUpdateNode: ${treeItem.label} (ID: ${treeItem.contentId}, Type: ${treeItem.itemType})`);
+
+    // Check for special top-level nodes that cannot be refreshed this way
+    const specialNodes = ['personal', 'global', 'global_admin', 'adminRecommended', 'installedApps'];
+    if (specialNodes.includes(treeItem.contentId)) {
+        console.log(`[libraryCommands] Cannot refresh special node ${treeItem.contentId} - this requires special export handling`);
+        return {
+            success: false,
+            error: `Cannot refresh ${treeItem.label} using this command. Use the Library Explorer's expand/collapse to refresh.`
+        };
+    }
+
     const profileManager = new ProfileManager(context);
 
     // Get profile
     const profiles = await profileManager.getProfiles();
     const profile = profiles.find(p => p.name === treeItem.profile);
     if (!profile) {
+        console.log(`[libraryCommands] Profile not found: ${treeItem.profile}`);
         return { success: false, error: `Profile not found: ${treeItem.profile}` };
     }
 
     // Get credentials
     const credentials = await profileManager.getProfileCredentials(treeItem.profile);
     if (!credentials) {
+        console.log(`[libraryCommands] No credentials for profile: ${treeItem.profile}`);
         return { success: false, error: `No credentials for profile: ${treeItem.profile}` };
     }
 
@@ -144,14 +194,17 @@ async function fetchAndUpdateNode(
     try {
         // Fetch based on item type
         if (treeItem.itemType === 'Folder') {
+            console.log(`[libraryCommands] Fetching folder: ${treeItem.contentId}`);
             const response = await client.getFolder(treeItem.contentId);
             if (response.error || !response.data) {
+                console.log(`[libraryCommands] Folder fetch error: ${response.error}`, response);
                 return { success: false, error: response.error || 'Unknown error' };
             }
 
             // Update database
             const folder = response.data;
             const now = new Date().toISOString();
+            console.log(`[libraryCommands] Folder fetched successfully: ${folder.name}, children: ${folder.children?.length || 0}`);
 
             db.upsertContentItem({
                 id: folder.id,
@@ -200,10 +253,14 @@ async function fetchAndUpdateNode(
             fs.writeFileSync(filePath, JSON.stringify(folder, null, 2), 'utf-8');
         } else {
             // Non-folder: export content
+            console.log(`[libraryCommands] Exporting non-folder content: ${treeItem.contentId}`);
             const response = await client.exportContent(treeItem.contentId);
             if (response.error || !response.data) {
+                console.log(`[libraryCommands] Export content error: ${response.error}`, response);
                 return { success: false, error: response.error || 'Unknown error' };
             }
+
+            console.log(`[libraryCommands] Content exported successfully: ${response.data.name || 'unnamed'}`);
 
             // Save JSON
             const contentDir = profileManager.getProfileLibraryContentDirectory(treeItem.profile);
@@ -212,17 +269,23 @@ async function fetchAndUpdateNode(
             }
             const filePath = path.join(contentDir, `${treeItem.contentId}.json`);
             fs.writeFileSync(filePath, JSON.stringify(response.data, null, 2), 'utf-8');
+            console.log(`[libraryCommands] Content saved to: ${filePath}`);
 
             // Update database timestamp
             const item = db.getContentItem(treeItem.contentId);
             if (item) {
                 item.lastFetched = new Date().toISOString();
                 db.upsertContentItem(item);
+                console.log(`[libraryCommands] Updated database timestamp for: ${treeItem.contentId}`);
+            } else {
+                console.log(`[libraryCommands] Warning: Item not found in database: ${treeItem.contentId}`);
             }
         }
 
+        console.log(`[libraryCommands] fetchAndUpdateNode completed successfully`);
         return { success: true };
     } catch (error) {
+        console.error(`[libraryCommands] fetchAndUpdateNode error:`, error);
         return { success: false, error: String(error) };
     } finally {
         db.close();

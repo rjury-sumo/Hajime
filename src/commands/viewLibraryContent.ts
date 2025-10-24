@@ -15,14 +15,75 @@ export async function viewLibraryContentCommand(
     contentId: string,
     contentName: string
 ): Promise<void> {
+    console.log(`[viewLibraryContent] Viewing content: ${contentName} (ID: ${contentId})`);
+
     const profileManager = new ProfileManager(context);
     const contentDir = profileManager.getProfileLibraryContentDirectory(profileName);
-    const filePath = path.join(contentDir, `${contentId}.json`);
+    const profileDir = profileManager.getProfileDirectory(profileName);
 
+    // Check for special top-level nodes
+    const specialNodes = ['personal', 'global', 'global_admin', 'adminRecommended', 'installedApps'];
+    const isSpecialNode = specialNodes.includes(contentId);
+
+    // For special nodes, we need to look up the actual folder ID from the database
+    let actualContentId = contentId;
+    if (isSpecialNode) {
+        const db = createLibraryCacheDB(profileDir, profileName);
+        const cachedItem = db.getContentItem(contentId);
+        db.close();
+
+        if (!cachedItem) {
+            console.log(`[viewLibraryContent] Special node ${contentId} not found in cache`);
+            vscode.window.showWarningMessage(
+                `${contentName} has not been fetched yet. Please expand the node first to fetch its contents.`
+            );
+            return;
+        }
+
+        console.log(`[viewLibraryContent] Found cached item for ${contentId}`);
+        // For special nodes, check if there's a JSON file saved
+        // It might be saved with a different ID
+        const possiblePaths = [
+            path.join(contentDir, `${contentId}.json`),
+            path.join(contentDir, `${cachedItem.id}.json`)
+        ];
+
+        let foundPath: string | undefined;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                foundPath = p;
+                console.log(`[viewLibraryContent] Found JSON at: ${p}`);
+                break;
+            }
+        }
+
+        if (!foundPath) {
+            console.log(`[viewLibraryContent] No JSON file found for ${contentId}`);
+            vscode.window.showWarningMessage(
+                `${contentName} has not been fetched yet. Please expand the node first to fetch its contents.`
+            );
+            return;
+        }
+
+        // Read from the found path
+        const content = JSON.parse(fs.readFileSync(foundPath, 'utf-8'));
+        // Use the shared content opener which handles folder webviews properly
+        const { openContentWebview } = require('../utils/contentOpener');
+        await openContentWebview(context, foundPath, {
+            profileName,
+            contentId,
+            contentName
+        });
+        return;
+    }
+
+    const filePath = path.join(contentDir, `${contentId}.json`);
     let content: any;
 
     // Check if the content file exists
     if (!fs.existsSync(filePath)) {
+        console.log(`[viewLibraryContent] File not found: ${filePath}`);
+
         // Content not cached - fetch it from API
         const result = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -40,11 +101,11 @@ export async function viewLibraryContentCommand(
         content = result.data;
     } else {
         // Read from cache
+        console.log(`[viewLibraryContent] Reading from cache: ${filePath}`);
         content = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
 
     // Get library path from database and enrich with user emails
-    const profileDir = profileManager.getProfileDirectory(profileName);
     const db = createLibraryCacheDB(profileDir, profileName);
     const pathItems = db.getContentPath(contentId);
     const libraryPath = pathItems.length > 0 ? '/' + pathItems.map(p => p.name).join('/') : '';
@@ -91,51 +152,16 @@ export async function viewLibraryContentCommand(
 
     db.close();
 
-    // Track this as recently opened content
-    const contentType = content.type || content.itemType || 'Unknown';
-    const { RecentContentManager } = require('../recentContentManager');
-    const recentContentManager = new RecentContentManager(context);
-    recentContentManager.addContent(filePath, contentId, contentName, contentType, profileName);
-
-    // Refresh the explorer to show the new recent item
-    vscode.commands.executeCommand('sumologic.refreshExplorer');
-
-    // Create and show webview
-    const panel = vscode.window.createWebviewPanel(
-        'sumoLibraryContent',
-        `📚 ${contentName}`,
-        vscode.ViewColumn.One,
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true
-        }
-    );
-
-    // Handle messages from webview
-    panel.webview.onDidReceiveMessage(async (message) => {
-        switch (message.type) {
-            case 'extractSearch':
-                await vscode.commands.executeCommand(
-                    'sumologic.extractSearchToFile',
-                    profileName,
-                    contentId,
-                    contentName,
-                    content
-                );
-                break;
-            case 'refreshContent':
-                await refreshDashboardContent(context, profileName, message.dashboardId, message.contentId, panel);
-                break;
-            case 'openDashboardInUI':
-                await openDashboardInUI(context, profileName, message.dashboardId);
-                break;
-            case 'openFolderInLibrary':
-                await openFolderInLibrary(message.folderId, profileName, context);
-                break;
-        }
+    // Use the shared content opener which handles recent tracking and webview creation
+    const { openContentWebview } = require('../utils/contentOpener');
+    await openContentWebview(context, filePath, {
+        profileName,
+        contentId,
+        contentName,
+        libraryPath,
+        createdByEmail,
+        modifiedByEmail
     });
-
-    panel.webview.html = getWebviewContent(content, contentName, contentId, libraryPath, createdByEmail, modifiedByEmail, filePath, profileName);
 }
 
 /**
@@ -1492,8 +1518,211 @@ function getDashboardWebviewContent(content: any, contentName: string, contentId
 </html>`;
 }
 
+/**
+ * Generate HTML for folder webview
+ */
+function getFolderWebviewContent(
+    content: any,
+    contentName: string,
+    contentId: string,
+    formattedId: string,
+    libraryPath: string,
+    createdByEmail?: string,
+    modifiedByEmail?: string,
+    filePath?: string,
+    profileName?: string
+): string {
+    const escapeHtml = (unsafe: string): string => {
+        return unsafe
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
+    const children = content.children || content.data || [];
+    const childrenCount = children.length;
+
+    // Build children table rows
+    let childrenRows = '';
+    for (const child of children) {
+        const childName = escapeHtml(child.name || child.id || 'Unnamed');
+        const childType = escapeHtml(child.itemType || child.type || 'Unknown');
+        const childId = child.id || '';
+        const childDescription = escapeHtml(child.description || '');
+
+        childrenRows += `
+            <tr>
+                <td>${childName}</td>
+                <td><span class="badge">${childType}</span></td>
+                <td class="description">${childDescription}</td>
+                <td><button onclick="viewChild('${escapeHtml(childId)}', '${childName}', '${childType}')">View</button></td>
+            </tr>
+        `;
+    }
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(contentName)}</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: var(--vscode-editor-foreground);
+            border-bottom: 2px solid var(--vscode-panel-border);
+            padding-bottom: 10px;
+        }
+        .metadata {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .metadata-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        .metadata-label {
+            font-weight: bold;
+            width: 150px;
+            color: var(--vscode-symbolIcon-keywordForeground);
+        }
+        .metadata-value {
+            flex: 1;
+            font-family: var(--vscode-editor-font-family);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        th {
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .badge {
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .description {
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+        }
+        button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 5px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>📁 ${escapeHtml(contentName)}</h1>
+
+    <div class="metadata">
+        <div class="metadata-row">
+            <span class="metadata-label">ID:</span>
+            <span class="metadata-value">${formattedId}</span>
+        </div>
+        ${libraryPath ? `
+        <div class="metadata-row">
+            <span class="metadata-label">Path:</span>
+            <span class="metadata-value">${escapeHtml(libraryPath)}</span>
+        </div>
+        ` : ''}
+        ${content.description ? `
+        <div class="metadata-row">
+            <span class="metadata-label">Description:</span>
+            <span class="metadata-value">${escapeHtml(content.description)}</span>
+        </div>
+        ` : ''}
+        <div class="metadata-row">
+            <span class="metadata-label">Children:</span>
+            <span class="metadata-value">${childrenCount} items</span>
+        </div>
+        ${content.createdAt ? `
+        <div class="metadata-row">
+            <span class="metadata-label">Created:</span>
+            <span class="metadata-value">${new Date(content.createdAt).toLocaleString()}${createdByEmail ? ` by ${escapeHtml(createdByEmail)}` : ''}</span>
+        </div>
+        ` : ''}
+        ${content.modifiedAt ? `
+        <div class="metadata-row">
+            <span class="metadata-label">Modified:</span>
+            <span class="metadata-value">${new Date(content.modifiedAt).toLocaleString()}${modifiedByEmail ? ` by ${escapeHtml(modifiedByEmail)}` : ''}</span>
+        </div>
+        ` : ''}
+    </div>
+
+    <h2>Contents (${childrenCount})</h2>
+    ${childrenCount > 0 ? `
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${childrenRows}
+        </tbody>
+    </table>
+    ` : '<div class="empty-message">This folder is empty</div>'}
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        function viewChild(childId, childName, childType) {
+            vscode.postMessage({
+                type: 'viewChild',
+                childId: childId,
+                childName: childName,
+                childType: childType
+            });
+        }
+    </script>
+</body>
+</html>`;
+}
+
 export function getWebviewContent(content: any, contentName: string, contentId: string, libraryPath: string, createdByEmail?: string, modifiedByEmail?: string, filePath?: string, profileName?: string): string {
     const formattedId = formatContentId(contentId);
+
+    // Check if this is a folder
+    const isFolder = content.itemType === 'Folder' || content.type === 'Folder';
 
     // Check if this is a dashboard
     // Note: In folder listings, dashboards have itemType: "Dashboard" or "Report" (v1 legacy)
@@ -1511,7 +1740,11 @@ export function getWebviewContent(content: any, contentName: string, contentId: 
                     content.itemType === 'Search' ||
                     content.itemType === 'SavedSearchWithScheduleSyncDefinition';
 
-    console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isDashboard: ${isDashboard}, isSearch: ${isSearch}`);
+    console.log(`[viewLibraryContent] Content type: ${content.type}, itemType: ${content.itemType}, isFolder: ${isFolder}, isDashboard: ${isDashboard}, isSearch: ${isSearch}`);
+
+    if (isFolder) {
+        return getFolderWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail, filePath, profileName);
+    }
 
     if (isDashboard) {
         return getDashboardWebviewContent(content, contentName, contentId, formattedId, libraryPath, createdByEmail, modifiedByEmail, filePath, profileName);

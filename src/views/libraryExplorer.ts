@@ -47,7 +47,11 @@ export class LibraryTreeItem extends vscode.TreeItem {
         this.iconPath = this.getIcon();
 
         // Set command for non-folder items to open in webview
+        // Also allow clicking on special top-level nodes if they've been fetched
+        const isSpecialTopLevel = this.libraryItemType === LibraryItemType.TopLevelNode;
+
         if (this.libraryItemType === LibraryItemType.Content ||
+            (isSpecialTopLevel && this.childrenFetched) ||
             (this.libraryItemType !== LibraryItemType.LibraryRoot &&
              this.libraryItemType !== LibraryItemType.TopLevelNode &&
              !this.hasChildren)) {
@@ -239,15 +243,19 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
      * Get children of a folder node
      */
     private async getFolderChildren(element: LibraryTreeItem): Promise<LibraryTreeItem[]> {
+        console.log(`[LibraryExplorer] getFolderChildren: ${element.label} (ID: ${element.contentId}, childrenFetched: ${element.childrenFetched})`);
         const db = await this.getCacheDatabase(element.profile);
 
         // Check if we've already fetched children
         if (element.childrenFetched) {
+            console.log(`[LibraryExplorer] Using cached children for: ${element.contentId}`);
             const cachedChildren = db.getChildren(element.contentId);
+            console.log(`[LibraryExplorer] Found ${cachedChildren.length} cached children`);
             return this.contentItemsToTreeItems(element.profile, cachedChildren);
         }
 
         // Need to fetch from API
+        console.log(`[LibraryExplorer] Need to fetch children from API for: ${element.contentId}`);
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: `Loading ${element.label}...`,
@@ -257,21 +265,29 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         });
 
         // Now get children from cache
+        console.log(`[LibraryExplorer] Fetching children from cache after API call, parent ID: ${element.contentId}`);
         const children = db.getChildren(element.contentId);
-        return this.contentItemsToTreeItems(element.profile, children);
+        console.log(`[LibraryExplorer] Found ${children.length} children in cache`);
+        const treeItems = this.contentItemsToTreeItems(element.profile, children);
+        console.log(`[LibraryExplorer] Converted to ${treeItems.length} tree items`);
+        return treeItems;
     }
 
     /**
      * Fetch a node and its children from the API and cache them
      */
     private async fetchAndCacheNode(element: LibraryTreeItem): Promise<void> {
+        console.log(`[LibraryExplorer] fetchAndCacheNode: ${element.label} (ID: ${element.contentId}, Type: ${element.libraryItemType})`);
+
         const profile = await this.getProfileByName(element.profile);
         if (!profile) {
+            console.error(`[LibraryExplorer] Profile not found: ${element.profile}`);
             throw new Error(`Profile not found: ${element.profile}`);
         }
 
         const credentials = await this.profileManager.getProfileCredentials(profile.name);
         if (!credentials) {
+            console.error(`[LibraryExplorer] No credentials for profile: ${profile.name}`);
             throw new Error(`No credentials for profile: ${profile.name}`);
         }
 
@@ -285,11 +301,14 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
 
         // Handle special top-level nodes
         if (element.libraryItemType === LibraryItemType.TopLevelNode) {
+            console.log(`[LibraryExplorer] Fetching top-level node: ${element.contentId}`);
             await this.fetchTopLevelNode(element.contentId, client, db, element.profile);
         } else {
             // Regular folder - use getFolder API
+            console.log(`[LibraryExplorer] Fetching regular folder: ${element.contentId}`);
             await this.fetchFolder(element.contentId, client, db, element.profile);
         }
+        console.log(`[LibraryExplorer] fetchAndCacheNode completed for: ${element.label}`);
     }
 
     /**
@@ -301,19 +320,24 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         db: LibraryCacheDB,
         profileName: string
     ): Promise<void> {
+        console.log(`[LibraryExplorer] fetchTopLevelNode: ${nodeId}`);
         const now = new Date().toISOString();
 
         switch (nodeId) {
             case 'personal': {
+                console.log(`[LibraryExplorer] Fetching Personal folder...`);
                 const response = await client.getPersonalFolder();
                 if (response.error || !response.data) {
+                    console.error(`[LibraryExplorer] Failed to fetch Personal folder:`, response.error);
                     throw new Error(`Failed to fetch Personal folder: ${response.error}`);
                 }
+                console.log(`[LibraryExplorer] Personal folder fetched, children count: ${response.data.children?.length || 0}`);
 
                 const folder = response.data;
+                console.log(`[LibraryExplorer] Personal folder actual ID: ${folder.id}`);
 
-                // Cache the folder itself
-                db.upsertContentItem({
+                // Cache the folder itself using BOTH the actual ID and the 'personal' alias
+                const folderItem = {
                     id: folder.id,
                     profile: profileName,
                     name: folder.name,
@@ -328,66 +352,122 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
                     childrenFetched: true,
                     permissions: folder.permissions,
                     lastFetched: now
+                };
+
+                db.upsertContentItem(folderItem);
+
+                // Also cache with the 'personal' ID for tree lookup
+                db.upsertContentItem({
+                    ...folderItem,
+                    id: 'personal'
                 });
 
-                // Cache children
+                // Cache children with 'personal' as parent ID so tree lookup works
                 if (folder.children) {
-                    this.cacheChildren(folder.children, folder.id, profileName, db, now);
+                    console.log(`[LibraryExplorer] Caching ${folder.children.length} children for Personal folder with parent ID: personal`);
+                    this.cacheChildren(folder.children, 'personal', profileName, db, now);
                 }
 
-                // Save JSON
+                // Save JSON with both the actual ID and the alias ID
                 await this.saveContentJSON(profileName, folder.id, folder);
+                await this.saveContentJSON(profileName, 'personal', folder);
+                console.log(`[LibraryExplorer] Personal folder cached successfully`);
                 break;
             }
 
             case 'global': {
+                console.log(`[LibraryExplorer] Fetching Global folder...`);
                 const response = await client.exportGlobalFolder(false);
                 if (response.error || !response.data) {
+                    console.error(`[LibraryExplorer] Failed to export Global folder:`, response.error);
                     throw new Error(`Failed to export Global folder: ${response.error}`);
                 }
 
                 const exported = response.data;
+                console.log(`[LibraryExplorer] Global folder fetched, data items: ${exported.data?.length || 0}`);
+
+                // Ensure the exported object has itemType set
+                if (!exported.itemType) {
+                    exported.itemType = 'Folder';
+                }
+
                 this.cacheGlobalFolderFlat(exported, 'global', profileName, db, now);
-                await this.saveContentJSON(profileName, String(exported.id || 'global'), exported);
+                // Save with alias ID
+                await this.saveContentJSON(profileName, 'global', exported);
+                console.log(`[LibraryExplorer] Global folder cached successfully`);
                 break;
             }
 
             case 'global_admin': {
+                console.log(`[LibraryExplorer] Fetching Global folder (isAdminMode)...`);
                 const response = await client.exportGlobalFolder(true);
                 if (response.error || !response.data) {
+                    console.error(`[LibraryExplorer] Failed to export Global folder (isAdminMode):`, response.error);
                     throw new Error(`Failed to export Global folder (isAdminMode): ${response.error}`);
                 }
 
                 const exported = response.data;
+                console.log(`[LibraryExplorer] Global folder (isAdminMode) fetched, data items: ${exported.data?.length || 0}`);
+
+                // Ensure the exported object has itemType set
+                if (!exported.itemType) {
+                    exported.itemType = 'Folder';
+                }
+
                 this.cacheGlobalFolderFlat(exported, 'global_admin', profileName, db, now);
-                await this.saveContentJSON(profileName, String(exported.id || 'global_admin'), exported);
+                // Save with alias ID
+                await this.saveContentJSON(profileName, 'global_admin', exported);
+                console.log(`[LibraryExplorer] Global folder (isAdminMode) cached successfully`);
                 break;
             }
 
             case 'adminRecommended': {
+                console.log(`[LibraryExplorer] Fetching Admin Recommended folder...`);
                 const response = await client.exportAdminRecommendedFolder();
                 if (response.error || !response.data) {
+                    console.error(`[LibraryExplorer] Failed to export Admin Recommended:`, response.error);
                     throw new Error(`Failed to export Admin Recommended: ${response.error}`);
                 }
 
                 const exported = response.data;
-                this.cacheExportedContent(exported, '0000000000000000', profileName, db, now, 'children');
-                await this.saveContentJSON(profileName, String(exported.id || 'adminRecommended'), exported);
+                console.log(`[LibraryExplorer] Admin Recommended fetched, children count: ${exported.children?.length || 0}`);
+
+                // Ensure the exported object has itemType set
+                if (!exported.itemType) {
+                    exported.itemType = 'Folder';
+                }
+
+                this.cacheExportedContentWithAlias(exported, 'adminRecommended', profileName, db, now, 'children');
+                // Save with alias ID
+                await this.saveContentJSON(profileName, 'adminRecommended', exported);
+                console.log(`[LibraryExplorer] Admin Recommended cached successfully`);
                 break;
             }
 
             case 'installedApps': {
+                console.log(`[LibraryExplorer] Fetching Installed Apps folder...`);
                 const response = await client.exportInstalledAppsFolder();
                 if (response.error || !response.data) {
+                    console.error(`[LibraryExplorer] Failed to export Installed Apps:`, response.error);
                     throw new Error(`Failed to export Installed Apps: ${response.error}`);
                 }
 
                 const exported = response.data;
-                this.cacheExportedContent(exported, '0000000000000000', profileName, db, now, 'children');
-                await this.saveContentJSON(profileName, String(exported.id || 'installedApps'), exported);
+                console.log(`[LibraryExplorer] Installed Apps fetched, children count: ${exported.children?.length || 0}`);
+
+                // Ensure the exported object has itemType set
+                if (!exported.itemType) {
+                    exported.itemType = 'Folder';
+                }
+
+                this.cacheExportedContentWithAlias(exported, 'installedApps', profileName, db, now, 'children');
+                // Save with alias ID
+                await this.saveContentJSON(profileName, 'installedApps', exported);
+                console.log(`[LibraryExplorer] Installed Apps cached successfully`);
                 break;
             }
         }
+        console.log(`[LibraryExplorer] fetchTopLevelNode completed for: ${nodeId}`);
     }
 
     /**
@@ -497,6 +577,55 @@ export class LibraryExplorerProvider implements vscode.TreeDataProvider<LibraryT
         const children = exported[childrenKey];
         if (children && Array.isArray(children)) {
             this.cacheChildren(children, exported.id, profileName, db, timestamp);
+        }
+    }
+
+    /**
+     * Cache exported content with an alias ID for special top-level nodes
+     */
+    private cacheExportedContentWithAlias(
+        exported: any,
+        aliasId: string,
+        profileName: string,
+        db: LibraryCacheDB,
+        timestamp: string,
+        childrenKey: 'data' | 'children'
+    ): void {
+        console.log(`[LibraryExplorer] cacheExportedContentWithAlias: aliasId=${aliasId}, actual ID=${exported.id}`);
+
+        // Cache the node with the alias ID
+        const folderItem = {
+            id: aliasId,
+            profile: profileName,
+            name: exported.name || aliasId,
+            itemType: exported.itemType || 'Folder',
+            parentId: '0000000000000000',
+            description: exported.description,
+            createdAt: exported.createdAt,
+            createdBy: exported.createdBy,
+            modifiedAt: exported.modifiedAt,
+            modifiedBy: exported.modifiedBy,
+            hasChildren: exported[childrenKey] && exported[childrenKey].length > 0,
+            childrenFetched: true,
+            permissions: exported.permissions,
+            lastFetched: timestamp
+        };
+
+        db.upsertContentItem(folderItem);
+
+        // Also cache with the actual ID if different
+        if (exported.id && exported.id !== aliasId) {
+            db.upsertContentItem({
+                ...folderItem,
+                id: exported.id
+            });
+        }
+
+        // Cache children with alias ID as parent
+        const children = exported[childrenKey];
+        if (children && Array.isArray(children)) {
+            console.log(`[LibraryExplorer] Caching ${children.length} children with parent ID: ${aliasId}`);
+            this.cacheChildren(children, aliasId, profileName, db, timestamp);
         }
     }
 

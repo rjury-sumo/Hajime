@@ -271,9 +271,9 @@ export class SumoExplorerProvider implements vscode.TreeDataProvider<SumoTreeIte
     constructor(private context: vscode.ExtensionContext) {
         this.profileManager = new ProfileManager(context);
         this.libraryExplorerProvider = new LibraryExplorerProvider(context);
-        this.recentQueriesManager = new RecentQueriesManager(context);
-        this.recentContentManager = new RecentContentManager(context);
-        this.recentResultsManager = new RecentResultsManager(context);
+        this.recentQueriesManager = new RecentQueriesManager(context, this.profileManager);
+        this.recentContentManager = new RecentContentManager(context, this.profileManager);
+        this.recentResultsManager = new RecentResultsManager(context, this.profileManager);
 
         // Listen for configuration changes to refresh tree
         vscode.workspace.onDidChangeConfiguration(e => {

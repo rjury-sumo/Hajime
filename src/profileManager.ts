@@ -163,6 +163,13 @@ export class ProfileManager {
     }
 
     /**
+     * Get the global recents directory path (e.g., ~/.sumologic/_global/recent)
+     */
+    getGlobalRecentsPath(): string {
+        return path.join(this.getFileStoragePath(), '_global', 'recent');
+    }
+
+    /**
      * Get the library directory path for a specific profile
      */
     getProfileLibraryDirectory(profileName: string): string {

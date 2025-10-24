@@ -156,7 +156,14 @@ Open a JSON query result file in a paginated, sortable, filterable table for exp
 - **Copy Functionality** - copy visible data to clipboard in tab-separated format
 - **Column Visibility** - show/hide columns dynamically
 - **Global Search** - search across all columns simultaneously
-<img src="images/webview.json.viewer.png" alt="webview" style="width:80%;"/>
+  
+Webview has a field browser with pop up to drill into field values and distribution:
+<img src="images/webview.fields.dist.png" alt="webview" style="width:200px;"/>
+
+And a results webview for messages or records views:
+<img src="images/webview.results.window.png" alt="webview" style="width:80%;"/>
+
+
 
 ### 📈 Advanced Data Visualization From Webview
 Visualize query results and data files with interactive charts using 'chart field' in the messages or records webview. The web view will open customised to the type of query whether that is records or messages mode.

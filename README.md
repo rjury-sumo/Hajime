@@ -82,6 +82,8 @@ Dedicated sidebar in the activity bar provides one-click access to:
   - Auto-create scopes from partitions
 - **Storage Explorer** - Browse profile-specific cached files and directories used by the extension. This defaults to ~/.sumologic/<profile>
 
+<img src="images/explorer.tree.png" alt="exploe" style="width:70%;"/>
+
 **Under Each Profile (Expandable):**
 - **Test Connection** - Quick connectivity check
 - **Autocomplete Data** - Manage cached autocomplete data
@@ -123,28 +125,28 @@ Rich language support for `.sumo` files with intelligent autocomplete for all lo
 - **Dynamic Field Discovery** - fields from your query results automatically added to autocomplete
 - **Context-Aware Suggestions** - metadata field values suggested as you type (e.g., `_sourceCategory=` shows your actual categories)
 - **Syntax Highlighting** with full support for operators, functions, comments, and regex patterns
-- **Smart Snippets** for common query patterns like timeslice / transpose
+- **Smart Snippets** for common query patterns: ```parse_regex```, ```transpose```, and count: ```| count by ${1:some_field}\n| sort ${1:some_field} ${2|asc,desc|}\n```
 - **cache key metadata values** for _sourcecategory, _collector etc, using a query to pull recent live values
-- **retreive partitions** for _index auto complete
+- **retrieve partitions** for _index auto complete
 - **pull all custom fields** for improved auto completion suggestions
 
 ### 🔌 Multi-Profile Connection Management
 Connect to multiple Sumo Logic deployments and easily switch between them:
-- **Secure Credential Storage** using VS Code's secret storage
 - **Multiple Profiles** - Production, Development, Customer environments, etc.
+- **Secure Credential Storage** using VS Code's secret storage
 - **Quick Profile Switching** from the status bar (click to switch or use `Cmd/Ctrl+K Cmd/Ctrl+S`)
 - **Connection Status Indicator** - visual status in status bar (✓ connected / ✗ disconnected / ? unknown)
 - **Per-Profile Data** - autocomplete suggestions, query history, and outputs organized by profile
-- **API Integration** - execute queries, fetch metadata, manage collectors, explore content library
 
 ### 📊 Query Execution with Multiple Output Formats
 Execute queries directly from VS Code with flexible output options:
 - **CodeLens Actions** - Inline buttons (▶ Run | 📊 Webview | 📈 Chart) appear above queries
-- **Query Metadata Directives** - control time range, timezone, output format, parsing mode via comments in your query
-- **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries
+- **Query Metadata Directives** - control time range, timezone, output format, parsing mode via comments in your query e.g ```// @output webview``` see: [Query Metadata Directives](#query-metadata-directives)directives
+- **Automatic Mode Detection** - smart detection of aggregated vs. raw log queries to set messages or records output mode
 - **Context Menus** - Right-click in .sumo files or file explorer for quick actions
 - **Multiple Outputs** - formatted tables, JSON, or CSV files, or option to open in a webview
-- **Quick-Charting** - Quick visualization with Apache ECharts (line, bar, pie, scatter charts) from a shortcut action in .sumo file that produces a csv format file for charting visualize using apache echart
+- **Quick-Charting** - Quick visualization with Apache ECharts (line, bar, pie, scatter charts) from a shortcut action in .sumo file that produces a csv format file for charting visualize using apache echart. This auto formats the output for category, timeseries or timesliced output.
+<img src="docs/images/category.echart.png" alt="drawing" style="width:400px;"/>
 
 ### Interactive Webview For Query Message or Records Results
 Open a JSON query result file in a paginated, sortable, filterable table for exploring large result sets with:
@@ -154,12 +156,14 @@ Open a JSON query result file in a paginated, sortable, filterable table for exp
 - **Copy Functionality** - copy visible data to clipboard in tab-separated format
 - **Column Visibility** - show/hide columns dynamically
 - **Global Search** - search across all columns simultaneously
+<img src="images/webview.json.viewer.png" alt="webview" style="width:80%;"/>
 
 ### 📈 Advanced Data Visualization From Webview
 Visualize query results and data files with interactive charts using 'chart field' in the messages or records webview. The web view will open customised to the type of query whether that is records or messages mode.
 - **Apache ECharts Integration** - professional, interactive charts with zoom, pan, and export
 - **Category Charts** - bar and pie charts for aggregations
 - **Time-Series Charts** - line and area charts for timeslice queries
+<img src="images/webview.chart.adv.options.png" alt="webview" style="width:80%;"/>
 
 ### 🔧 API Integration & Metadata Management Under a Profile Node
 Fetch and manage configuration from your Sumo Logic deployment:
